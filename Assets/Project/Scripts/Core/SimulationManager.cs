@@ -21,6 +21,10 @@ namespace RadioSignalSimulation.Core
         public List<Transmitter> transmiters = new List<Transmitter>();
         public List<Receiver> receivers = new List<Receiver>();
 
+        public bool isSimulationRunning = false;
+        public float updateInterval = 0.1f; // Time interval for updates in seconds
+        private float lastUpdateTime = 0f;
+
         private void Awake()
         {
             if (Instance == null)
@@ -35,16 +39,44 @@ namespace RadioSignalSimulation.Core
             }
         }
 
+        private void Update()
+        {
+            if (isSimulationRunning)
+            {
+                if (Time.time - lastUpdateTime >= updateInterval)
+                {
+                    UpdateSimulation();
+                    lastUpdateTime = Time.time;
+                }
+            }
+        }
+
         public void InitializeSimulation()
         {
-            // e.g., Load transmitters, receivers, etc.
             Debug.Log("Simulation initialized.");
+            StartSimulation();
         }
 
         public void UpdateSimulation()
         {
             // Handle real-time updates here
-            // e.g., Update transmitter/receiver states, run propagation calculations, etc.
+            foreach (var receiver in receivers)
+            {
+                float totalSignalStrength = 0f;
+
+                // Update each receiver's state, e.g., calculate signal strength from each transmitter
+                foreach (var transmitter in transmiters)
+                {
+                    float signalFromCurrentTransmitter = transmitter.CalculateSignalStrength(receiver.transform.position);
+                    totalSignalStrength += Mathf.Pow(10f, signalFromCurrentTransmitter / 10f); // Convert from dB to linear, sum
+                }
+
+                // Convert total signal strength back to dBm
+                float totalSignalStrength_Dbm = 10f * Mathf.Log10(totalSignalStrength);
+
+                // Update receiver's signal strength
+                receiver.UpdateSignalStrength(totalSignalStrength_Dbm);
+            }
         }
 
         public void ValidateSimulation()
@@ -56,11 +88,13 @@ namespace RadioSignalSimulation.Core
 
         public void StartSimulation()
         {
+            isSimulationRunning = true;
             Debug.Log("Simulation started.");
         }
 
         public void StopSimulation()
         {
+            isSimulationRunning = false;
             Debug.Log("Simulation stopped.");
         }
 
@@ -76,7 +110,11 @@ namespace RadioSignalSimulation.Core
 
         public void RegisterTransmitter(Transmitter transmitter)
         {
-
+            if (!transmiters.Contains(transmitter))
+            {
+                transmiters.Add(transmitter);
+                Debug.Log($"Transmitter registered at {transmitter.position}. Total: {transmiters.Count}");
+            }
         }
 
         public void AddTransmitter(Transmitter transmitter)
@@ -90,7 +128,11 @@ namespace RadioSignalSimulation.Core
 
         public void RegisterReceiver(Receiver receiver)
         {
-
+            if (!receivers.Contains(receiver))
+            {
+                receivers.Add(receiver);
+                Debug.Log($"Receiver registered at {receiver.position}. Total: {receivers.Count}");
+            }
         }
 
         public void AddReceiver(Receiver receiver)
