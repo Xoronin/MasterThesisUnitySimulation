@@ -18,12 +18,14 @@ namespace RadioSignalSimulation.Core
     {
 
         public static SimulationManager Instance { get; private set; }
-        public List<Transmitter> transmiters = new List<Transmitter>();
+        public List<Transmitter> transmitters = new List<Transmitter>();
         public List<Receiver> receivers = new List<Receiver>();
 
-        public bool isSimulationRunning = false;
+        private bool isSimulationRunning = false;
         public float updateInterval = 0.1f; // Time interval for updates in seconds
         private float lastUpdateTime = 0f;
+
+
 
         private void Awake()
         {
@@ -46,6 +48,7 @@ namespace RadioSignalSimulation.Core
                 if (Time.time - lastUpdateTime >= updateInterval)
                 {
                     UpdateSimulation();
+
                     lastUpdateTime = Time.time;
                 }
             }
@@ -65,10 +68,15 @@ namespace RadioSignalSimulation.Core
                 float totalSignalStrength = 0f;
 
                 // Update each receiver's state, e.g., calculate signal strength from each transmitter
-                foreach (var transmitter in transmiters)
+                foreach (var transmitter in transmitters)
                 {
                     float signalFromCurrentTransmitter = transmitter.CalculateSignalStrength(receiver.transform.position);
-                    totalSignalStrength += Mathf.Pow(10f, signalFromCurrentTransmitter / 10f); // Convert from dB to linear, sum
+
+                    // Only add valid signals
+                    if (!float.IsNegativeInfinity(signalFromCurrentTransmitter))
+                    {
+                        totalSignalStrength += Mathf.Pow(10f, signalFromCurrentTransmitter / 10f);
+                    }
                 }
 
                 // Convert total signal strength back to dBm
@@ -76,6 +84,12 @@ namespace RadioSignalSimulation.Core
 
                 // Update receiver's signal strength
                 receiver.UpdateSignalStrength(totalSignalStrength_Dbm);
+            }
+
+            // Update connection lines for the transmitter
+            foreach (var transmitter in transmitters)
+            {
+                transmitter.UpdateConnectionLines();
             }
         }
 
@@ -89,6 +103,10 @@ namespace RadioSignalSimulation.Core
         public void StartSimulation()
         {
             isSimulationRunning = true;
+
+            // Initial update to set up the simulation state
+            UpdateSimulation();
+
             Debug.Log("Simulation started.");
         }
 
@@ -110,10 +128,10 @@ namespace RadioSignalSimulation.Core
 
         public void RegisterTransmitter(Transmitter transmitter)
         {
-            if (!transmiters.Contains(transmitter))
+            if (!transmitters.Contains(transmitter))
             {
-                transmiters.Add(transmitter);
-                Debug.Log($"Transmitter registered at {transmitter.position}. Total: {transmiters.Count}");
+                transmitters.Add(transmitter);
+                Debug.Log($"Transmitter registered at {transmitter.position}. Total: {transmitters.Count}");
             }
         }
 
@@ -124,6 +142,11 @@ namespace RadioSignalSimulation.Core
 
         public void RemoveTransmitter(Transmitter transmitter)
         {
+            if (transmitters.Contains(transmitter))
+            {
+                transmitters.Remove(transmitter);
+                Debug.Log($"Transmitter removed. Total: {transmitters.Count}");
+            }
         }
 
         public void RegisterReceiver(Receiver receiver)
@@ -141,12 +164,20 @@ namespace RadioSignalSimulation.Core
 
         public void RemoveReceiver(Receiver receiver)
         {
+            if (receivers.Contains(receiver))
+            {
+                receivers.Remove(receiver);
+                Debug.Log($"Receiver removed. Total: {receivers.Count}");
+            }
         }
 
-        public void GetSignalStrength(Vector3 position)
+        public void ClearAllConnections()
         {
-            // Calculate signal strength at the given position
-            // This would typically involve checking distances to transmitters and applying propagation models
+            foreach (var transmitter in transmitters)
+            {
+                if (transmitter != null)
+                    transmitter.ClearAllLines();
+            }
         }
 
     }

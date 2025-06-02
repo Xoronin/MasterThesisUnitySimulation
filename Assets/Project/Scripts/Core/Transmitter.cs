@@ -11,6 +11,7 @@ using UnityEngine;
 using Unity.Jobs;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine.Experimental.GlobalIllumination;
 
 namespace RadioSignalSimulation.Core
 {
@@ -18,11 +19,18 @@ namespace RadioSignalSimulation.Core
     {
         // Transmitter Properties
         // TODO: Find out proper values for these properties 
+        [Header("Transmitter Properties")]
         public float powerOutput = 20f;     // dBm
         public float frequency = 2400f;     // MHz (2.4 GHz WiFi)
         public float coverageRadius = 100f; // meters
         public float antennaGain = 1.0f;    // Gain factor for the antenna
         public Vector3 position;
+
+        [Header("Visualization")]
+        public bool showConnections = true;
+        public Material connectionLineMaterial;
+
+        private Dictionary<Receiver, LineRenderer> connectionLines = new Dictionary<Receiver, LineRenderer>();
 
         private void Start()
         {
@@ -73,7 +81,7 @@ namespace RadioSignalSimulation.Core
             float distance = Vector3.Distance(transform.position, receiverPosition);
             bool inRange = distance <= coverageRadius;
 
-            Debug.Log($"Distance check: {distance:F2}m <= {coverageRadius}m = {inRange}");
+            //Debug.Log($"Distance check: {distance:F2}m <= {coverageRadius}m = {inRange}");
 
             return inRange;
         }
@@ -173,6 +181,82 @@ namespace RadioSignalSimulation.Core
 
             return receivedPower;
         }
+
+        public void UpdateConnectionLines()
+        {
+            if (!showConnections) return;
+
+            ClearAllLines();
+
+            foreach (Receiver receiver in SimulationManager.Instance.receivers)
+            {
+                CreateConnectionLine(receiver);
+            }
+        }
+
+        // Create a connection line to a receiver
+        private void CreateConnectionLine(Receiver receiver)
+        {
+            // Only create a line if the receiver is within range
+            if (!IsReceiverInRange(receiver.transform.position))
+                return;
+
+            // Create a new LineRenderer for the receiver
+            GameObject lineObject = new GameObject($"ConnectionLine_{receiver.name}");
+            //lineObject.transform.SetParent(transform);
+
+            LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
+
+            // Set line visuals
+            lineRenderer.material = connectionLineMaterial;
+            lineRenderer.startWidth = 0.1f;
+            lineRenderer.endWidth = 0.1f;
+            lineRenderer.positionCount = 2;
+            lineRenderer.useWorldSpace = true;
+
+            Transform cubeTransform = receiver.transform.GetChild(0);
+            Vector3 cubePosition = cubeTransform != null ? cubeTransform.position : receiver.transform.position;
+
+            // Set positions of the line renderer
+            lineRenderer.SetPosition(0, transform.position);
+            lineRenderer.SetPosition(1, cubePosition);
+
+            // Set the line color based on the signal strength
+            float signalStrength = CalculateSignalStrength(receiver.transform.position);
+            Color lineColor = GetSignalColor(signalStrength, receiver.sensitivity);
+            lineRenderer.startColor = lineColor;
+            lineRenderer.endColor = lineColor;
+
+            connectionLines[receiver] = lineRenderer;
+
+            Debug.Log($"Connection line created for receiver: {receiver.name} with color: {lineColor}");
+        }
+
+        // Get the color based on signal strength and sensitivity
+        private Color GetSignalColor(float signalStrength, float sensitivity)
+        {
+            if (float.IsNegativeInfinity(signalStrength))
+                return Color.clear;
+
+            if (signalStrength > sensitivity)
+                return Color.green; 
+            else if (signalStrength > sensitivity - 10f)
+                return Color.yellow; 
+            else
+                return Color.red; 
+        }
+
+        // Clear all existing connection lines
+        public void ClearAllLines()
+        {
+            foreach (var line in connectionLines.Values)
+            {
+                if (line != null)
+                    DestroyImmediate(line.gameObject);
+            }
+            connectionLines.Clear();
+        }
+
     }
 }
 
