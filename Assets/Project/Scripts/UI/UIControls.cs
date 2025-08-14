@@ -49,6 +49,8 @@ public class UIControls : MonoBehaviour
         mainCamera = Camera.main;
 
         CreateUI();
+
+        InitializeUIFromPrefabs();
     }
 
     void CreateUI()
@@ -89,10 +91,10 @@ public class UIControls : MonoBehaviour
         }
 
         // Set default values
-        if (transmitterPowerInput != null) transmitterPowerInput.text = "40";
-        if (transmitterFrequencyInput != null) transmitterFrequencyInput.text = "2400";
-        if (transmitterCoverageInput != null) transmitterCoverageInput.text = "1500";
-        if (receiverSensitivityInput != null) receiverSensitivityInput.text = "-90";
+        //if (transmitterPowerInput != null) transmitterPowerInput.text = "40";
+        //if (transmitterFrequencyInput != null) transmitterFrequencyInput.text = "2400";
+        //if (transmitterCoverageInput != null) transmitterCoverageInput.text = "1500";
+        //if (receiverSensitivityInput != null) receiverSensitivityInput.text = "-90";
         if (showConnectionsToggle != null) showConnectionsToggle.isOn = true;
         if (showGridToggle != null) showGridToggle.isOn = true;
         if (speedSlider != null) speedSlider.value = 1f;
@@ -104,6 +106,37 @@ public class UIControls : MonoBehaviour
     private void Update()
     {
         HandlePlacement();
+    }
+
+    private void InitializeUIFromPrefabs()
+    {
+        // Get values from transmitter prefab
+        if (transmitterPrefab != null)
+        {
+            Transmitter prefabTransmitter = transmitterPrefab.GetComponent<Transmitter>();
+            if (prefabTransmitter != null)
+            {
+                if (transmitterPowerInput != null)
+                    transmitterPowerInput.text = prefabTransmitter.transmitterPower.ToString();
+                if (transmitterFrequencyInput != null)
+                    transmitterFrequencyInput.text = prefabTransmitter.frequency.ToString();
+                if (transmitterCoverageInput != null)
+                    transmitterCoverageInput.text = prefabTransmitter.coverageRadius.ToString();
+            }
+        }
+
+        // Get values from receiver prefab
+        if (receiverPrefab != null)
+        {
+            Receiver prefabReceiver = receiverPrefab.GetComponent<Receiver>();
+            if (prefabReceiver != null)
+            {
+                if (receiverSensitivityInput != null)
+                    receiverSensitivityInput.text = prefabReceiver.sensitivity.ToString();
+            }
+        }
+
+        UpdateStatusText("UI initialized with prefab values");
     }
 
     private void HandlePlacement()
@@ -228,7 +261,7 @@ public class UIControls : MonoBehaviour
         if (transmitterComponent != null)
         {
             // Apply UI settings
-            transmitterComponent.powerOutput = float.Parse(transmitterPowerInput.text);
+            transmitterComponent.transmitterPower = float.Parse(transmitterPowerInput.text);
             transmitterComponent.frequency = float.Parse(transmitterFrequencyInput.text);
             transmitterComponent.coverageRadius = float.Parse(transmitterCoverageInput.text);
             transmitterComponent.showConnections = showConnectionsToggle.isOn;

@@ -1,16 +1,12 @@
-// Main controller managing the entire simulation
+﻿// Main controller managing the entire simulation
 //-Initialize simulation components
 //- Coordinate propagation calculations
 //- Handle real-time updates
 //- Manage transmitter/receiver arrays
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using Unity.Jobs;
-using Unity.Collections;
-using Unity.Mathematics;
+using System.Collections.Generic;
+
 
 namespace RadioSignalSimulation.Core
 {
@@ -22,7 +18,7 @@ namespace RadioSignalSimulation.Core
         public List<Receiver> receivers = new List<Receiver>();
 
         private bool isSimulationRunning = false;
-        public float updateInterval = 0.1f; // Time interval for updates in seconds
+        public float updateInterval = 1f; // Time interval for updates in seconds
         private float lastUpdateTime = 0f;
 
 
@@ -131,7 +127,7 @@ namespace RadioSignalSimulation.Core
             if (!transmitters.Contains(transmitter))
             {
                 transmitters.Add(transmitter);
-                Debug.Log($"Transmitter registered at {transmitter.position}. Total: {transmitters.Count}");
+                Debug.Log($"✅ {transmitter.uniqueID} registered at {transmitter.position}. Total Transmitters: {transmitters.Count}");
             }
         }
 
@@ -145,7 +141,7 @@ namespace RadioSignalSimulation.Core
             if (transmitters.Contains(transmitter))
             {
                 transmitters.Remove(transmitter);
-                Debug.Log($"Transmitter removed. Total: {transmitters.Count}");
+                Debug.Log($"❌ {transmitter.uniqueID} removed. Total Transmitters: {transmitters.Count}");
             }
         }
 
@@ -154,7 +150,7 @@ namespace RadioSignalSimulation.Core
             if (!receivers.Contains(receiver))
             {
                 receivers.Add(receiver);
-                Debug.Log($"Receiver registered at {receiver.position}. Total: {receivers.Count}");
+                Debug.Log($"✅ {receiver.uniqueID} registered at {receiver.position}. Total Receivers: {receivers.Count}");
             }
         }
 
@@ -167,7 +163,7 @@ namespace RadioSignalSimulation.Core
             if (receivers.Contains(receiver))
             {
                 receivers.Remove(receiver);
-                Debug.Log($"Receiver removed. Total: {receivers.Count}");
+                Debug.Log($"❌ {receiver.uniqueID} removed. Total Receivers: {receivers.Count}");
             }
         }
 

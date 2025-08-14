@@ -4,26 +4,25 @@
 //- Antenna characteristics
 //- Coverage area management
 
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Jobs;
-using Unity.Collections;
-using Unity.Mathematics;
-using UnityEngine.Experimental.GlobalIllumination;
+using RadioSignalSimulation.Propagation;
 
 namespace RadioSignalSimulation.Core
 {
     public class Transmitter : MonoBehaviour
     {
+        // Static counter for unique naming
+        private static int transmitterCount = 0;
+        public string uniqueID;
+
         // Transmitter Properties
         // TODO: Find out proper values for these properties 
         [Header("Transmitter Properties")]
-        public float powerOutput = 20f;     // dBm
-        public float frequency = 2400f;     // MHz (2.4 GHz WiFi)
-        public float coverageRadius = 100f; // meters
-        public float antennaGain = 1.0f;    // Gain factor for the antenna
+        public float transmitterPower = 5f;         // dBm, output power of the transmitter
+        public float frequency = 2400f;         // MHz, carrier frequency of the transmitter
+        public float coverageRadius = 1000f;    // m, coverage radius of the transmitter
+        public float antennaGain = 1.0f;        // Linear scale, gain of the transmitting antenna (isotropic antenna = 1.0)
         public Vector3 position;
 
         [Header("Visualization")]
@@ -35,13 +34,22 @@ namespace RadioSignalSimulation.Core
         private void Start()
         {
             position = transform.position;
+            AssignUniqueID();
             InitializeTransmitter();
             SimulationManager.Instance.RegisterTransmitter(this);
         }
 
+        private void AssignUniqueID()
+        {
+            transmitterCount++;
+            uniqueID = $"Transmitter{transmitterCount}";
+            gameObject.name = uniqueID;
+            Debug.Log($"{uniqueID} created at position {transform.position}");
+        }
+
         public void InitializeTransmitter()
         {
-            Debug.Log("Transmitter initialized.");
+            Debug.Log($"{uniqueID} initialized with {transmitterPower}dBm at {frequency}MHz");
         }
 
         public void Update()
@@ -52,8 +60,9 @@ namespace RadioSignalSimulation.Core
 
         public void ValidateTransmitter()
         {
-            Debug.Log("Transmitter validated.");
+            Debug.Log($"{uniqueID} validated.");
         }
+
 
         // Calculate signal strength at a given receiver position
         public float CalculateSignalStrength(Vector3 receiverPosition)
@@ -63,14 +72,24 @@ namespace RadioSignalSimulation.Core
             {
                 // Calculate signal strength 
                 float d = Vector3.Distance(transform.position, receiverPosition);
-                //float signalStrength = CalculateFriisFreeSpaceEquation(powerOutput, d);
-                float signalStrength = CalculateReceivedPowerFSPL(d);
-                Debug.Log($"Signal strength at receiver: {signalStrength} dBm");
+                //float signalStrength = CalculateReceivedPowerFSPL(d);
+                float signalStrength = PropagationModels.CalculatePathLossWithObstacles(
+                    transform.position,
+                    receiverPosition,
+                    transmitterPower,
+                    antennaGain,
+                    frequency,
+                    PropagationModels.PropagationModel.LogDistance, // Changed from FreeSpace
+                    PropagationModels.EnvironmentType.Urban,        // Changed from FreeSpace
+                    1 << 8 // Building layer mask
+                );
+
+                Debug.Log($"{uniqueID} → Signal strength at receiver: {signalStrength:F1} dBm (distance: {d:F1}m)");
                 return signalStrength;
             }
             else
             {
-                Debug.Log("Receiver is out of coverage area.");
+                Debug.Log($"{uniqueID} → Receiver is out of coverage area.");
                 return float.NegativeInfinity; // Indicate no signal
             }
         }
@@ -81,7 +100,7 @@ namespace RadioSignalSimulation.Core
             float distance = Vector3.Distance(transform.position, receiverPosition);
             bool inRange = distance <= coverageRadius;
 
-            //Debug.Log($"Distance check: {distance:F2}m <= {coverageRadius}m = {inRange}");
+            Debug.Log($"{uniqueID} → Distance check: {distance:F2}m <= {coverageRadius}m = {inRange}");
 
             return inRange;
         }
@@ -99,7 +118,7 @@ namespace RadioSignalSimulation.Core
         {
             // Pt: Convert transmitter power from dBm to watts
             // Pt(watts) = 10^((Pt(dBm) - 30) / 10)
-            float Pt = Mathf.Pow(10f, (powerOutput - 30f) / 10f); // Transmitted power in watts
+            float Pt = Mathf.Pow(10f, (transmitterPower - 30f) / 10f); // Transmitted power in watts
 
             // Gt: Gain of the transmitting antenna (isotropic antenna, linear scale)
             float Gt = antennaGain;
@@ -144,10 +163,10 @@ namespace RadioSignalSimulation.Core
         public float CalculateWaveLength()
         {
             float c = 3e8f;                             // Speed of light in m/s
-            float f = frequency * 1e6f;     // Convert MHz to Hz
+            float f = frequency * 1e6f;                 // Convert MHz to Hz
             float λ = c / f;                            // Wavelength in m
 
-            Debug.Log($"Wavelength: {λ} meters");
+            //Debug.Log($"Wavelength: {λ} meters");
 
             return λ;
         }
@@ -161,12 +180,12 @@ namespace RadioSignalSimulation.Core
         public float CalculateSimpleFSPL(float distance)
         {
 
-            float d = distance / 1000f;     // Convert m to km
+            float d = distance / 1000f;     // Convert km
             float f = frequency;            // Frequency in MHz
             float c = 3e8f;                 // Speed of light
-            float fspl = 20f * Mathf.Log10(d) + 20f * Mathf.Log10(f) + 32.45f;
+            float fspl = 20f * Mathf.Log10(d) + 20f * Mathf.Log10(f) + 32.44f;
 
-            Debug.Log($"Distance: {distance}m ({d}km), FSPL: {fspl:F1}dB");
+            Debug.Log($"{uniqueID} → Distance: {distance}m, FSPL: {fspl:F1}dB");
 
             // Return path loss in dB
             return fspl;
@@ -175,9 +194,9 @@ namespace RadioSignalSimulation.Core
         public float CalculateReceivedPowerFSPL(float distance)
         {
             float pathLoss = CalculateSimpleFSPL(distance);     // Free space path loss in dB
-            float receivedPower = powerOutput - pathLoss;       // Received power in dBm
+            float receivedPower = transmitterPower - pathLoss;       // Received power in dBm
 
-            Debug.Log($"Distance: {distance}m, FSPL: {pathLoss}dB, Received: {receivedPower}dBm");
+            Debug.Log($"{uniqueID} → Distance: {distance}m, FSPL: {pathLoss}dB, Received: {receivedPower}dBm");
 
             return receivedPower;
         }
@@ -229,12 +248,14 @@ namespace RadioSignalSimulation.Core
 
             connectionLines[receiver] = lineRenderer;
 
-            Debug.Log($"Connection line created for receiver: {receiver.name} with color: {lineColor}");
+            Debug.Log($"{uniqueID} → Connection line created to {receiver.uniqueID} with color: {lineColor}");
         }
 
         // Get the color based on signal strength and sensitivity
         private Color GetSignalColor(float signalStrength, float sensitivity)
         {
+            Debug.Log($"{uniqueID} → Signal: {signalStrength:F1}dBm, Sensitivity: {sensitivity}dBm");
+
             if (float.IsNegativeInfinity(signalStrength))
                 return Color.clear;
 
@@ -257,6 +278,10 @@ namespace RadioSignalSimulation.Core
             connectionLines.Clear();
         }
 
+        public static void ResetCounter()
+        {
+            transmitterCount = 0;
+        }
     }
 }
 

@@ -5,8 +5,8 @@ public class GroundGrid : MonoBehaviour
 {
     [Header("Grid Settings")]
     public Material gridLineMaterial;
-    public float gridSize = 10f; 
-    public int gridCount = 100; 
+    public float gridSize = 5f;     // 5x5 meters per grid square
+    public int gridCount = 100;     // Number of grid lines in each direction (total lines = gridCount + 1)
     public float lineWidth = 0.1f;
     public Color gridColor = new Color(1f, 1f, 1f, 0.3f); // Semi-transparent white
 

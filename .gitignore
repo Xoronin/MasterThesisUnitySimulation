@@ -488,3 +488,9 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/unity,windows,visualstudio
+/.plastic/plastic.changes
+/.gitignore
+/.plastic/plastic.wktree
+*.asset
+/Assets/Project/Prefabs/Receivers/ReceiverPrefab.prefab
+/Assets/Project/Prefabs/Transmitters/TransmitterPrefab.prefab

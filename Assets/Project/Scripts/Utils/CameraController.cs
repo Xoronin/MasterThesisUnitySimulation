@@ -3,8 +3,8 @@ using UnityEngine;
 public class CameraController : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 10f;
-    public float fastMoveSpeed = 20f;
+    public float moveSpeed = 30f;
+    public float fastMoveSpeed = 50f;
     public float mouseSensitivity = 2f;
     
     [Header("Controls")]
