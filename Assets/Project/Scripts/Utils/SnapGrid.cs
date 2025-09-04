@@ -73,13 +73,31 @@ public class GroundGrid : MonoBehaviour
 
         line.startWidth = lineWidth;
         line.endWidth = lineWidth;
-        line.positionCount = 2;
-        line.useWorldSpace = true;
         line.startColor = gridColor;
         line.endColor = gridColor;
+        line.useWorldSpace = true;
 
-        line.SetPosition(0, start);
-        line.SetPosition(1, end);
+        // Break line into segments so it can bend with terrain
+        int segments = 50; // more segments = smoother curve
+        Vector3[] positions = new Vector3[segments + 1];
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            Vector3 pos = Vector3.Lerp(start, end, t);
+
+            // Cast a ray downwards from above the terrain to get the ground height
+            Ray ray = new Ray(pos + Vector3.up * 1000f, Vector3.down);
+            if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, LayerMask.GetMask("Terrain")))
+            {
+                pos.y = hit.point.y + 0.05f; // slightly above ground
+            }
+
+            positions[i] = pos;
+        }
+
+        line.positionCount = positions.Length;
+        line.SetPositions(positions);
     }
 
     public void SetGridVisibility(bool visible)
@@ -122,8 +140,24 @@ public class GroundGrid : MonoBehaviour
     // Get snap position for objects
     public Vector3 SnapToGrid(Vector3 worldPosition)
     {
+        // Snap X and Z to nearest grid points
         float snappedX = Mathf.Round(worldPosition.x / gridSize) * gridSize;
         float snappedZ = Mathf.Round(worldPosition.z / gridSize) * gridSize;
-        return new Vector3(snappedX, worldPosition.y, snappedZ);
+
+        Vector3 snappedPos = new Vector3(snappedX, 1000f, snappedZ); // start above terrain
+
+        // Raycast down to terrain to find exact ground height
+        Ray ray = new Ray(snappedPos, Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, LayerMask.GetMask("Terrain")))
+        {
+            snappedPos = hit.point;
+        }
+        else
+        {
+            // fallback: keep original Y if terrain wasn't hit
+            snappedPos.y = worldPosition.y;
+        }
+
+        return snappedPos;
     }
 }

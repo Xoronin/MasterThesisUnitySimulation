@@ -1,287 +1,467 @@
-﻿// Individual transmitter properties and behavior
-//-Position and orientation
-//- Power output and frequency
-//- Antenna characteristics
-//- Coverage area management
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using RadioSignalSimulation.Propagation;
+using RFSimulation.Propagation;
+using RFSimulation.Visualization;
+using RFSimulation.Propagation.SignalQuality;
+using RFSimulation.Propagation.Core;
+using RFSimulation.Propagation.PathLoss;
 
-namespace RadioSignalSimulation.Core
+namespace RFSimulation.Core
 {
+    /// <summary>
+    /// Represents a radio transmitter in the simulation, handling signal propagation, connections, and visualization.
+    /// </summary>
     public class Transmitter : MonoBehaviour
     {
-        // Static counter for unique naming
-        private static int transmitterCount = 0;
-        public string uniqueID;
+        #region Inspector Properties
 
-        // Transmitter Properties
-        // TODO: Find out proper values for these properties 
         [Header("Transmitter Properties")]
-        public float transmitterPower = 5f;         // dBm, output power of the transmitter
-        public float frequency = 2400f;         // MHz, carrier frequency of the transmitter
-        public float coverageRadius = 1000f;    // m, coverage radius of the transmitter
-        public float antennaGain = 1.0f;        // Linear scale, gain of the transmitting antenna (isotropic antenna = 1.0)
+        public string uniqueID;
+        public float transmitterPower = 40f; // dBm
+        public float antennaGain = 12f; // dBi
+        public float frequency = 2400f; // MHz
         public Vector3 position;
 
-        [Header("Visualization")]
-        public bool showConnections = true;
-        public Material connectionLineMaterial;
+        [Header("Click Interaction")]
+        public bool isClickable = true;
 
-        private Dictionary<Receiver, LineRenderer> connectionLines = new Dictionary<Receiver, LineRenderer>();
+        [Header("Propagation Settings")]
+        public PropagationModel propagationModel = PropagationModel.LogDistance;
+        public EnvironmentType environmentType = EnvironmentType.Urban;
 
-        private void Start()
+        [Header("Components")]
+        public TransmitterConnectionManager connectionManager;
+        public TransmitterVisualizer visualizer;
+        public TransmitterValidator validator;
+
+        #endregion
+
+        #region Unity Lifecycle
+
+        /// <summary>
+        /// Registers the transmitter with the simulation manager on awake.
+        /// </summary>
+        void Awake()
         {
-            position = transform.position;
-            AssignUniqueID();
+            if (SimulationManager.Instance != null)
+            {
+                SimulationManager.Instance.RegisterTransmitter(this);
+            }
+        }
+
+        /// <summary>
+        /// Initializes transmitter and its components at the start of the simulation.
+        /// </summary>
+        void Start()
+        {
             InitializeTransmitter();
-            SimulationManager.Instance.RegisterTransmitter(this);
+            SetupComponents();
+            RegisterWithSimulation();
         }
 
-        private void AssignUniqueID()
+        /// <summary>
+        /// Cleans up components and unregisters transmitter when destroyed.
+        /// </summary>
+        void OnDestroy()
         {
-            transmitterCount++;
-            uniqueID = $"Transmitter{transmitterCount}";
-            gameObject.name = uniqueID;
-            Debug.Log($"{uniqueID} created at position {transform.position}");
+            CleanupComponents();
+            UnregisterFromSimulation();
         }
 
-        public void InitializeTransmitter()
+        #endregion
+
+        #region Initialization & Core Logic
+
+        /// <summary>
+        /// Initializes transmitter properties and ensures collider for interaction.
+        /// </summary>
+        private void InitializeTransmitter()
         {
-            Debug.Log($"{uniqueID} initialized with {transmitterPower}dBm at {frequency}MHz");
+            if (string.IsNullOrEmpty(uniqueID))
+            {
+                uniqueID = "TX_" + GetInstanceID();
+            }
+            position = transform.position;
+
+            // Ensure collider exists for clicking
+            if (isClickable && GetComponent<Collider>() == null)
+            {
+                var collider = gameObject.AddComponent<SphereCollider>();
+                collider.radius = 1f; // Make it easier to click
+            }
         }
 
-        public void Update()
-        {
-            // Handle real-time updates here
-            // e.g., Update transmitter state, manage coverage area, etc.
-        }
-
-        public void ValidateTransmitter()
-        {
-            Debug.Log($"{uniqueID} validated.");
-        }
-
-
-        // Calculate signal strength at a given receiver position
+        /// <summary>
+        /// Calculates the received signal strength at a given receiver position.
+        /// </summary>
+        /// <param name="receiverPosition">Position of the receiver.</param>
+        /// <returns>Received signal strength in dBm.</returns>
         public float CalculateSignalStrength(Vector3 receiverPosition)
         {
-            // If the receiver is within coverage radius calculate signal strength
-            if (IsReceiverInRange(receiverPosition))
+            var context = PropagationContext.Create(position, receiverPosition, transmitterPower, frequency);
+            context.AntennaGainDbi = antennaGain;
+            context.Model = propagationModel;
+            context.Environment = environmentType;
+
+            var calculator = new PathLossCalculator();
+            return calculator.CalculateReceivedPower(context);
+        }
+
+        /// <summary>
+        /// Gets the signal quality category at a specified position.
+        /// </summary>
+        /// <param name="testPosition">Position to test signal quality.</param>
+        /// <returns>Signal quality category.</returns>
+        public SignalQualityCategory GetSignalQualityAt(Vector3 testPosition)
+        {
+            var context = CreatePropagationContext(testPosition);
+            var calculator = new PathLossCalculator();
+            return calculator.GetSignalQuality(context);
+        }
+
+        /// <summary>
+        /// Gets detailed signal quality metrics at a specified position for a given technology.
+        /// </summary>
+        /// <param name="testPosition">Position to test.</param>
+        /// <param name="technology">Technology type (default: LTE).</param>
+        /// <returns>Signal quality metrics.</returns>
+        public SignalQualityMetrics GetSignalQualityMetricsAt(Vector3 testPosition, TechnologyType technology = TechnologyType.LTE)
+        {
+            var context = CreatePropagationContext(testPosition);
+            context.Technology = technology;
+            var calculator = new PathLossCalculator();
+            return calculator.GetSignalQualityMetrics(context);
+        }
+
+        /// <summary>
+        /// Determines if a position is within the transmitter's coverage area.
+        /// </summary>
+        /// <param name="testPosition">Position to test.</param>
+        /// <param name="sensitivityDbm">Receiver sensitivity threshold (default: -105 dBm).</param>
+        /// <returns>True if in coverage, otherwise false.</returns>
+        public bool IsInCoverage(Vector3 testPosition, float sensitivityDbm = -105f)
+        {
+            float signal = CalculateSignalStrength(testPosition);
+            float margin = 10f;
+            return signal >= (sensitivityDbm + margin);
+        }
+
+        /// <summary>
+        /// Creates a propagation context for signal calculations.
+        /// </summary>
+        /// <param name="receiverPosition">Receiver position.</param>
+        /// <returns>Propagation context instance.</returns>
+        private PropagationContext CreatePropagationContext(Vector3 receiverPosition)
+        {
+            var context = PropagationContext.Create(position, receiverPosition, transmitterPower, frequency);
+            context.AntennaGainDbi = antennaGain;
+            context.Model = propagationModel;
+            context.Environment = environmentType;
+            context.ReceiverSensitivityDbm = -105f;
+            return context;
+        }
+
+        #endregion
+
+        #region Component Management
+
+        /// <summary>
+        /// Sets up required transmitter components and initializes them.
+        /// </summary>
+        private void SetupComponents()
+        {
+            connectionManager = GetOrAddComponent<TransmitterConnectionManager>();
+            connectionManager.Initialize(this);
+
+            visualizer = GetOrAddComponent<TransmitterVisualizer>();
+            visualizer.Initialize(this);
+
+            validator = GetOrAddComponent<TransmitterValidator>();
+        }
+
+        /// <summary>
+        /// Cleans up transmitter components.
+        /// </summary>
+        private void CleanupComponents()
+        {
+            connectionManager?.Cleanup();
+            visualizer?.Cleanup();
+        }
+
+        /// <summary>
+        /// Gets an existing component or adds it if missing.
+        /// </summary>
+        /// <typeparam name="T">Component type.</typeparam>
+        /// <returns>Component instance.</returns>
+        private T GetOrAddComponent<T>() where T : Component
+        {
+            T component = GetComponent<T>();
+            if (component == null)
+                component = gameObject.AddComponent<T>();
+            return component;
+        }
+
+        #endregion
+
+        #region Public API - Connection Management
+
+        /// <summary>
+        /// Adds a connection to the specified receiver.
+        /// </summary>
+        /// <param name="receiver">Receiver to connect.</param>
+        public void AddConnectionToReceiver(Receiver receiver) => connectionManager?.AddConnectionToReceiver(receiver);
+
+        /// <summary>
+        /// Clears the connection to the specified receiver.
+        /// </summary>
+        /// <param name="receiver">Receiver to disconnect.</param>
+        public void ClearConnectionToReceiver(Receiver receiver) => connectionManager?.ClearConnectionToReceiver(receiver);
+
+        /// <summary>
+        /// Clears all connection lines.
+        /// </summary>
+        public void ClearAllLines() => connectionManager?.ClearAllLines();
+
+        /// <summary>
+        /// Updates the visual connection lines.
+        /// </summary>
+        public void UpdateConnectionLines() => connectionManager?.UpdateConnectionLines();
+
+        /// <summary>
+        /// Gets the list of connected receivers.
+        /// </summary>
+        /// <returns>List of connected receivers.</returns>
+        public List<Receiver> GetConnectedReceivers() => connectionManager?.GetConnectedReceivers() ?? new List<Receiver>();
+
+        /// <summary>
+        /// Gets the number of current connections.
+        /// </summary>
+        /// <returns>Connection count.</returns>
+        public int GetConnectionCount() => connectionManager?.GetConnectionCount() ?? 0;
+
+        /// <summary>
+        /// Checks if the transmitter is connected to the specified receiver.
+        /// </summary>
+        /// <param name="receiver">Receiver to check.</param>
+        /// <returns>True if connected, otherwise false.</returns>
+        public bool IsConnectedTo(Receiver receiver) => connectionManager?.IsConnectedTo(receiver) ?? false;
+
+        #endregion
+
+        #region Public API - Visualization
+
+        /// <summary>
+        /// Toggles the visibility of connection lines.
+        /// </summary>
+        /// <param name="show">Whether to show connections.</param>
+        public void ToggleConnections(bool show) => visualizer?.ToggleConnections(show);
+
+        /// <summary>
+        /// Toggles the visibility of the coverage area.
+        /// </summary>
+        /// <param name="show">Whether to show coverage area.</param>
+        public void ToggleCoverageArea(bool show) => visualizer?.ToggleCoverageArea(show);
+
+        #endregion
+
+        #region Public API - Parameter Updates
+
+        /// <summary>
+        /// Updates the transmitter power after validation.
+        /// </summary>
+        /// <param name="newPowerDbm">New power value in dBm.</param>
+        public void UpdateTransmitterPower(float newPowerDbm)
+        {
+            if (validator.ValidatePower(newPowerDbm))
             {
-                // Calculate signal strength 
-                float d = Vector3.Distance(transform.position, receiverPosition);
-                //float signalStrength = CalculateReceivedPowerFSPL(d);
-                float signalStrength = PropagationModels.CalculatePathLossWithObstacles(
-                    transform.position,
-                    receiverPosition,
-                    transmitterPower,
-                    antennaGain,
-                    frequency,
-                    PropagationModels.PropagationModel.LogDistance, // Changed from FreeSpace
-                    PropagationModels.EnvironmentType.Urban,        // Changed from FreeSpace
-                    1 << 8 // Building layer mask
-                );
-
-                Debug.Log($"{uniqueID} → Signal strength at receiver: {signalStrength:F1} dBm (distance: {d:F1}m)");
-                return signalStrength;
+                transmitterPower = newPowerDbm;
+                visualizer?.RecalculateCoverage();
+                Debug.Log($"{uniqueID} power updated to {transmitterPower:F1} dBm");
             }
-            else
+        }
+
+        /// <summary>
+        /// Updates the transmitter frequency after validation.
+        /// </summary>
+        /// <param name="newFrequencyMHz">New frequency in MHz.</param>
+        public void UpdateFrequency(float newFrequencyMHz)
+        {
+            if (validator.ValidateFrequency(newFrequencyMHz))
             {
-                Debug.Log($"{uniqueID} → Receiver is out of coverage area.");
-                return float.NegativeInfinity; // Indicate no signal
+                frequency = newFrequencyMHz;
+                visualizer?.RecalculateCoverage();
+                Debug.Log($"{uniqueID} frequency updated to {frequency:F0} MHz");
             }
         }
 
-        // Check if the receiver is within the coverage radius
-        public bool IsReceiverInRange(Vector3 receiverPosition)
+        /// <summary>
+        /// Updates the antenna gain after validation.
+        /// </summary>
+        /// <param name="newGainDbi">New antenna gain in dBi.</param>
+        public void UpdateAntennaGain(float newGainDbi)
         {
-            float distance = Vector3.Distance(transform.position, receiverPosition);
-            bool inRange = distance <= coverageRadius;
-
-            Debug.Log($"{uniqueID} → Distance check: {distance:F2}m <= {coverageRadius}m = {inRange}");
-
-            return inRange;
-        }
-
-        // Calculate the free space path loss using the Friis transmission equation
-        // Friis equation: Pr = (Pt * Gt * Gr * λ²) / ((4π)² * d² * L)
-        // Pr = received power (dBm)
-        // Pt = transmitted power (dBm)
-        // Gt = gain of the transmitting antenna (linear scale)
-        // Gr = gain of the receiving antenna (linear scale)
-        // λ = wavelength (meters)
-        // d = distance between transmitter and receiver (meters)
-        // L = system losses (linear scale, typically 1 for free space)
-        public float CalculateFriisFreeSpaceEquation(float distance)
-        {
-            // Pt: Convert transmitter power from dBm to watts
-            // Pt(watts) = 10^((Pt(dBm) - 30) / 10)
-            float Pt = Mathf.Pow(10f, (transmitterPower - 30f) / 10f); // Transmitted power in watts
-
-            // Gt: Gain of the transmitting antenna (isotropic antenna, linear scale)
-            float Gt = antennaGain;
-
-            // Gr: Gain of the receiving antenna (isotropic antenna, linear scale)
-            float Gr = 1f;
-
-            // L: System losses (linear scale, typically 1 for free space)
-            float L = 1f;
-
-            // d: Distance between transmitter and receiver in meters
-            float d = distance;
-
-            // λ: Calculate wavelength in meters
-            float λ = CalculateWaveLength();
-
-            // Gt and Gr: Assuming isotropic antennas, gain is 1 (linear scale)
-            // G = 4π * Ae / λ²
-            // Ae = the effective aperture of the antenna
-            // Calculate the free space path loss
-
-            // Pr: Apply Friis equation
-            // Pr = (Pt * Gt * Gr * λ²) / ((4π)² * d² * L)
-            float numerator = Pt * Gt * Gr * Mathf.Pow(λ, 2f);
-            float denominator = Mathf.Pow(4f * Mathf.PI, 2f) * d * d * L;
-            float Pr = numerator / denominator; // Received power in watts
-
-            // Convert received power from watts to dBm
-            // Pr(dBm) = 10 * log10(Pr(watts)) * 1000
-            float Pr_dBm = 10f * Mathf.Log10(Pr * 1000f); // Received power in dBm
-
-            return Pr_dBm; // Return the transmitter power in dBm
-        }
-
-        // Calculate the wavelength based on the frequency
-        // Formula: λ = c / f = 2π * c / Wc
-        // where:
-        // λ = wavelength in meters 
-        // c = speed of light in meters per second (approximately 299,792,458 m/s)
-        // f = carrier frequency in Hz
-        // Wc = carrier frequency in radians per second
-        public float CalculateWaveLength()
-        {
-            float c = 3e8f;                             // Speed of light in m/s
-            float f = frequency * 1e6f;                 // Convert MHz to Hz
-            float λ = c / f;                            // Wavelength in m
-
-            //Debug.Log($"Wavelength: {λ} meters");
-
-            return λ;
-        }
-
-        // Calculate the free space path loss (FSPL) in dB
-        // FSPL = 20 * log10(d) + 20 * log10(f) + 20 * log10(4π/c)
-        // where:
-        // d = distance in meters
-        // f = frequency in Hz
-        // c = speed of light in m/s (approximately 3e8 m/s)
-        public float CalculateSimpleFSPL(float distance)
-        {
-
-            float d = distance / 1000f;     // Convert km
-            float f = frequency;            // Frequency in MHz
-            float c = 3e8f;                 // Speed of light
-            float fspl = 20f * Mathf.Log10(d) + 20f * Mathf.Log10(f) + 32.44f;
-
-            Debug.Log($"{uniqueID} → Distance: {distance}m, FSPL: {fspl:F1}dB");
-
-            // Return path loss in dB
-            return fspl;
-        }
-
-        public float CalculateReceivedPowerFSPL(float distance)
-        {
-            float pathLoss = CalculateSimpleFSPL(distance);     // Free space path loss in dB
-            float receivedPower = transmitterPower - pathLoss;       // Received power in dBm
-
-            Debug.Log($"{uniqueID} → Distance: {distance}m, FSPL: {pathLoss}dB, Received: {receivedPower}dBm");
-
-            return receivedPower;
-        }
-
-        public void UpdateConnectionLines()
-        {
-            if (!showConnections) return;
-
-            ClearAllLines();
-
-            foreach (Receiver receiver in SimulationManager.Instance.receivers)
+            if (validator.ValidateAntennaGain(newGainDbi))
             {
-                CreateConnectionLine(receiver);
+                antennaGain = newGainDbi;
+                visualizer?.RecalculateCoverage();
+                Debug.Log($"{uniqueID} antenna gain updated to {antennaGain:F1} dBi");
             }
         }
 
-        // Create a connection line to a receiver
-        private void CreateConnectionLine(Receiver receiver)
+        #endregion
+
+        #region Status and Information
+
+        /// <summary>
+        /// Gets a status summary of the transmitter including coverage estimate.
+        /// </summary>
+        /// <returns>Status text.</returns>
+        public string GetStatusText()
         {
-            // Only create a line if the receiver is within range
-            if (!IsReceiverInRange(receiver.transform.position))
+            string basicInfo = $"Power: {transmitterPower:F1} dBm\n" +
+                              $"Gain: {antennaGain:F1} dBi\n" +
+                              $"Frequency: {frequency:F0} MHz\n" +
+                              $"Model: {propagationModel}\n" +
+                              $"Environment: {environmentType}\n" +
+                              $"Connections: {GetConnectionCount()}";
+
+            // Calculate coverage
+            var context = CreatePropagationContext(position + Vector3.forward);
+            var calculator = new PathLossCalculator();
+            float coverage = calculator.EstimateCoverageRadius(context);
+
+            return basicInfo + $"\nCoverage: ~{coverage:F0}m";
+        }
+
+        #endregion
+
+        #region Simulation Registration
+
+        /// <summary>
+        /// Registers the transmitter with the simulation manager.
+        /// </summary>
+        private void RegisterWithSimulation()
+        {
+            if (SimulationManager.Instance != null)
+            {
+                SimulationManager.Instance.RegisterTransmitter(this);
+            }
+        }
+
+        /// <summary>
+        /// Unregisters the transmitter from the simulation manager.
+        /// </summary>
+        private void UnregisterFromSimulation()
+        {
+            if (SimulationManager.Instance != null)
+            {
+                SimulationManager.Instance.RemoveTransmitter(this);
+            }
+        }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets or sets the visibility of connection lines.
+        /// </summary>
+        public bool showConnections
+        {
+            get
+            {
+                var connectionManager = GetComponent<TransmitterConnectionManager>();
+                return connectionManager != null ? connectionManager.showConnections : true;
+            }
+            set
+            {
+                var connectionManager = GetComponent<TransmitterConnectionManager>();
+                if (connectionManager != null)
+                    connectionManager.showConnections = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the visibility of the coverage area.
+        /// </summary>
+        public bool showCoverageArea
+        {
+            get
+            {
+                var visualizer = GetComponent<TransmitterVisualizer>();
+                return visualizer != null ? visualizer.showCoverageArea : true;
+            }
+            set
+            {
+                var visualizer = GetComponent<TransmitterVisualizer>();
+                if (visualizer != null)
+                    visualizer.showCoverageArea = value;
+            }
+        }
+
+        #endregion
+
+        #region Debug & Test Utilities
+
+        /// <summary>
+        /// Logs transmitter values for debugging.
+        /// </summary>
+        [ContextMenu("Debug Transmitter Values")]
+        public void DebugTransmitterValues()
+        {
+            Debug.Log($"=== {uniqueID} Debug ===");
+            Debug.Log($"Power: {transmitterPower} dBm");
+            Debug.Log($"Frequency: {frequency} MHz");
+            Debug.Log($"Antenna Gain: {antennaGain} dBi");
+            Debug.Log($"Position: {transform.position}");
+            Debug.Log($"Propagation Model: {propagationModel}");
+            Debug.Log($"Environment: {environmentType}");
+        }
+
+        /// <summary>
+        /// Tests signal calculation to the nearest receiver and logs results.
+        /// </summary>
+        [ContextMenu("Test Signal to Nearest Receiver")]
+        public void TestSignalToNearestReceiver()
+        {
+            if (SimulationManager.Instance == null || SimulationManager.Instance.receivers.Count == 0)
+            {
+                Debug.LogError("No receivers found!");
                 return;
-
-            // Create a new LineRenderer for the receiver
-            GameObject lineObject = new GameObject($"ConnectionLine_{receiver.name}");
-            //lineObject.transform.SetParent(transform);
-
-            LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
-
-            // Set line visuals
-            lineRenderer.material = connectionLineMaterial;
-            lineRenderer.startWidth = 0.1f;
-            lineRenderer.endWidth = 0.1f;
-            lineRenderer.positionCount = 2;
-            lineRenderer.useWorldSpace = true;
-
-            Transform cubeTransform = receiver.transform.GetChild(0);
-            Vector3 cubePosition = cubeTransform != null ? cubeTransform.position : receiver.transform.position;
-
-            // Set positions of the line renderer
-            lineRenderer.SetPosition(0, transform.position);
-            lineRenderer.SetPosition(1, cubePosition);
-
-            // Set the line color based on the signal strength
-            float signalStrength = CalculateSignalStrength(receiver.transform.position);
-            Color lineColor = GetSignalColor(signalStrength, receiver.sensitivity);
-            lineRenderer.startColor = lineColor;
-            lineRenderer.endColor = lineColor;
-
-            connectionLines[receiver] = lineRenderer;
-
-            Debug.Log($"{uniqueID} → Connection line created to {receiver.uniqueID} with color: {lineColor}");
-        }
-
-        // Get the color based on signal strength and sensitivity
-        private Color GetSignalColor(float signalStrength, float sensitivity)
-        {
-            Debug.Log($"{uniqueID} → Signal: {signalStrength:F1}dBm, Sensitivity: {sensitivity}dBm");
-
-            if (float.IsNegativeInfinity(signalStrength))
-                return Color.clear;
-
-            if (signalStrength > sensitivity)
-                return Color.green; 
-            else if (signalStrength > sensitivity - 10f)
-                return Color.yellow; 
-            else
-                return Color.red; 
-        }
-
-        // Clear all existing connection lines
-        public void ClearAllLines()
-        {
-            foreach (var line in connectionLines.Values)
-            {
-                if (line != null)
-                    DestroyImmediate(line.gameObject);
             }
-            connectionLines.Clear();
+
+            var receiver = SimulationManager.Instance.receivers[0];
+
+            Debug.Log("=== SIMPLE CONNECTION TEST ===");
+            Debug.Log($"Transmitter: {uniqueID} at {transform.position}");
+            Debug.Log($"Receiver: {receiver.uniqueID} at {receiver.transform.position}");
+
+            float distance = Vector3.Distance(transform.position, receiver.transform.position);
+            Debug.Log($"Distance: {distance:F2} meters");
+
+            Debug.Log($"TX Power: {transmitterPower} dBm");
+            Debug.Log($"TX Gain: {antennaGain} dBi");
+            Debug.Log($"TX Frequency: {frequency} MHz");
+            Debug.Log($"Propagation Model: {propagationModel}");
+
+            // Test the calculation step by step
+            float signal = CalculateSignalStrength(receiver.transform.position);
+
+            Debug.Log($"CALCULATED SIGNAL: {signal} dBm");
+            Debug.Log($"Receiver Sensitivity: {receiver.sensitivity} dBm");
+            Debug.Log($"Receiver Connection Margin: {receiver.connectionMargin} dB");
+            Debug.Log($"Required Signal: {receiver.sensitivity + receiver.connectionMargin} dBm");
+
+            bool shouldConnect = signal >= (receiver.sensitivity + receiver.connectionMargin);
+            Debug.Log($"Should Connect: {shouldConnect}");
+            Debug.Log($"Is Actually Connected: {receiver.IsConnected()}");
+
+            if (float.IsInfinity(signal) || float.IsNaN(signal))
+            {
+                Debug.LogError("*** SIGNAL IS INFINITY - THIS IS THE PROBLEM ***");
+            }
         }
 
-        public static void ResetCounter()
-        {
-            transmitterCount = 0;
-        }
+        #endregion
     }
 }
-

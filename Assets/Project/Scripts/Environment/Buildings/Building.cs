@@ -1,14 +1,16 @@
 using UnityEngine;
-using RadioSignalSimulation.Environment;
+using RFSimulation.Environment;
 
-namespace RadioSignalSimulation.Environment
+namespace RFSimulation.Environment
 {
     public class Building : MonoBehaviour
     {
         [Header("Building Properties")]
         public BuildingMaterial material;
-        public float height = 10f;
-        public int floors = 3;
+        public float height;
+        public int floors;
+        public string buildingType;
+        public string buildingMaterial;
 
         [Header("RF Properties")]
         public bool blockSignals = true;
@@ -41,8 +43,6 @@ namespace RadioSignalSimulation.Environment
 
             // Calculate penetration loss
             float penetrationLoss = material.CalculatePenetrationLoss(frequency, pathLength);
-
-            Debug.Log($"Signal attenuation through {gameObject.name}: {penetrationLoss} dB");
 
             return penetrationLoss;
         }

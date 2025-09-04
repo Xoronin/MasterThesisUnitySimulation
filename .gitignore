@@ -494,3 +494,6 @@ FodyWeavers.xsd
 *.asset
 /Assets/Project/Prefabs/Receivers/ReceiverPrefab.prefab
 /Assets/Project/Prefabs/Transmitters/TransmitterPrefab.prefab
+/Assets/Settings/DefaultVolumeProfile.asset
+/ProjectSettings/TagManager.asset
+/Assets/Project/Scripts/Core/Transmitter.cs.meta

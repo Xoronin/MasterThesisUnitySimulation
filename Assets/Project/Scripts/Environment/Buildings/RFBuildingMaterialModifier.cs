@@ -1,9 +1,9 @@
 using UnityEngine;
-using RadioSignalSimulation.Environment;
+using RFSimulation.Environment;
 using System.Collections;
 
 // This works without assembly definitions
-namespace RadioSignalSimulation.Environment
+namespace RFSimulation.Environment
 {
     public class SimpleMapboxModifier : MonoBehaviour
     {
@@ -35,8 +35,6 @@ namespace RadioSignalSimulation.Environment
                     processed++;
                 }
             }
-
-            Debug.Log($"Processed {processed} Mapbox buildings");
         }
 
         private bool IsMapboxBuilding(GameObject obj)
@@ -77,8 +75,6 @@ namespace RadioSignalSimulation.Environment
             {
                 obj.AddComponent<MeshCollider>();
             }
-
-            Debug.Log($"Added Building component to: {obj.name}");
         }
     }
 }

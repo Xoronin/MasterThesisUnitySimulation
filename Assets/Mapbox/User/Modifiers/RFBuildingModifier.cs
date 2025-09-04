@@ -3,9 +3,11 @@ using Mapbox.Unity.MeshGeneration.Modifiers;
 using Mapbox.Unity.MeshGeneration.Data;
 using Mapbox.VectorTile;
 using System.Collections.Generic;
+using Mapbox.VectorTile;
+using Mapbox.VectorTile.Geometry;
 
 // Add your namespace reference
-using RadioSignalSimulation.Environment;
+using RFSimulation.Environment;
 
 [CreateAssetMenu(menuName = "Mapbox/Modifiers/RF Building Modifier")]
 public class RFBuildingModifier : GameObjectModifier
@@ -31,8 +33,8 @@ public class RFBuildingModifier : GameObjectModifier
 		var properties = ve.Feature.Properties;
 
 		// Determine material based on OSM properties
-		BuildingMaterial material = DetermineMaterialFromProperties(properties);
-		building.material = material;
+		BuildingMaterial material = DetermineMaterialFromProperties(building, properties);
+        building.material = material;
 
 		// Set building properties from OSM data
 		SetBuildingProperties(building, properties);
@@ -46,18 +48,29 @@ public class RFBuildingModifier : GameObjectModifier
 			MeshCollider meshCollider = buildingObject.AddComponent<MeshCollider>();
 			meshCollider.convex = false;
 		}
-
-		Debug.Log($"RF Building created: {buildingObject.name} with {material.materialName}");
 	}
 
-	private BuildingMaterial DetermineMaterialFromProperties(Dictionary<string, object> properties)
+    private BuildingMaterial DetermineMaterialFromProperties(Building building, Dictionary<string, object> properties)
 	{
-		// Check building type from OSM data
-		if (properties.ContainsKey("building"))
-		{
-			string buildingType = properties["building"].ToString().ToLower();
+        if (properties.ContainsKey("building:type"))
+        {
+            string buildingType = properties["building:type"].ToString().ToLower();
+			building.buildingType = buildingType;
+        }
 
-			switch (buildingType)
+		if (properties.ContainsKey("building:material"))
+		{
+			string material = properties["building:material"].ToString().ToLower();
+			building.buildingMaterial = material;
+            Debug.Log("Building material: " + material);
+		}
+
+        // Check building type from OSM data
+        if (properties.ContainsKey("building"))
+		{
+            string buildingType = properties["building"].ToString().ToLower();
+
+            switch (buildingType)
 			{
 				case "residential":
 				case "house":

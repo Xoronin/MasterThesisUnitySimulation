@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace RadioSignalSimulation.Environment
+namespace RFSimulation.Environment
 {
     [System.Serializable]
     public enum MaterialType
@@ -21,11 +21,11 @@ namespace RadioSignalSimulation.Environment
 
         [Header("RF Properties")]
         [Tooltip("Penetration loss in dB per meter")]
-        public float penetrationLoss = 10f;
+        public float penetrationLoss;
 
         [Tooltip("Reflection coefficient (0-1)")]
         [Range(0f, 1f)]
-        public float reflectionCoefficient = 0.3f;
+        public float reflectionCoefficient;
 
         [Tooltip("Frequency-dependent attenuation factor")]
         public float frequencyFactor = 1f;
