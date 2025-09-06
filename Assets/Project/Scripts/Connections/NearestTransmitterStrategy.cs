@@ -12,6 +12,7 @@ namespace RFSimulation.Connections
     {
         public string StrategyName => "Nearest Transmitter";
         public string Description => "Connects to nearest transmitter above signal threshold";
+        public StrategyType StrategyType => StrategyType.NearestTransmitter;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
         {

@@ -14,8 +14,9 @@ namespace RFSimulation.Core
         [Header("Basic Info")]
         public string scenarioName;
 
-        [Header("Connection Strategy")] // NEW: Strategy per scenario
-        public string connectionStrategy = "Best + Interference";
+        [Header("Connection Strategy")] 
+        public string strategyName;
+        public StrategyType strategyType;
 
         [Header("Equipment")]
         public List<TransmitterConfig> transmitters;
@@ -274,9 +275,9 @@ namespace RFSimulation.Core
                 var connectionManager = SimulationManager.Instance.connectionManager;
 
                 // Apply connection strategy
-                if (!string.IsNullOrEmpty(scenario.connectionStrategy))
+                if (!string.IsNullOrEmpty(scenario.strategyName))
                 {
-                    connectionManager.SetStrategy(scenario.connectionStrategy);
+                    connectionManager.SetConnectionStrategy(scenario.strategyType);
                 }
 
                 // Apply scenario settings
@@ -286,7 +287,7 @@ namespace RFSimulation.Core
                 settings.handoverMargin = scenario.settings.handoverMargin;
                 settings.enableDebugLogs = scenario.settings.enableDebugLogs;
 
-                DebugLog($"Applied scenario settings: Strategy={scenario.connectionStrategy}, " +
+                DebugLog($"Applied scenario settings: Strategy={scenario.strategyName}, " +
                         $"Threshold={scenario.settings.minimumSignalThreshold:F1}dBm");
             }
         }
@@ -360,7 +361,7 @@ namespace RFSimulation.Core
             // NEW: Save current connection strategy
             if (SimulationManager.Instance.connectionManager != null)
             {
-                newScenario.connectionStrategy = SimulationManager.Instance.connectionManager.GetCurrentStrategyName();
+                newScenario.strategyName = SimulationManager.Instance.connectionManager.GetCurrentStrategyName();
 
                 var currentSettings = SimulationManager.Instance.connectionManager.GetSettings();
                 newScenario.settings.minimumSignalThreshold = currentSettings.minimumSignalThreshold;
@@ -417,7 +418,7 @@ namespace RFSimulation.Core
                 string json = JsonUtility.ToJson(newScenario, true);
                 File.WriteAllText(filePath, json);
                 DebugLog($"✅ Scenario saved: {filePath}");
-                DebugLog($"Strategy: {newScenario.connectionStrategy}, Equipment: {newScenario.transmitters.Count}TX + {newScenario.receiverPositions.Count}RX");
+                DebugLog($"Strategy: {newScenario.strategyName}, Equipment: {newScenario.transmitters.Count}TX + {newScenario.receiverPositions.Count}RX");
 
                 // Reload scenarios to include the new one
                 LoadAllScenarios();
@@ -489,7 +490,7 @@ namespace RFSimulation.Core
             if (scenario != null)
             {
                 DebugLog($"Current Scenario: {scenario.scenarioName}");
-                DebugLog($"Strategy: {scenario.connectionStrategy}");
+                DebugLog($"Strategy: {scenario.strategyName}");
                 DebugLog($"Equipment: {scenario.transmitters.Count} transmitters, {scenario.receiverPositions.Count} receivers");
                 DebugLog($"Propagation: {scenario.propagationModel} in {scenario.environmentType} environment");
             }

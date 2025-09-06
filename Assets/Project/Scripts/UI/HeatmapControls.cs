@@ -68,7 +68,7 @@ namespace RFSimulation.UI
         {
             if (heatmap == null)
             {
-                heatmap = FindObjectOfType<SignalHeatmap>();
+                heatmap = FindFirstObjectByType<SignalHeatmap>();
                 if (heatmap == null)
                 {
                     Debug.LogWarning("No SignalHeatmap found in scene!");
@@ -434,7 +434,7 @@ namespace RFSimulation.UI
                 }
                 else
                 {
-                    var transmitters = FindObjectsOfType<Transmitter>();
+                    var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
                     transmitterCount = transmitters.Length;
                 }
 

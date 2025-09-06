@@ -304,7 +304,7 @@ namespace RFSimulation.UI
                 var strategies = connectionManager.GetAvailableStrategies();
                 if (index >= 0 && index < strategies.Count)
                 {
-                    connectionManager.SetStrategy(index);
+                    connectionManager.SetConnectionStrategy((StrategyType)index);
                     UpdateScenarioDetails();
                 }
             }
@@ -418,7 +418,7 @@ namespace RFSimulation.UI
             // Update strategy
             if (strategyText != null)
             {
-                strategyText.text = $"Strategy: {currentScenario.connectionStrategy}";
+                strategyText.text = $"Strategy: {currentScenario.strategyName}";
             }
 
             // Update environment
@@ -444,12 +444,12 @@ namespace RFSimulation.UI
             }
 
             // Update dropdowns
-            if (connectionStrategyDropdown != null && !string.IsNullOrEmpty(scenario.connectionStrategy))
+            if (connectionStrategyDropdown != null && !string.IsNullOrEmpty(scenario.strategyName))
             {
                 var strategies = connectionManager?.GetAvailableStrategies();
                 if (strategies != null)
                 {
-                    int strategyIndex = strategies.IndexOf(scenario.connectionStrategy);
+                    int strategyIndex = strategies.IndexOf(scenario.strategyName);
                     if (strategyIndex >= 0)
                     {
                         connectionStrategyDropdown.value = strategyIndex;
@@ -522,7 +522,7 @@ namespace RFSimulation.UI
             var description = new System.Text.StringBuilder();
 
             description.AppendLine($"Name: {scenario.scenarioName}");
-            description.AppendLine($"Strategy: {scenario.connectionStrategy}");
+            description.AppendLine($"Strategy: {scenario.strategyName}");
             description.AppendLine($"Propagation: {scenario.propagationModel}");
             description.AppendLine($"Environment: {scenario.environmentType}");
 

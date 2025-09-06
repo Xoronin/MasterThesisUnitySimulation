@@ -322,8 +322,8 @@ namespace RFSimulation.Testing
         {
             Debug.Log("=== LIVE TRANSMITTER-RECEIVER TEST ===");
 
-            var transmitters = FindObjectsOfType<Transmitter>();
-            var receivers = FindObjectsOfType<Receiver>();
+            var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
+            var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
 
             if (transmitters.Length == 0 || receivers.Length == 0)
             {

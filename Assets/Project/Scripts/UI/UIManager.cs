@@ -56,13 +56,13 @@ namespace RFSimulation.UI
         {
             // Ensure all UI components are connected
             if (mainUIControls == null)
-                mainUIControls = FindObjectOfType<UIControls>();
+                mainUIControls = FindFirstObjectByType<UIControls>();
 
             if (scenarioUI == null)
-                scenarioUI = FindObjectOfType<ScenarioUI>();
+                scenarioUI = FindFirstObjectByType<ScenarioUI>();
 
             if (statusDisplay == null)
-                statusDisplay = FindObjectOfType<StatusDisplay>();
+                statusDisplay = FindFirstObjectByType<StatusDisplay>();
 
             // Subscribe to events for coordination
             if (scenarioUI != null)
@@ -108,7 +108,7 @@ namespace RFSimulation.UI
 
         private void CreatePersistentTopBar()
         {
-            Canvas canvas = FindObjectOfType<Canvas>();
+            Canvas canvas = FindFirstObjectByType<Canvas>();
             if (canvas == null)
             {
                 Debug.LogError("No Canvas found! Cannot create top bar.");

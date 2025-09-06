@@ -20,6 +20,7 @@ namespace RFSimulation.Visualization
         public int resolution = 128;
         public float samplingHeight = 1.5f;
         public float heightAboveGround = 0.5f;
+        public GameObject buildingsMap;
 
         [Header("Visual Settings")]
         public bool showHeatmap = true;
@@ -186,19 +187,16 @@ namespace RFSimulation.Visualization
         private void CreateHeatmapMaterial()
         {
             // Create material with high visibility
-            heatmapMaterial = new Material(Shader.Find("Unlit/Transparent"));
-            heatmapMaterial.SetFloat("_Mode", 3f); // Transparent mode
-            heatmapMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            heatmapMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            heatmapMaterial.SetInt("_ZWrite", 0);
-            heatmapMaterial.DisableKeyword("_ALPHATEST_ON");
-            heatmapMaterial.EnableKeyword("_ALPHABLEND_ON");
-            heatmapMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            heatmapMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            heatmapMaterial.SetFloat("_Surface", 1); // Transparent
+            heatmapMaterial.SetFloat("_Blend", 0);   // Alpha blend
+            heatmapMaterial.SetFloat("_ZWrite", 0);
+            heatmapMaterial.SetInt("_Cull", 2);
             heatmapMaterial.renderQueue = 3000;
 
-            heatmapMaterial.mainTexture = heatmapTexture;
-            heatmapMaterial.color = new Color(1f, 1f, 1f, transparency);
-
+            // Assign texture + base color
+            heatmapMaterial.SetTexture("_BaseMap", heatmapTexture);
+            heatmapMaterial.SetColor("_BaseColor", new Color(1f, 1f, 1f, transparency));
             // Apply to renderer
             if (heatmapRenderer != null)
             {
@@ -274,6 +272,8 @@ namespace RFSimulation.Visualization
 
             heatmapTexture.SetPixels(pixels);
             heatmapTexture.Apply();
+
+            OnDrawGizmosSelected();
 
             Debug.Log($"✅ Heatmap updated: {processedPixels} pixels processed");
             isCalculating = false;
@@ -367,6 +367,30 @@ namespace RFSimulation.Visualization
             resultColor.a = transparency;
             return resultColor;
         }
+
+        void OnDrawGizmosSelected()
+        {
+            if (heatmapPlane == null) return;
+            Vector3 center = heatmapPlane.transform.position; center.y = 0f;
+            Vector3 half = new Vector3(heatmapSize.x * 0.5f, 0, heatmapSize.y * 0.5f);
+            Vector3 bl = center - half, br = center + new Vector3(half.x, 0, -half.z);
+            Vector3 tl = center + new Vector3(-half.x, 0, half.z), tr = center + half;
+
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawLine(bl, br); Gizmos.DrawLine(br, tr);
+            Gizmos.DrawLine(tr, tl); Gizmos.DrawLine(tl, bl);
+
+            float stepX = heatmapSize.x / (resolution - 1);
+            float stepZ = heatmapSize.y / (resolution - 1);
+            Gizmos.color = new Color(1, 1, 1, 0.5f);
+            for (int y = 0; y < resolution; y += Mathf.Max(1, resolution / 16))
+                for (int x = 0; x < resolution; x += Mathf.Max(1, resolution / 16))
+                {
+                    Vector3 p = bl + new Vector3(x * stepX, samplingHeight, y * stepZ);
+                    Gizmos.DrawSphere(p, Mathf.Max(stepX, stepZ) * 0.02f);
+                }
+        }
+
 
         // Public interface methods
         public void SetVisibility(bool visible)

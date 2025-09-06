@@ -17,13 +17,15 @@ namespace RFSimulation.Connections
 		/// </summary>
 		string Description { get; }
 
-		/// <summary>
-		/// Update connections between transmitters and receivers
-		/// </summary>
-		/// <param name="transmitters">List of available transmitters</param>
-		/// <param name="receivers">List of receivers to connect</param>
-		/// <param name="settings">Connection settings (thresholds, margins, etc.)</param>
-		void UpdateConnections(
+		StrategyType StrategyType { get; }
+
+        /// <summary>
+        /// Update connections between transmitters and receivers
+        /// </summary>
+        /// <param name="transmitters">List of available transmitters</param>
+        /// <param name="receivers">List of receivers to connect</param>
+        /// <param name="settings">Connection settings (thresholds, margins, etc.)</param>
+        void UpdateConnections(
 			List<Core.Transmitter> transmitters,
 			List<Core.Receiver> receivers,
 			ConnectionSettings settings
@@ -53,4 +55,14 @@ namespace RFSimulation.Connections
 		[UnityEngine.Header("Debug")]
 		public bool enableDebugLogs = false;
 	}
+
+    public enum StrategyType
+    {
+        StrongestSignal,
+        BestServerWithInterference,
+        LoadBalanced,
+        QualityFirst,
+        EmergencyCoverage,
+        NearestTransmitter
+    }
 }

@@ -13,6 +13,7 @@ namespace RFSimulation.Connections
     {
         public string StrategyName => "Emergency Coverage";
         public string Description => "Connects to any available signal with relaxed quality requirements";
+        public StrategyType StrategyType => StrategyType.EmergencyCoverage;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
         {

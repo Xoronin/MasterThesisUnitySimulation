@@ -52,7 +52,8 @@ public class UIControls : MonoBehaviour
 
     [Header("Placement Settings")]
     public LayerMask placementLayerMask = 1;
-    public float placementHeight = 10f;
+    public float transmitterHeight = 15f;
+    public float receiverHeight = 1f;
 
     [Header("Ground Settings")]
     public float groundLevel = 0f;
@@ -160,7 +161,7 @@ public class UIControls : MonoBehaviour
         // Auto-find GroundGrid if not assigned
         if (groundGridComponent == null)
         {
-            groundGridComponent = FindObjectOfType<GroundGrid>();
+            groundGridComponent = FindFirstObjectByType<GroundGrid>();
         }
 
         // NEW: Initialize strategy dropdown
@@ -333,12 +334,12 @@ public class UIControls : MonoBehaviour
         }
 
         // Update strategy dropdown
-        if (strategyDropdown != null && !string.IsNullOrEmpty(scenario.connectionStrategy))
+        if (strategyDropdown != null && !string.IsNullOrEmpty(scenario.strategyName))
         {
             var strategies = connectionManager?.GetAvailableStrategies();
             if (strategies != null)
             {
-                int strategyIndex = strategies.IndexOf(scenario.connectionStrategy);
+                int strategyIndex = strategies.IndexOf(scenario.strategyName);
                 if (strategyIndex >= 0)
                 {
                     strategyDropdown.value = strategyIndex;
@@ -366,7 +367,7 @@ public class UIControls : MonoBehaviour
             var strategies = connectionManager.GetAvailableStrategies();
             if (index >= 0 && index < strategies.Count)
             {
-                connectionManager.SetStrategy(index);
+                connectionManager.SetConnectionStrategy((StrategyType)index);
                 UpdateStrategyDescription();
             }
         }
@@ -578,7 +579,7 @@ public class UIControls : MonoBehaviour
 
     private void PlaceTransmitter(Vector3 position)
     {
-        position.y += placementHeight;
+        position.y += transmitterHeight;
 
         GameObject newTransmitter = Instantiate(transmitterPrefab, position, Quaternion.identity);
         Transmitter transmitterComponent = newTransmitter.GetComponent<Transmitter>();
@@ -601,7 +602,7 @@ public class UIControls : MonoBehaviour
 
     private void PlaceReceiver(Vector3 position)
     {
-        position.y += 1f;
+        position.y += receiverHeight;
 
         GameObject newReceiver = Instantiate(receiverPrefab, position, Quaternion.identity);
         Receiver receiverComponent = newReceiver.GetComponent<Receiver>();
@@ -703,7 +704,7 @@ public class UIControls : MonoBehaviour
 
     void ToggleGrid(bool show)
     {
-        GroundGrid grid = FindObjectOfType<GroundGrid>();
+        GroundGrid grid = FindFirstObjectByType<GroundGrid>();
         if (grid != null)
         {
             grid.gameObject.SetActive(show);

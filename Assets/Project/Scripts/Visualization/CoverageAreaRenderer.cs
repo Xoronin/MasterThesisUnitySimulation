@@ -65,7 +65,7 @@ namespace RFSimulation.Visualization
             coverageColor = newColor;
             if (coverageMaterial != null)
             {
-                coverageMaterial.color = newColor;
+                coverageMaterial.SetColor("_BaseColor", newColor);
             }
         }
 
@@ -98,16 +98,21 @@ namespace RFSimulation.Visualization
         {
             if (coverageRenderer == null) return;
 
-            if (coverageMaterial != null)
+            if (coverageMaterial == null)
             {
-                // Create an instance to avoid modifying the original asset
-                Material materialInstance = new Material(coverageMaterial);
-                materialInstance.color = new Color(coverageColor.r, coverageColor.g, coverageColor.b, 0.3f);
-
-                // Apply the material to the renderer
-                coverageRenderer.material = materialInstance;
+                coverageMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                coverageMaterial.SetFloat("_Surface", 1); // Transparent
+                coverageMaterial.SetFloat("_Blend", 0);   // Alpha blend
+                coverageMaterial.SetFloat("_ZWrite", 0);
+                coverageMaterial.SetInt("_Cull", 2);
+                coverageMaterial.renderQueue = 3000;
             }
 
+            // Create instance so multiple coverage areas don’t share the same asset
+            Material materialInstance = new Material(coverageMaterial);
+            materialInstance.SetColor("_BaseColor", coverageColor);
+
+            coverageRenderer.material = materialInstance;
             coverageRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             coverageRenderer.receiveShadows = false;
         }

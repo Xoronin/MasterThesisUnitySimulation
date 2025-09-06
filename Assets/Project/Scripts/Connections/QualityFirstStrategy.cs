@@ -12,6 +12,7 @@ namespace RFSimulation.Connections
     {
         public string StrategyName => "Quality First";
         public string Description => "Prioritizes signal quality (SINR) over raw signal strength";
+        public StrategyType StrategyType => StrategyType.QualityFirst;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
         {

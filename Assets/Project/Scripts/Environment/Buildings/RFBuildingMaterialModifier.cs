@@ -24,7 +24,7 @@ namespace RFSimulation.Environment
             yield return new WaitForSeconds(3f);
 
             // Find all GameObjects that look like buildings
-            GameObject[] allObjects = FindObjectsOfType<GameObject>();
+            GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
             int processed = 0;
 
             foreach (GameObject obj in allObjects)

@@ -1,165 +1,282 @@
-using UnityEngine;
-using Mapbox.Unity.MeshGeneration.Modifiers;
-using Mapbox.Unity.MeshGeneration.Data;
-using Mapbox.VectorTile;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using Mapbox.Unity.MeshGeneration.Data;
+using RFSimulation.Environment;
+using Mapbox.Unity.MeshGeneration.Modifiers;
 using Mapbox.VectorTile;
 using Mapbox.VectorTile.Geometry;
-
-// Add your namespace reference
-using RFSimulation.Environment;
 
 [CreateAssetMenu(menuName = "Mapbox/Modifiers/RF Building Modifier")]
 public class RFBuildingModifier : GameObjectModifier
 {
-	[Header("Default Materials")]
-	public BuildingMaterial defaultMaterial;
-	public BuildingMaterial residentialMaterial;
-	public BuildingMaterial commercialMaterial;
-	public BuildingMaterial industrialMaterial;
+    [Header("Default Materials (ScriptableObjects)")]
+    public BuildingMaterial brick;
+    public BuildingMaterial concrete;
+    public BuildingMaterial metal;
+    public BuildingMaterial glass;
+    public BuildingMaterial wood;
 
-	public override void Run(VectorEntity ve, UnityTile tile)
-	{
-		GameObject buildingObject = ve.GameObject;
+    [Header("Determinism")]
+    [Tooltip("Global seed so the same city gets the same assignments every run.")]
+    public int worldSeed = 123456;
 
-		// Add Building component for RF simulation
-		Building building = buildingObject.GetComponent<Building>();
-		if (building == null)
-		{
-			building = buildingObject.AddComponent<Building>();
-		}
+    // Optional: cache within a session (helps if Mapbox re-spawns tiles during panning/zoom)
+    private static readonly Dictionary<string, BuildingMaterial> _assignedCache = new();
 
-		// Get properties from the VectorFeature instead
-		var properties = ve.Feature.Properties;
+    public override void Run(VectorEntity ve, UnityTile tile)
+    {
+        var go = ve.GameObject;
 
-		// Determine material based on OSM properties
-		BuildingMaterial material = DetermineMaterialFromProperties(building, properties);
-        building.material = material;
-
-		// Set building properties from OSM data
-		SetBuildingProperties(building, properties);
-
-		// Configure for RF simulation
-		buildingObject.layer = 8; // Buildings layer
-
-		// Add collider for raycast detection
-		if (buildingObject.GetComponent<Collider>() == null)
-		{
-			MeshCollider meshCollider = buildingObject.AddComponent<MeshCollider>();
-			meshCollider.convex = false;
-		}
-	}
-
-    private BuildingMaterial DetermineMaterialFromProperties(Building building, Dictionary<string, object> properties)
-	{
-        if (properties.ContainsKey("building:type"))
+        // Must have a mesh to be usable
+        var mf = go.GetComponent<MeshFilter>();
+        var mesh = mf ? mf.sharedMesh : null;
+        if (!IsUsableMesh(mesh))
         {
-            string buildingType = properties["building:type"].ToString().ToLower();
-			building.buildingType = buildingType;
+            // Skip collider & material assignment for broken/degenerate features
+            // (you can still keep visual mesh, or early-return to skip everything)
+            return;
         }
 
-		if (properties.ContainsKey("building:material"))
-		{
-			string material = properties["building:material"].ToString().ToLower();
-			building.buildingMaterial = material;
-            Debug.Log("Building material: " + material);
-		}
+        // Ensure RF Building component exists
+        var building = go.GetComponent<Building>();
+        if (!building) building = go.AddComponent<Building>();
 
-        // Check building type from OSM data
-        if (properties.ContainsKey("building"))
-		{
-            string buildingType = properties["building"].ToString().ToLower();
+        // Extract OSM properties
+        var props = ve.Feature?.Properties ?? new Dictionary<string, object>();
 
-            switch (buildingType)
-			{
-				case "residential":
-				case "house":
-				case "apartments":
-					return residentialMaterial ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick);
+        // Deterministic key for this building
+        string key = BuildStableKey(props, tile, go);
 
-				case "commercial":
-				case "office":
-				case "retail":
-					return commercialMaterial ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete);
+        if (!_assignedCache.TryGetValue(key, out var mat))
+        {
+            mat = DetermineMaterialDeterministic(props, tile, go, key);
+            building.buildingMaterial = mat.materialName;
+            _assignedCache[key] = mat;
+        }
 
-				case "industrial":
-				case "warehouse":
-				case "factory":
-					return industrialMaterial ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Metal);
+        building.material = mat ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete);
+        SetBuildingProperties(building, props, go);
 
-				case "school":
-				case "hospital":
-				case "university":
-					return BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete);
-			}
-		}
+        // Layer + collider for RF ray tests (only if mesh is valid)
+        go.layer = 8; // make sure layer 8 exists / named appropriately
+        if (!go.GetComponent<MeshCollider>())
+        {
+            var mc = go.AddComponent<MeshCollider>();
+            mc.sharedMesh = mesh; // assign explicitly
+            mc.convex = false;
+            mc.cookingOptions = MeshColliderCookingOptions.EnableMeshCleaning |
+                                MeshColliderCookingOptions.CookForFasterSimulation;
+        }
+    }
 
-		// Check amenity type
-		if (properties.ContainsKey("amenity"))
-		{
-			string amenity = properties["amenity"].ToString().ToLower();
-			switch (amenity)
-			{
-				case "school":
-				case "hospital":
-				case "library":
-					return BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete);
-				case "restaurant":
-				case "cafe":
-					return BuildingMaterial.GetDefaultMaterial(MaterialType.Brick);
-			}
-		}
+    // ---------- SAFETY HELPERS ----------
 
-		// Height-based fallback
-		float height = GetBuildingHeight(properties);
-		if (height > 50f)
-			return BuildingMaterial.GetDefaultMaterial(MaterialType.Metal);     // High-rise
-		else if (height > 20f)
-			return BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete); // Mid-rise
-		else
-			return BuildingMaterial.GetDefaultMaterial(MaterialType.Brick);    // Low-rise
-	}
+    private static bool IsUsableMesh(Mesh mesh)
+    {
+        if (mesh == null) return false;
+        if (mesh.vertexCount < 3) return false;
 
-	private void SetBuildingProperties(Building building, Dictionary<string, object> properties)
-	{
-		float height = GetBuildingHeight(properties);
-		building.height = height;
+        // Check for non-finite vertices
+        var v = mesh.vertices;
+        for (int i = 0; i < v.Length; i++)
+        {
+            if (!float.IsFinite(v[i].x) || !float.IsFinite(v[i].y) || !float.IsFinite(v[i].z))
+                return false;
+        }
 
-		if (properties.ContainsKey("building:levels"))
-		{
-			if (int.TryParse(properties["building:levels"].ToString(), out int levels))
-			{
-				building.floors = levels;
-			}
-			else
-			{
-				building.floors = Mathf.Max(1, Mathf.RoundToInt(height / 3f));
-			}
-		}
-		else
-		{
-			building.floors = Mathf.Max(1, Mathf.RoundToInt(height / 3f));
-		}
-	}
+        // Optionally skip extremely tiny/zero-area meshes
+        var b = mesh.bounds;
+        if (!IsFinite(b.center) || !IsFinite(b.extents)) return false;
+        if (b.extents.sqrMagnitude < 1e-6f) return false;
 
-	private float GetBuildingHeight(Dictionary<string, object> properties)
-	{
-		if (properties.ContainsKey("height"))
-		{
-			if (float.TryParse(properties["height"].ToString(), out float height))
-			{
-				return height;
-			}
-		}
+        return true;
+    }
 
-		if (properties.ContainsKey("building:levels"))
-		{
-			if (int.TryParse(properties["building:levels"].ToString(), out int levels))
-			{
-				return levels * 3f; // 3 meters per level
-			}
-		}
+    private static bool IsFinite(Vector3 p) =>
+        float.IsFinite(p.x) && float.IsFinite(p.y) && float.IsFinite(p.z);
 
-		return 10f; // Default height
-	}
+    // -------- Deterministic selection --------
+
+    private BuildingMaterial DetermineMaterialDeterministic(
+        Dictionary<string, object> props, UnityTile tile, GameObject go, string key)
+    {
+        // 1) If OSM has an explicit "building:material", map it directly.
+        if (TryMapOsmMaterial(props, out var explicitMat))
+            return explicitMat;
+
+        // 2) If OSM has "building" type, use type-specific weighted distributions.
+        string bType = TryGetStr(props, "building");
+        float height = GetBuildingHeight(props, go);
+
+        var rnd = new System.Random(StableHash(worldSeed, key));
+
+        if (!string.IsNullOrEmpty(bType))
+        {
+            switch (bType.ToLowerInvariant())
+            {
+                case "residential":
+                case "house":
+                case "apartments":
+                    return WeightedPick(rnd, new (BuildingMaterial mat, float w)[] {
+                        (brick ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),     0.55f),
+                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.35f),
+                        (wood ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Wood),       0.10f),
+                    });
+
+                case "commercial":
+                case "office":
+                case "retail":
+                    return WeightedPick(rnd, new[] {
+                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.50f),
+                        (glass    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Glass),    0.30f),
+                        (metal    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Metal),    0.20f),
+                    });
+
+                case "industrial":
+                case "warehouse":
+                case "factory":
+                    return WeightedPick(rnd, new[] {
+                        (metal    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Metal),    0.60f),
+                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.30f),
+                        (brick    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),    0.10f),
+                    });
+
+                // schools/hospitals/universities lean concrete/glass
+                case "school":
+                case "hospital":
+                case "university":
+                    return WeightedPick(rnd, new[] {
+                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.70f),
+                        (glass    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Glass),    0.30f),
+                    });
+            }
+        }
+
+        // 3) Height-based fallback (still weighted, more glass/metal when taller)
+        if (height > 50f)
+            return WeightedPick(rnd, new[] {
+                (metal    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Metal),    0.45f),
+                (glass    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Glass),    0.35f),
+                (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.20f),
+            });
+        if (height > 20f)
+            return WeightedPick(rnd, new[] {
+                (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.55f),
+                (glass    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Glass),    0.25f),
+                (brick    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),    0.20f),
+            });
+
+        // Low-rise default
+        return WeightedPick(rnd, new[] {
+            (brick    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),    0.60f),
+            (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.30f),
+            (wood     ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Wood),     0.10f),
+        });
+    }
+
+    private static BuildingMaterial WeightedPick(System.Random rnd, (BuildingMaterial mat, float w)[] items)
+    {
+        float total = items.Sum(i => i.w);
+        double r = rnd.NextDouble() * total;
+        double cum = 0;
+        foreach (var i in items)
+        {
+            cum += i.w;
+            if (r <= cum) return i.mat;
+        }
+        return items[^1].mat;
+    }
+
+    private static bool TryMapOsmMaterial(Dictionary<string, object> props, out BuildingMaterial mat)
+    {
+        mat = null;
+        if (props.TryGetValue("building:material", out var v))
+        {
+            string m = v.ToString().ToLowerInvariant();
+            switch (m)
+            {
+                case "brick": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Brick); break;
+                case "concrete": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete); break;
+                case "metal": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Metal); break;
+                case "glass": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Glass); break;
+                case "wood": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Wood); break;
+            }
+        }
+        return mat != null;
+    }
+
+    private static string BuildStableKey(Dictionary<string, object> props, UnityTile tile, GameObject go)
+    {
+        // Prefer OSM ids if present
+        string id =
+            TryGetStr(props, "id") ??
+            TryGetStr(props, "osm_id") ??
+            TryGetStr(props, "@id"); // Some extracts use @id
+
+        if (!string.IsNullOrEmpty(id))
+            return $"osm:{id}";
+
+        // Fallback: tile + quantized position (stable enough for extrusions)
+        var uid = tile?.UnwrappedTileId.ToString();
+        var p = go.transform.position;
+        // Quantize to decimeters to avoid float noise
+        int qx = Mathf.RoundToInt(p.x * 10f);
+        int qz = Mathf.RoundToInt(p.z * 10f);
+        int qy = Mathf.RoundToInt(p.y * 10f);
+        return $"tile:{uid}|pos:{qx},{qy},{qz}";
+    }
+
+    private static string TryGetStr(Dictionary<string, object> props, string key)
+        => props.TryGetValue(key, out var v) ? v?.ToString() : null;
+
+    private static int StableHash(int worldSeed, string s)
+    {
+        // FNV-1a 32-bit with worldSeed mixed in → deterministic across runs/platforms
+        unchecked
+        {
+            uint hash = 2166136261u ^ (uint)worldSeed;
+            for (int i = 0; i < s.Length; i++)
+            {
+                hash ^= s[i];
+                hash *= 16777619;
+            }
+            return (int)hash;
+        }
+    }
+
+    // --------- Reuse your existing property helpers ---------
+
+    private void SetBuildingProperties(Building b, Dictionary<string, object> props, GameObject go)
+    {
+        float height = GetBuildingHeight(props, go);
+        b.height = height;
+
+        if (props.TryGetValue("building:levels", out var lv) && int.TryParse(lv.ToString(), out var levels))
+            b.floors = Mathf.Max(1, levels);
+        else
+            b.floors = Mathf.Max(1, Mathf.RoundToInt(height / 3f));
+    }
+
+    private float GetBuildingHeight(Dictionary<string, object> props, GameObject go)
+    {
+        if (props.TryGetValue("height", out var hv) && float.TryParse(hv.ToString(), out var h))
+            return Mathf.Max(1f, h);
+
+        if (props.TryGetValue("building:levels", out var lv) && int.TryParse(lv.ToString(), out var levels))
+            return Mathf.Max(1f, levels * 3f);
+
+        var mr = go.GetComponent<Renderer>();
+        if (mr != null)
+        {
+            var b = mr.bounds;
+            if (IsFinite(b.center) && IsFinite(b.extents))
+            {
+                var y = b.size.y;
+                if (float.IsFinite(y) && y > 0.1f) return y;
+            }
+        }
+        return 10f; // sensible default
+    }
 }

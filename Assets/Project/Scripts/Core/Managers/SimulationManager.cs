@@ -195,11 +195,11 @@ namespace RFSimulation.Core
             }
         }
 
-        public void SetConnectionStrategy(string strategyName)
+        public void SetConnectionStrategy(StrategyType strategyType)
         {
             if (connectionManager != null)
             {
-                connectionManager.SetStrategy(strategyName);
+                connectionManager.SetConnectionStrategy(strategyType);
             }
         }
 

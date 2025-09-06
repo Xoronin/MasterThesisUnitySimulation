@@ -9,7 +9,6 @@ namespace RFSimulation.Environment
         public BuildingMaterial material;
         public float height;
         public int floors;
-        public string buildingType;
         public string buildingMaterial;
 
         [Header("RF Properties")]

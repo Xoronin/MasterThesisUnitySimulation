@@ -12,6 +12,7 @@ namespace RFSimulation.Connections
     {
         public string StrategyName => "Load Balanced";
         public string Description => "Distributes users across transmitters to prevent congestion";
+        public StrategyType StrategyType => StrategyType.LoadBalanced;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
         {
@@ -31,7 +32,7 @@ namespace RFSimulation.Connections
                     if (signal > settings.minimumSignalThreshold)
                     {
                         // Calculate load balancing metric
-                        int currentLoad = transmitter.GetConnectedReceiverCount();
+                        int currentLoad = transmitter.GetConnectionCount();
                         float loadPenalty = currentLoad * 5f; // 5dB penalty per connected user
 
                         // Apply handover margin to current serving cell
@@ -77,7 +78,7 @@ namespace RFSimulation.Connections
                 if (settings.enableDebugLogs && bestTx != null)
                 {
                     Debug.Log($"[LoadBalanced] {receiver.uniqueID} → {bestTx.uniqueID}: " +
-                             $"Signal={receiver.currentSignalStrength:F1}dBm, Load={bestTx.GetConnectedReceiverCount()}");
+                             $"Signal={receiver.currentSignalStrength:F1}dBm, Load={bestTx.GetConnectionCount()}");
                 }
             }
         }

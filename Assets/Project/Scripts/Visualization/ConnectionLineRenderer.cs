@@ -105,8 +105,8 @@ namespace RFSimulation.Visualization
 
             // Set color based on signal quality
             Color lineColor = GetSignalQualityColor(signalStrength, sensitivity);
-            line.startColor = lineColor;
-            line.endColor = lineColor;
+            line.material.SetColor("_BaseColor", lineColor);
+            line.material.SetColor("_BaseColor", lineColor);
 
             // Store the connection
             activeLines[connectionId] = line;
@@ -120,8 +120,8 @@ namespace RFSimulation.Visualization
                 line.SetPosition(1, endPos);
 
                 Color lineColor = GetSignalQualityColor(signalStrength, sensitivity);
-                line.startColor = lineColor;
-                line.endColor = lineColor;
+                line.material.SetColor("_BaseColor", lineColor);
+                line.material.SetColor("_BaseColor", lineColor);
             }
         }
 
@@ -287,8 +287,13 @@ namespace RFSimulation.Visualization
 
         private Material CreateDefaultMaterial()
         {
-            Material mat = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
-            mat.color = Color.white;
+            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetFloat("_Surface", 1); // Transparent
+            mat.SetFloat("_Blend", 0);   // Alpha blend
+            mat.SetFloat("_ZWrite", 0);  // Disable depth writes
+            mat.SetInt("_Cull", 2);      // Backface culling
+            mat.renderQueue = 3000;
+            mat.SetColor("_BaseColor", Color.white);
             return mat;
         }
 

@@ -9,20 +9,22 @@ namespace RFSimulation.Connections
     /// </summary>
     public class ConnectionManager : MonoBehaviour
     {
-        public enum StrategyType
-        {
-            StrongestSignal,
-            BestServerWithInterference,  // Your existing strategy
-            LoadBalanced,
-            QualityFirst,
-            EmergencyCoverage,
-            NearestTransmitter
-        }
+        [Header("Connection Settings")]
+        public ConnectionSettings settings = new ConnectionSettings();
+
+        [Header("Performance")]
+        public float updateInterval = 1f;
+        private float lastUpdateTime = 0f;
 
         [Header("Strategy Selection")]
-        public StrategyType currentStrategyType = StrategyType.StrongestSignalStrategy;
+        public StrategyType currentStrategyType = StrategyType.StrongestSignal;
+
+        // Events for UI updates
+        public System.Action<int, int> OnConnectionsUpdated; // (totalConnections, totalReceivers)
+        public System.Action<string> OnStrategyChanged;
 
         private Dictionary<StrategyType, IConnectionStrategy> strategies;
+        public IConnectionStrategy strategy;
 
         private void InitializeStrategies()
         {
@@ -97,6 +99,8 @@ namespace RFSimulation.Connections
 
         public void SetConnectionStrategy(StrategyType strategyType)
         {
+            if (strategies == null) InitializeStrategies();
+
             currentStrategyType = strategyType;
             strategy = strategies[strategyType];
 
@@ -104,6 +108,8 @@ namespace RFSimulation.Connections
             {
                 Debug.Log($"[ConnectionManager] Strategy changed to: {strategy.StrategyName}");
             }
+
+            OnStrategyChanged?.Invoke(strategy.StrategyName);
 
             // Force immediate update with new strategy
             UpdateAllConnections();
@@ -119,12 +125,25 @@ namespace RFSimulation.Connections
             return strategyNames;
         }
 
+        public void SetStrategy(int strategyIndex)
+        {
+            if (strategyIndex >= 0 && strategyIndex < System.Enum.GetValues(typeof(StrategyType)).Length)
+            {
+                SetConnectionStrategy((StrategyType)strategyIndex);
+            }
+        }
+
 
         // Public getters for UI
 
         public string GetCurrentStrategyDescription()
         {
             return strategy?.Description ?? "No strategy selected";
+        }
+
+        public StrategyType GetCurrentStrategy()
+        {
+            return currentStrategyType;
         }
 
         public string GetCurrentStrategyName()

@@ -12,6 +12,7 @@ namespace RFSimulation.Connections
     {
         public string StrategyName => "Best Server With Interference";
         public string Description => "Connects to the best server and applies interference with others";
+        public StrategyType StrategyType => StrategyType.BestServerWithInterference;
 
         public void UpdateConnections(
             List<Transmitter> transmitters,
