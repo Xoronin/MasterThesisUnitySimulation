@@ -133,8 +133,8 @@ namespace RFSimulation.Propagation.PathLoss
             float linkBudget = txPower + txGain - (sensitivity + connectionMargin);
 
             // Use path loss model parameters directly (no randomness)
-            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENTS[baseContext.Environment];
-            float referenceDistance = RFConstants.REFERENCE_DISTANCES[baseContext.Environment];
+            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
+            float referenceDistance = RFConstants.REFERENCE_DISTANCE;
 
             // Calculate reference path loss at reference distance (typically 100m)
             float referenceLoss = CalculateReferencePathLoss(frequency, referenceDistance);
@@ -159,7 +159,7 @@ namespace RFSimulation.Propagation.PathLoss
             coverageRadius = Mathf.Clamp(coverageRadius, 50f, 5000f);
 
             // Apply environment-specific reduction factors (deterministic)
-            float environmentFactor = GetEnvironmentCoverageFactor(baseContext.Environment);
+            float environmentFactor = 0.75f;
             coverageRadius *= environmentFactor;
 
             return coverageRadius;
@@ -171,17 +171,6 @@ namespace RFSimulation.Propagation.PathLoss
             // FSPL = 20*log10(d) + 20*log10(f) + 32.45 (d in km, f in MHz)
             float distanceKm = referenceDistance / 1000f;
             return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
-        }
-
-        private float GetEnvironmentCoverageFactor(EnvironmentType environment)
-        {
-            // Deterministic environment factors (no randomness)
-            return environment switch
-            {
-                EnvironmentType.FreeSpace => 0.95f,  // 5% reduction for minor obstacles
-                EnvironmentType.Urban => 0.75f,      // 25% reduction for buildings/obstacles
-                _ => 0.85f                           // Default reduction
-            };
         }
 
         /// Validate model selection against established criteria
@@ -201,12 +190,11 @@ namespace RFSimulation.Propagation.PathLoss
             Debug.Log($"TX Gain: {context.AntennaGainDbi:F1} dBi");
             Debug.Log($"Frequency: {context.FrequencyMHz:F0} MHz");
             Debug.Log($"Sensitivity: {context.ReceiverSensitivityDbm:F1} dBm");
-            Debug.Log($"Environment: {context.Environment}");
 
             float linkBudget = context.TransmitterPowerDbm + context.AntennaGainDbi - (context.ReceiverSensitivityDbm + 10f);
             Debug.Log($"Link Budget: {linkBudget:F1} dB");
 
-            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENTS[context.Environment];
+            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
             Debug.Log($"Path Loss Exponent: {pathLossExponent:F1}");
 
             float coverage = EstimateCoverageRadius(context);

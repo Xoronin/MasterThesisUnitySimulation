@@ -12,8 +12,7 @@
             "powerDbm": 40.0,
             "antennaGain": 12.0,
             "frequencyMHz": 2400.0,
-            "propagationModel": 0,
-            "environmentType": 1
+            "propagationModel": 0
         }
     ],
     "receiverPositions": [
@@ -262,13 +261,11 @@
         }
     ],
     "propagationModel": 0,
-    "environmentType": 1,
     "settings": {
         "minimumSignalThreshold": -110.0,
         "connectionMargin": 10.0,
         "handoverMargin": 3.0,
         "enableDebugLogs": false,
-        "showConnections": true,
-        "showCoverage": false
+        "showConnections": true
     }
 }

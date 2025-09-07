@@ -1,9 +1,10 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using RFSimulation.Core;
-using RFSimulation.Connections;
 using System.Collections.Generic;
+using RFSimulation.Core.Components;
+using RFSimulation.Core.Managers;
+using RFSimulation.Core.Connections;
 
 public class UIControls : MonoBehaviour
 {
@@ -31,14 +32,12 @@ public class UIControls : MonoBehaviour
     [Header("Parameter Inputs")]
     public InputField transmitterPowerInput;
     public InputField transmitterFrequencyInput;
-    public InputField transmitterCoverageInput;
     public Dropdown receiverTechnologyDropdown; 
     public InputField receiverSensitivityInput;
 
     [Header("Toggle Controls")]
     public Toggle showConnectionsToggle;
     public Toggle showGridToggle;
-    public Toggle showCoverageToggle; 
 
     [Header("Status and Speed")]
     public Text statusText;
@@ -149,9 +148,6 @@ public class UIControls : MonoBehaviour
         if (showConnectionsToggle != null)
             showConnectionsToggle.onValueChanged.AddListener(ToggleConnections);
 
-        if (showCoverageToggle != null) // NEW
-            showCoverageToggle.onValueChanged.AddListener(ToggleCoverage);
-
         if (speedSlider != null)
             speedSlider.onValueChanged.AddListener(OnSpeedChanged);
 
@@ -205,7 +201,7 @@ public class UIControls : MonoBehaviour
     {
         if (receiverTechnologyDropdown != null)
         {
-            var technologies = new List<string> { "5G", "LTE", "WiFi", "WiFi6", "IoT", "Emergency" };
+            var technologies = new List<string> { "5G", "LTE" };
             receiverTechnologyDropdown.ClearOptions();
             receiverTechnologyDropdown.AddOptions(technologies);
             receiverTechnologyDropdown.value = 0; // Default to 5G
@@ -216,7 +212,6 @@ public class UIControls : MonoBehaviour
     {
         if (showConnectionsToggle != null) showConnectionsToggle.isOn = true;
         if (showGridToggle != null) showGridToggle.isOn = true;
-        if (showCoverageToggle != null) showCoverageToggle.isOn = false;
         if (speedSlider != null) speedSlider.value = 1f;
         if (saveScenarioNameInput != null) saveScenarioNameInput.text = "New Scenario";
 
@@ -594,7 +589,6 @@ public class UIControls : MonoBehaviour
                 transmitterComponent.frequency = freq;
 
             transmitterComponent.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
-            transmitterComponent.showCoverageArea = showCoverageToggle != null ? showCoverageToggle.isOn : false;
 
             UpdateStatusText($"Transmitter placed: {transmitterComponent.transmitterPower:F1}dBm, {transmitterComponent.frequency:F0}MHz at {position}");
         }
@@ -653,29 +647,12 @@ public class UIControls : MonoBehaviour
             {
                 if (transmitter != null)
                 {
-                    transmitter.ToggleConnections(enabled);
+                    transmitter.ToggleVisualization(enabled);
                 }
             }
         }
 
         UpdateStatusText($"Connections {(enabled ? "enabled" : "disabled")}");
-    }
-
-    // NEW: Toggle coverage areas
-    public void ToggleCoverage(bool enabled)
-    {
-        if (SimulationManager.Instance != null)
-        {
-            foreach (var transmitter in SimulationManager.Instance.transmitters)
-            {
-                if (transmitter != null)
-                {
-                    transmitter.ToggleCoverageArea(enabled);
-                }
-            }
-        }
-
-        UpdateStatusText($"Coverage areas {(enabled ? "enabled" : "disabled")}");
     }
 
     public void TogglePauseResume()
@@ -762,9 +739,6 @@ public class UIControls : MonoBehaviour
 
             if (showConnectionsToggle != null)
                 showConnectionsToggle.isOn = scenario.settings.showConnections;
-
-            if (showCoverageToggle != null)
-                showCoverageToggle.isOn = scenario.settings.showCoverage;
         }
     }
 
@@ -781,9 +755,6 @@ public class UIControls : MonoBehaviour
 
         if (showConnectionsToggle != null)
             settings.showConnections = showConnectionsToggle.isOn;
-
-        if (showCoverageToggle != null)
-            settings.showCoverage = showCoverageToggle.isOn;
 
         return settings;
     }

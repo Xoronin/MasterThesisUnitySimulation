@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Core;
+using RFSimulation.Core.Components;
+using RFSimulation.Core.Managers;
 
 namespace RFSimulation.Utils
 {
@@ -97,7 +99,7 @@ namespace RFSimulation.Utils
 
         private void CreateDefaultHighlightMaterial()
         {
-            defaultHighlightMaterial = new Material(Shader.Find("Standard"));
+            defaultHighlightMaterial = new Material(Shader.Find("Lit"));
             defaultHighlightMaterial.color = highlightColor;
             defaultHighlightMaterial.SetFloat("_Mode", 2); // Fade mode
             defaultHighlightMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
@@ -214,7 +216,7 @@ namespace RFSimulation.Utils
             if (index < 0 || index >= transmitters.Count) return;
 
             var transmitter = transmitters[index];
-            SelectObject(transmitter.gameObject, "Transmitter", transmitter.GetStatusText());
+            SelectObject(transmitter.gameObject, "Transmitter", GetTransmitterStatusText(transmitter));
         }
 
         private void SelectReceiver(int index)
@@ -248,11 +250,20 @@ namespace RFSimulation.Utils
             Debug.Log($"Selected {objectType}: {obj.name} at {obj.transform.position}");
         }
 
-        #endregion
+		private string GetTransmitterStatusText(Transmitter tx)
+		{
+			return $"Power: {tx.transmitterPower:F1} dBm\n" +
+				   $"Gain: {tx.antennaGain:F1} dBi\n" +
+				   $"Frequency: {tx.frequency:F0} MHz\n" +
+				   $"Model: {tx.propagationModel}\n" +
+				   $"Connections: {tx.GetConnectionCount()}";
+		}
 
-        #region Highlighting System
+		#endregion
 
-        private void ApplyHighlight(GameObject obj)
+		#region Highlighting System
+
+		private void ApplyHighlight(GameObject obj)
         {
             var renderer = obj.GetComponent<Renderer>();
             if (renderer == null) return;

@@ -7,31 +7,6 @@ namespace RFSimulation.Environment
 {
     public static class EnvironmentAnalyzer
     {
-        public static EnvironmentType DetermineEnvironment(PropagationContext context)
-        {
-            // Auto-detect environment based on context
-            if (context.BuildingLayers.HasValue)
-            {
-                // Check building density
-                float buildingDensity = CalculateBuildingDensity(context);
-
-                if (buildingDensity > 0.3f) return EnvironmentType.Urban;
-            }
-
-            return EnvironmentType.FreeSpace;
-        }
-
-        public static float GetEnvironmentFactor(EnvironmentType environment, float frequency)
-        {
-            // Frequency-dependent environment factors
-            return environment switch
-            {
-                EnvironmentType.Urban => GetUrbanFactor(frequency),
-                EnvironmentType.FreeSpace => 1.0f,
-                _ => 1.0f
-            };
-        }
-
         private static float CalculateBuildingDensity(PropagationContext context)
         {
             if (!context.BuildingLayers.HasValue)
@@ -55,7 +30,7 @@ namespace RFSimulation.Environment
             return Mathf.Clamp01(totalBuildingArea / sampleArea);
         }
 
-        private static float GetUrbanFactor(float frequencyMHz)
+        private static float GetEnvironmentFactor(float frequencyMHz)
         {
             // Higher frequencies suffer more in urban environments
             if (frequencyMHz > 2000f) return 1.3f;  // 5G frequencies

@@ -2,6 +2,7 @@ using UnityEngine;
 using RFSimulation.Core;
 using RFSimulation.Interfaces;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Propagation.PathLoss.Models;
 
 /// <summary>
 /// COST-231 Hata Model - Extension for higher frequencies (1500-2000 MHz)
@@ -13,9 +14,11 @@ public class COST231HataModel : IPathLossModel
     public float Calculate(PropagationContext context)
     {
         // Validate parameters
-        if (!IsValidForCOST231(context, out string warning))
+        if (!IsValidForCOST231(context))
         {
-            Debug.LogWarning($"COST-231 Hata Model: {warning}");
+            // Fallback to free space for frequencies outside range
+            var freeSpace = new FreeSpaceModel();
+            return freeSpace.Calculate(context) - 10f; // Add 10dB urban penalty
         }
 
         // Extract parameters
@@ -23,6 +26,12 @@ public class COST231HataModel : IPathLossModel
         float receiverHeight = context.ReceiverPosition.y;
         float frequency = context.FrequencyMHz;              // fc (MHz)
         float distance = context.Distance / 1000f;          // d (km) - Hata uses kilometers
+
+        if (receiverHeight <= 0 || tansmitterHeight <= 0 || distance <= 0)
+        {
+            Debug.LogError("COST231: Invalid input parameters");
+            return float.NegativeInfinity;
+        }
 
         // Ensure minimum distance
         distance = Mathf.Max(distance, 1f);
@@ -50,6 +59,12 @@ public class COST231HataModel : IPathLossModel
                             0f - // Mobile antenna gain
                             pathLoss;
 
+        if (!float.IsFinite(pathLoss))
+        {
+            Debug.LogError($"COST231: Invalid path loss calculation: {pathLoss}");
+            return float.NegativeInfinity;
+        }
+
         return receivedPower;
     }
 
@@ -60,26 +75,10 @@ public class COST231HataModel : IPathLossModel
         return (1.1f * logFreq - 0.7f) * receiverHeight - (1.56f * logFreq - 0.8f);
     }
 
-    private bool IsValidForCOST231(PropagationContext context, out string warning)
+    private bool IsValidForCOST231(PropagationContext context)
     {
-        warning = "";
-        bool isValid = true;
-
-        // Extended frequency range: 1500 - 2000 MHz
-        if (context.FrequencyMHz < 1500f || context.FrequencyMHz > 2000f)
-        {
-            warning += $"Frequency {context.FrequencyMHz}MHz outside COST-231 range (1500-2000MHz). ";
-            isValid = false;
-        }
-
-        // Same distance and height ranges as original Hata
         float distanceKm = context.Distance / 1000f;
-        if (distanceKm < 1f || distanceKm > 20f)
-        {
-            warning += $"Distance {distanceKm:F1}km outside valid range (1-20km). ";
-            isValid = false;
-        }
-
-        return isValid;
+        return context.FrequencyMHz >= 1500f && context.FrequencyMHz <= 2000f &&
+               distanceKm >= 1f && distanceKm <= 20f;
     }
 }

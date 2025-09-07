@@ -34,7 +34,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
 			float phaseDifference = (2 * Mathf.PI * pathDifference) / wavelength;
 
 			// Ground reflection coefficient (depends on ground material and polarization)
-			float reflectionCoefficient = GetGroundReflectionCoefficient(context.Environment);
+			float reflectionCoefficient = -0.9f;
 
 			// Calculate field components
 			float directFieldMagnitude = 1.0f / directDistance;
@@ -58,14 +58,5 @@ namespace RFSimulation.Propagation.PathLoss.Models
 			return receivedPower;
 		}
 
-		private float GetGroundReflectionCoefficient(EnvironmentType environment)
-		{
-			return environment switch
-			{
-				EnvironmentType.Urban => -0.9f,      // Concrete/asphalt
-				EnvironmentType.FreeSpace => -0.7f,  // Dry ground
-				_ => -0.8f                           // Default
-			};
-		}
 	}
 }

@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using RFSimulation.Propagation;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Core.Connections;
+using RFSimulation.Core.Components;
 
 namespace RFSimulation.Data
 {
@@ -24,9 +26,6 @@ namespace RFSimulation.Data
         [Header("Default Propagation")]
         [Tooltip("Default propagation model for new transmitters")]
         public PropagationModel defaultPropagationModel = PropagationModel.LogDistance;
-
-        [Tooltip("Default environment type")]
-        public EnvironmentType defaultEnvironment = EnvironmentType.Urban;
 
         [Header("Signal Thresholds")]
         [Tooltip("Minimum signal threshold in dBm")]
@@ -121,9 +120,9 @@ namespace RFSimulation.Data
         /// <summary>
         /// Create connection settings from this configuration
         /// </summary>
-        public Connections.ConnectionSettings CreateConnectionSettings()
+        public ConnectionSettings CreateConnectionSettings()
         {
-            return new Connections.ConnectionSettings
+            return new ConnectionSettings
             {
                 minimumSignalThreshold = minimumSignalThreshold,
                 connectionMargin = connectionMargin,
@@ -211,7 +210,6 @@ namespace RFSimulation.Data
 
             // Propagation
             defaultPropagationModel = PropagationModel.LogDistance;
-            defaultEnvironment = EnvironmentType.Urban;
 
             // Thresholds
             minimumSignalThreshold = -110f;

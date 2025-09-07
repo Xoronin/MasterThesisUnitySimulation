@@ -18,9 +18,25 @@ public class RFBuildingModifier : GameObjectModifier
     public BuildingMaterial glass;
     public BuildingMaterial wood;
 
+    [Header("RF Simulation Configuration")]
+    [Tooltip("Layer for RF ray tracing (default: 8 = Buildings)")]
+    public int rfBuildingLayer = 8;
+
+    [Tooltip("Tag for building identification")]
+    public string rfBuildingTag = "Building";
+
+    [Tooltip("Enable RF Building component and collider setup")]
+    public bool enableRFSimulation = true;
+
+    [Tooltip("Use MeshCollider for accurate ray tracing")]
+    public bool useMeshCollider = true;
+
     [Header("Determinism")]
     [Tooltip("Global seed so the same city gets the same assignments every run.")]
     public int worldSeed = 123456;
+
+    [Header("Debug")]
+    public bool enableDebugLogs = false;
 
     // Optional: cache within a session (helps if Mapbox re-spawns tiles during panning/zoom)
     private static readonly Dictionary<string, BuildingMaterial> _assignedCache = new();
@@ -37,6 +53,11 @@ public class RFBuildingModifier : GameObjectModifier
             // Skip collider & material assignment for broken/degenerate features
             // (you can still keep visual mesh, or early-return to skip everything)
             return;
+        }
+
+        if (enableRFSimulation)
+        {
+            SetupRFSimulation(go, mesh);
         }
 
         // Ensure RF Building component exists
@@ -68,6 +89,74 @@ public class RFBuildingModifier : GameObjectModifier
             mc.convex = false;
             mc.cookingOptions = MeshColliderCookingOptions.EnableMeshCleaning |
                                 MeshColliderCookingOptions.CookForFasterSimulation;
+        }
+    }
+
+    /// <summary>
+    /// Sets up the GameObject for RF simulation - layer, tag, and collider
+    /// </summary>
+    private void SetupRFSimulation(GameObject go, Mesh mesh)
+    {
+        // Set layer for RF ray tracing
+        go.layer = rfBuildingLayer;
+
+        // Set tag for building identification
+        try
+        {
+            go.tag = rfBuildingTag;
+        }
+        catch (UnityException)
+        {
+            // Tag doesn't exist - log warning but continue
+            if (enableDebugLogs)
+                Debug.LogWarning($"[RFBuildingModifier] Tag '{rfBuildingTag}' doesn't exist. " +
+                               "Create it in Project Settings > Tags and Layers");
+        }
+
+        // Ensure proper collider for RF ray tracing
+        SetupRFCollider(go, mesh);
+    }
+
+    /// Sets up the appropriate collider for RF ray tracing
+    /// </summary>
+    private void SetupRFCollider(GameObject go, Mesh mesh)
+    {
+        var existingCollider = go.GetComponent<Collider>();
+
+        if (existingCollider == null)
+        {
+            if (useMeshCollider && mesh != null)
+            {
+                // MeshCollider for accurate ray tracing
+                var mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = mesh;
+                mc.convex = false; // More accurate for ray casting
+                mc.isTrigger = false; // Important for RF simulation
+                mc.cookingOptions = MeshColliderCookingOptions.EnableMeshCleaning |
+                                   MeshColliderCookingOptions.CookForFasterSimulation;
+
+                if (enableDebugLogs)
+                    Debug.Log($"[RFBuildingModifier] Added MeshCollider to {go.name}");
+            }
+            else
+            {
+                // BoxCollider fallback (faster but less accurate)
+                var bc = go.AddComponent<BoxCollider>();
+                bc.isTrigger = false;
+
+                if (enableDebugLogs)
+                    Debug.Log($"[RFBuildingModifier] Added BoxCollider to {go.name}");
+            }
+        }
+        else
+        {
+            // Ensure existing collider is configured for RF simulation
+            if (existingCollider.isTrigger)
+            {
+                existingCollider.isTrigger = false;
+                if (enableDebugLogs)
+                    Debug.Log($"[RFBuildingModifier] Disabled trigger on existing collider for {go.name}");
+            }
         }
     }
 

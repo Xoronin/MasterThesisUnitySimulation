@@ -1,7 +1,6 @@
 {
   "scenarioName": "Dense Urban 5G Network",
   "propagationModel": 2,
-  "environmentType": 1,
   "transmitters": [
     {
       "position": {

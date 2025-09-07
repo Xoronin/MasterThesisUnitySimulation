@@ -12,8 +12,8 @@ namespace RFSimulation.Propagation.PathLoss.Models
         public float Calculate(PropagationContext context)
         {
             float distance = context.Distance;
-            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENTS[context.Environment];
-            float referenceDistance = RFConstants.REFERENCE_DISTANCES[context.Environment];
+            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
+            float referenceDistance = RFConstants.REFERENCE_DISTANCE;
 
             // Ensure minimum distance
             distance = Mathf.Max(distance, RFConstants.MIN_DISTANCE);
@@ -32,13 +32,8 @@ namespace RFSimulation.Propagation.PathLoss.Models
             float pathLoss = referenceLoss + 10f * pathLossExponent * Mathf.Log10(distanceRatio);
 
             // Add log-normal shadowing (optional) - THIS IS THE LIKELY CULPRIT
-            if (context.Environment != EnvironmentType.FreeSpace)
-            {
-                float shadowingStdDev = GetShadowingStdDev(context.Environment);
-                float shadowing = SampleGaussianSafe(0f, shadowingStdDev);
-
-                pathLoss += shadowing;
-            }
+            float shadowing = SampleGaussianSafe(0f, 4f);
+            pathLoss += shadowing;
 
             float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - pathLoss;
 
@@ -49,15 +44,6 @@ namespace RFSimulation.Propagation.PathLoss.Models
             }
 
             return receivedPower;
-        }
-
-        private float GetShadowingStdDev(EnvironmentType environment)
-        {
-            return environment switch
-            {
-                EnvironmentType.Urban => 8f,
-                _ => 4f
-            };
         }
 
         // FIXED: Safe Gaussian sampling that avoids log(0) = -infinity
@@ -77,7 +63,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
             float result = mean + stdDev * randStdNormal;
 
             // Clamp the final result to reasonable bounds
-            result = Mathf.Clamp(result, -30f, 30f); // Limit shadowing to ±30dB
+            return Mathf.Clamp(result, -15f, 15f); // Limit shadowing to ±30dB
 
             return result;
         }

@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using RFSimulation.Core;
+using RFSimulation.Core.Components;
 
 namespace RFSimulation.UI
 {
@@ -136,13 +137,12 @@ namespace RFSimulation.UI
             info.AppendLine($"Frequency: {tx.frequency:F0} MHz");
             info.AppendLine($"Antenna Gain: {tx.antennaGain:F1} dBi");
             info.AppendLine($"Model: {tx.propagationModel}");
-            info.AppendLine($"Environment: {tx.environmentType}");
             info.AppendLine();
             info.AppendLine($"Active Connections: {tx.GetConnectionCount()}");
 
             // Calculate coverage once (since it's static)
             var context = RFSimulation.Propagation.Core.PropagationContext.Create(
-                tx.position, tx.position + Vector3.forward, tx.transmitterPower, tx.frequency);
+                tx.transform.position, tx.transform.position + Vector3.forward, tx.transmitterPower, tx.frequency);
             context.AntennaGainDbi = tx.antennaGain;
             context.ReceiverSensitivityDbm = -105f;
 

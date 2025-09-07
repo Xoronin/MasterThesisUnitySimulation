@@ -3,9 +3,11 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
-using RFSimulation.Core;
+using RFSimulation.Core.Managers;
+using RFSimulation.Propagation;
+using RFSimulation.Core.Connections;
+using RFSimulation.Core.Components;
 using RFSimulation.Propagation.Core;
-using RFSimulation.Connections;
 
 namespace RFSimulation.UI
 {
@@ -30,7 +32,6 @@ namespace RFSimulation.UI
         public Text scenarioDescriptionText;
         public Text equipmentCountText;
         public Text strategyText;
-        public Text environmentText;
 
         [Header("Quick Actions")]
         public Button refreshButton;
@@ -40,7 +41,6 @@ namespace RFSimulation.UI
         [Header("Scenario Configuration")]
         public Dropdown connectionStrategyDropdown;
         public Dropdown propagationModelDropdown;
-        public Dropdown environmentTypeDropdown;
         public Slider signalThresholdSlider;
         public Text signalThresholdLabel;
         public Toggle debugLogsToggle;
@@ -91,14 +91,6 @@ namespace RFSimulation.UI
                 var models = System.Enum.GetNames(typeof(PropagationModel)).ToList();
                 propagationModelDropdown.ClearOptions();
                 propagationModelDropdown.AddOptions(models);
-            }
-
-            // Initialize environment type dropdown
-            if (environmentTypeDropdown != null)
-            {
-                var environments = System.Enum.GetNames(typeof(EnvironmentType)).ToList();
-                environmentTypeDropdown.ClearOptions();
-                environmentTypeDropdown.AddOptions(environments);
             }
 
             // Initialize signal threshold slider
@@ -152,9 +144,6 @@ namespace RFSimulation.UI
 
             if (propagationModelDropdown != null)
                 propagationModelDropdown.onValueChanged.AddListener(OnPropagationModelChanged);
-
-            if (environmentTypeDropdown != null)
-                environmentTypeDropdown.onValueChanged.AddListener(OnEnvironmentTypeChanged);
 
             if (signalThresholdSlider != null)
                 signalThresholdSlider.onValueChanged.AddListener(OnSignalThresholdChanged);
@@ -327,23 +316,6 @@ namespace RFSimulation.UI
             UpdateScenarioDetails();
         }
 
-        private void OnEnvironmentTypeChanged(int index)
-        {
-            // Update all transmitters with new environment type
-            if (SimulationManager.Instance != null)
-            {
-                var environment = (EnvironmentType)index;
-                foreach (var transmitter in SimulationManager.Instance.transmitters)
-                {
-                    if (transmitter != null)
-                    {
-                        transmitter.environmentType = environment;
-                    }
-                }
-            }
-            UpdateScenarioDetails();
-        }
-
         private void OnSignalThresholdChanged(float value)
         {
             if (connectionManager != null)
@@ -420,12 +392,6 @@ namespace RFSimulation.UI
             {
                 strategyText.text = $"Strategy: {currentScenario.strategyName}";
             }
-
-            // Update environment
-            if (environmentText != null)
-            {
-                environmentText.text = $"Environment: {currentScenario.environmentType}";
-            }
         }
 
         private void UpdateConfigurationFromScenario(Scenario scenario)
@@ -462,10 +428,6 @@ namespace RFSimulation.UI
                 propagationModelDropdown.value = (int)scenario.propagationModel;
             }
 
-            if (environmentTypeDropdown != null)
-            {
-                environmentTypeDropdown.value = (int)scenario.environmentType;
-            }
         }
 
         private void ClearScenarioDetails()
@@ -478,9 +440,6 @@ namespace RFSimulation.UI
 
             if (strategyText != null)
                 strategyText.text = "Strategy: None";
-
-            if (environmentText != null)
-                environmentText.text = "Environment: None";
         }
 
         private void SetButtonsInteractable(bool interactable)
@@ -524,7 +483,6 @@ namespace RFSimulation.UI
             description.AppendLine($"Name: {scenario.scenarioName}");
             description.AppendLine($"Strategy: {scenario.strategyName}");
             description.AppendLine($"Propagation: {scenario.propagationModel}");
-            description.AppendLine($"Environment: {scenario.environmentType}");
 
             if (scenario.settings != null)
             {
@@ -549,8 +507,6 @@ namespace RFSimulation.UI
             if (propagationModelDropdown != null)
                 propagationModelDropdown.value = 1; // LogDistance
 
-            if (environmentTypeDropdown != null)
-                environmentTypeDropdown.value = 1; // Urban
         }
 
         private bool ConfirmDeletion(string scenarioName)

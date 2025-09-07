@@ -72,33 +72,23 @@ namespace RFSimulation.Testing
             Debug.Log("=== LOG DISTANCE PATH LOSS TEST ===");
             Debug.Log($"TX Power: {testTransmitterPower}dBm, Gain: {testAntennaGain}dBi, Freq: {testFrequency}MHz");
 
-            // Test different environments
-            EnvironmentType[] environments = {
-                EnvironmentType.FreeSpace,
-                EnvironmentType.Urban
-            };
+            Debug.Log("Distance(m) | Path Loss(dB) | RX Power(dBm) | Path Loss Exp | Reference Dist");
+            Debug.Log("-----------|---------------|---------------|--------------|---------------");
 
-            foreach (var env in environments)
+            foreach (float distance in testDistances)
             {
-                Debug.Log($"\n--- Environment: {env} ---");
-                Debug.Log("Distance(m) | Path Loss(dB) | RX Power(dBm) | Path Loss Exp | Reference Dist");
-                Debug.Log("-----------|---------------|---------------|--------------|---------------");
+                var context = CreateTestContext(distance);
 
-                foreach (float distance in testDistances)
-                {
-                    var context = CreateTestContext(distance);
-                    context.Environment = env;
+                float rxPower = logDistanceModel.Calculate(context);
+                float pathLoss = testTransmitterPower + testAntennaGain - rxPower;
 
-                    float rxPower = logDistanceModel.Calculate(context);
-                    float pathLoss = testTransmitterPower + testAntennaGain - rxPower;
+                // Get model parameters
+                float pathLossExp = RFConstants.PATH_LOSS_EXPONENT;
+				float refDistance = RFConstants.REFERENCE_DISTANCE;
 
-                    // Get model parameters
-                    float pathLossExp = GetPathLossExponent(env);
-                    float refDistance = GetReferenceDistance(env);
-
-                    Debug.Log($"{distance,10:F1} | {pathLoss,13:F2} | {rxPower,13:F2} | {pathLossExp,12:F1} | {refDistance,13:F1}");
-                }
+                Debug.Log($"{distance,10:F1} | {pathLoss,13:F2} | {rxPower,13:F2} | {pathLossExp,12:F1} | {refDistance,13:F1}");
             }
+            
         }
 
         [ContextMenu("Compare Models Side by Side")]
@@ -113,7 +103,6 @@ namespace RFSimulation.Testing
             {
                 var freeSpaceContext = CreateTestContext(distance);
                 var urbanContext = CreateTestContext(distance);
-                urbanContext.Environment = EnvironmentType.Urban;
 
                 float freeSpaceRx = freeSpaceModel.Calculate(freeSpaceContext);
                 float urbanRx = logDistanceModel.Calculate(urbanContext);
@@ -151,7 +140,6 @@ namespace RFSimulation.Testing
                 freq
             );
             context.AntennaGainDbi = gain;
-            context.Environment = EnvironmentType.FreeSpace;
 
             float calculatedRx = freeSpaceModel.Calculate(context);
             float error = calculatedRx - expectedRx;
@@ -194,82 +182,6 @@ namespace RFSimulation.Testing
             }
         }
 
-        [ContextMenu("Test Frequency Dependency")]
-        public void TestFrequencyDependency()
-        {
-            Debug.Log("=== FREQUENCY DEPENDENCY TEST ===");
-            Debug.Log("Testing FSPL frequency dependence (should increase with frequency)");
-
-            float[] frequencies = { 900f, 1800f, 2400f, 5800f, 28000f }; // MHz
-            float testDist = 1000f; // 1km
-
-            Debug.Log("Frequency(MHz) | FSPL(dB) | RX Power(dBm) | Change from 900MHz");
-            Debug.Log("-------------|----------|---------------|------------------");
-
-            float baselineFSPL = 0f;
-
-            for (int i = 0; i < frequencies.Length; i++)
-            {
-                var context = CreateTestContext(testDist);
-                context.FrequencyMHz = frequencies[i];
-
-                float rxPower = freeSpaceModel.Calculate(context);
-                float fspl = testTransmitterPower + testAntennaGain - rxPower;
-
-                if (i == 0) baselineFSPL = fspl;
-                float change = fspl - baselineFSPL;
-
-                Debug.Log($"{frequencies[i],12:F0} | {fspl,8:F1} | {rxPower,13:F1} | {change,17:F1}");
-            }
-        }
-
-        [ContextMenu("Manual Calculation Check")]
-        public void ManualCalculationCheck()
-        {
-            Debug.Log("=== MANUAL CALCULATION CHECK ===");
-
-            // Use simple round numbers for easy verification
-            float power = 30f; // dBm (1W)
-            float gain = 0f;   // dBi (isotropic)
-            float freq = 2400f; // MHz
-            float dist = 1000f; // m = 1km
-
-            Debug.Log($"Manual calculation for: {power}dBm, {gain}dBi, {freq}MHz, {dist}m");
-
-            // Step-by-step manual calculation
-            Debug.Log("\nStep-by-step calculation:");
-            Debug.Log($"1. Distance in km: {dist / 1000f}");
-            Debug.Log($"2. 20*log10(distance_km): {20f * Mathf.Log10(dist / 1000f):F2}");
-            Debug.Log($"3. 20*log10(frequency_MHz): {20f * Mathf.Log10(freq):F2}");
-            Debug.Log($"4. Constant (32.45): 32.45");
-
-            float fspl = 20f * Mathf.Log10(dist / 1000f) + 20f * Mathf.Log10(freq) + 32.45f;
-            float rxPower = power + gain - fspl;
-
-            Debug.Log($"5. Total FSPL: {fspl:F2}dB");
-            Debug.Log($"6. RX Power: {power} + {gain} - {fspl:F2} = {rxPower:F2}dBm");
-
-            // Compare with our model
-            var context = PropagationContext.Create(Vector3.zero, Vector3.forward * dist, power, freq);
-            context.AntennaGainDbi = gain;
-            context.Environment = EnvironmentType.FreeSpace;
-
-            float modelResult = freeSpaceModel.Calculate(context);
-            float error = modelResult - rxPower;
-
-            Debug.Log($"\nModel result: {modelResult:F2}dBm");
-            Debug.Log($"Error: {error:F3}dB");
-
-            if (Mathf.Abs(error) < 0.01f)
-            {
-                Debug.Log("✅ Model calculation is CORRECT");
-            }
-            else
-            {
-                Debug.LogError("❌ Model calculation has ERROR!");
-            }
-        }
-
         // Helper methods
         private PropagationContext CreateTestContext(float distance)
         {
@@ -280,7 +192,6 @@ namespace RFSimulation.Testing
                 testFrequency
             );
             context.AntennaGainDbi = testAntennaGain;
-            context.Environment = EnvironmentType.FreeSpace;
             return context;
         }
 
@@ -291,78 +202,5 @@ namespace RFSimulation.Testing
             return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
         }
 
-        private float GetPathLossExponent(EnvironmentType env)
-        {
-            // These should match your RFConstants.PATH_LOSS_EXPONENTS
-            return env switch
-            {
-                EnvironmentType.FreeSpace => 2.0f,
-                EnvironmentType.Urban => 3.5f,
-                _ => 2.0f
-            };
-        }
-
-        private float GetReferenceDistance(EnvironmentType env)
-        {
-            // These should match your RFConstants.REFERENCE_DISTANCES
-            return env switch
-            {
-                EnvironmentType.FreeSpace => 1f,
-                EnvironmentType.Urban => 100f,
-                _ => 1f
-            };
-        }
-    }
-
-    // Additional validation class for integration testing
-    public class TransmitterReceiverValidator : MonoBehaviour
-    {
-        [ContextMenu("Test Live Transmitter-Receiver")]
-        public void TestLiveTransmitterReceiver()
-        {
-            Debug.Log("=== LIVE TRANSMITTER-RECEIVER TEST ===");
-
-            var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
-            var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
-
-            if (transmitters.Length == 0 || receivers.Length == 0)
-            {
-                Debug.LogWarning("Need at least 1 transmitter and 1 receiver in scene");
-                return;
-            }
-
-            var tx = transmitters[0];
-            var rx = receivers[0];
-
-            float distance = Vector3.Distance(tx.transform.position, rx.transform.position);
-            float calculatedSignal = tx.CalculateSignalStrength(rx.transform.position);
-
-            Debug.Log($"TX: {tx.uniqueID} at {tx.transform.position}");
-            Debug.Log($"RX: {rx.uniqueID} at {rx.transform.position}");
-            Debug.Log($"Distance: {distance:F1}m");
-            Debug.Log($"TX Power: {tx.transmitterPower:F1}dBm");
-            Debug.Log($"TX Gain: {tx.antennaGain:F1}dBi");
-            Debug.Log($"Frequency: {tx.frequency:F0}MHz");
-            Debug.Log($"Propagation Model: {tx.propagationModel}");
-            Debug.Log($"Environment: {tx.environmentType}");
-            Debug.Log($"Calculated Signal: {calculatedSignal:F1}dBm");
-            Debug.Log($"RX Sensitivity: {rx.sensitivity:F1}dBm");
-            Debug.Log($"RX Current Signal: {rx.currentSignalStrength:F1}dBm");
-
-            bool shouldConnect = calculatedSignal >= (rx.sensitivity + rx.connectionMargin);
-            bool isConnected = rx.IsConnected();
-
-            Debug.Log($"Should Connect: {shouldConnect} (Signal: {calculatedSignal:F1} >= Required: {rx.sensitivity + rx.connectionMargin:F1})");
-            Debug.Log($"Is Connected: {isConnected}");
-
-            if (shouldConnect != isConnected)
-            {
-                Debug.LogWarning("❌ Connection state mismatch!");
-            }
-            else
-            {
-                Debug.Log("✅ Connection state is correct");
-            }
-        }
     }
 }

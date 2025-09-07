@@ -9,19 +9,7 @@ namespace RFSimulation.Propagation.Core
         public const float DEFAULT_NOISE_FLOOR = -110f; // dBm
         public const float DEFAULT_REFERENCE_DISTANCE = 1f; // meters
         public const float MIN_DISTANCE = 0.1f; // Minimum calculation distance
-
-        // Path loss exponents by environment
-        public static readonly Dictionary<EnvironmentType, float> PATH_LOSS_EXPONENTS = new()
-        {
-            { EnvironmentType.FreeSpace, 2.0f },
-            { EnvironmentType.Urban, 3.0f },
-        };
-
-        // Reference distances by environment
-        public static readonly Dictionary<EnvironmentType, float> REFERENCE_DISTANCES = new()
-        {
-            { EnvironmentType.FreeSpace, 1.0f },
-            { EnvironmentType.Urban, 100.0f },
-        };
+        public const float REFERENCE_DISTANCE = 100f; // Reference distance for path loss
+        public const float PATH_LOSS_EXPONENT = 3.0f; // Typical urban value
     }
 }

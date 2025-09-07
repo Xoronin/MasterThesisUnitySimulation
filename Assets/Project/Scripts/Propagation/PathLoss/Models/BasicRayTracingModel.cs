@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Core;
 using RFSimulation.Propagation.Core;
@@ -66,14 +66,21 @@ namespace RFSimulation.Propagation.PathLoss.Models
             }
 
             // Convert back to dBm
-            float result = totalReceivedPower > 0 ?
-                10f * Mathf.Log10(totalReceivedPower) :
-                float.NegativeInfinity;
+            float result = totalReceivedPower > 0f
+                ? 10f * Mathf.Log10(totalReceivedPower)
+                : -200f;
 
             // Cache result
             cache.Store(cacheKey, result);
             return result;
         }
+
+        private int GetEffectiveLayerMask(PropagationContext context)
+        {
+            // If context.BuildingLayers is nullable, use ??; if you make it non-nullable, just return context.BuildingLayers.value
+            return (context.BuildingLayers ?? obstacleLayerMask).value;
+        }
+
 
         private Ray CalculateDirectRay(PropagationContext context)
         {
@@ -83,60 +90,67 @@ namespace RFSimulation.Propagation.PathLoss.Models
 
         private float TraceRay(Ray ray, PropagationContext context, int reflectionCount)
         {
-            if (reflectionCount > maxReflections)
-                return float.NegativeInfinity;
+            if (reflectionCount > maxReflections) return float.NegativeInfinity;
 
-            float distance = Vector3.Distance(context.TransmitterPosition, context.ReceiverPosition);
+            // Always use the straight TX->RX segment length as the "max check" bound
+            float maxSeg = Vector3.Distance(context.TransmitterPosition, context.ReceiverPosition);
 
-            // Check for obstacles
-            if (Physics.Raycast(ray, out RaycastHit hit, distance, obstacleLayerMask))
+            // Is there anything between ray origin and the receiver?
+            Vector3 toRx = (context.ReceiverPosition - ray.origin);
+            float toRxDist = toRx.magnitude;
+            Vector3 dirToRx = toRx / toRxDist;
+
+            int layerMask = GetEffectiveLayerMask(context);
+
+            if (!Physics.Raycast(ray.origin, dirToRx, out RaycastHit hit, toRxDist, layerMask))
             {
-                // Ray is blocked - calculate reflection or diffraction
-                if (reflectionCount < maxReflections)
-                {
-                    return CalculateReflection(hit, context, reflectionCount + 1);
-                }
-                else
-                {
-                    return float.NegativeInfinity; // Ray completely blocked
-                }
+                // Clear to receiver along this ray: use correct segment distance for FSPL
+                float lfs = CalculateFreeSpaceLoss(toRxDist, context.FrequencyMHz);
+                return context.TransmitterPowerDbm + context.AntennaGainDbi - lfs;
             }
-            else
+
+            // Blocked: try a single-bounce reflection from this hit
+            if (reflectionCount < maxReflections)
             {
-                // Clear path - calculate free space loss
-                return CalculateFreeSpaceLoss(distance, context.FrequencyMHz) +
-                       context.TransmitterPowerDbm + context.AntennaGainDbi;
+                return CalculateReflection(hit, context, reflectionCount);
             }
+
+            return float.NegativeInfinity;
         }
 
         private float CalculateReflection(RaycastHit hit, PropagationContext context, int reflectionCount)
         {
-            // Get surface material properties
-            SurfaceMaterial material = GetSurfaceMaterial(hit.collider);
+            // Incident direction from TX to hit
+            Vector3 incDir = (hit.point - context.TransmitterPosition).normalized;
+            // Reflect it on the surface
+            Vector3 reflDir = Vector3.Reflect(incDir, hit.normal);
 
-            // Calculate reflection coefficient using Fresnel equations
-            float reflectionCoeff = CalculateReflectionCoefficient(
-                hit.normal,
-                (context.ReceiverPosition - hit.point).normalized,
-                context.FrequencyMHz,
-                material
-            );
+            // Check if reflected ray reaches the receiver without further blocks
+            Vector3 toRx = context.ReceiverPosition - hit.point;
+            float toRxDist = toRx.magnitude;
+            Vector3 dirToRx = toRx / toRxDist;
 
-            // Calculate reflected ray path
-            Vector3 reflectedDir = Vector3.Reflect(
-                (hit.point - context.TransmitterPosition).normalized,
-                hit.normal
-            );
+            int layerMask = GetEffectiveLayerMask(context);
 
-            Ray reflectedRay = new Ray(hit.point, reflectedDir);
+            // Ensure outgoing direction actually points roughly towards receiver
+            if (Vector3.Dot(reflDir, dirToRx) <= 0.0f) return float.NegativeInfinity;
 
-            // Trace reflected ray
-            float reflectedPower = TraceRay(reflectedRay, context, reflectionCount);
+            if (Physics.Raycast(hit.point, dirToRx, out RaycastHit block, toRxDist, layerMask))
+                return float.NegativeInfinity;
 
-            // Apply reflection losses
-            float reflectionLoss = 20f * Mathf.Log10(reflectionCoeff);
+            // Total geometric path length: TX->hit + hit->RX
+            float txToHit = Vector3.Distance(context.TransmitterPosition, hit.point);
+            float totalDist = txToHit + toRxDist;
 
-            return reflectedPower + reflectionLoss;
+            // Path loss for the full broken path
+            float lfs = CalculateFreeSpaceLoss(totalDist, context.FrequencyMHz);
+
+            // Fresnel reflection coefficient (amplitude 0..1) -> power dB = 20*log10(|Γ|)
+            SurfaceMaterial mat = GetSurfaceMaterial(hit.collider);
+            float gammaAmp = CalculateReflectionCoefficient(hit.normal, -incDir, context.FrequencyMHz, mat);
+            float reflectionDb = 20f * Mathf.Log10(Mathf.Clamp(gammaAmp, 1e-4f, 1f)); // negative dB
+
+            return context.TransmitterPowerDbm + context.AntennaGainDbi - lfs + reflectionDb;
         }
 
         private float CalculateFreeSpaceLoss(float distance, float frequency)

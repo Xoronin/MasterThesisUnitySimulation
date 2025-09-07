@@ -1,9 +1,11 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using RFSimulation.Connections;
+using RFSimulation.Core;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Core.Components;
+using RFSimulation.Core.Connections;
 
-namespace RFSimulation.Core
+namespace RFSimulation.Core.Managers
 {
     /// <summary>
     /// Main simulation orchestrator - delegates responsibilities to specialized managers
@@ -128,7 +130,7 @@ namespace RFSimulation.Core
             if (transmitter == null || !transmitters.Contains(transmitter)) return;
 
             // Clear all connections to this transmitter
-            transmitter.ClearAllLines();
+            transmitter.ClearAllConnections();
             transmitters.Remove(transmitter);
 
             OnEquipmentCountChanged?.Invoke(transmitters.Count, receivers.Count);
@@ -154,7 +156,7 @@ namespace RFSimulation.Core
             // Clear all connections to this receiver
             foreach (var transmitter in transmitters)
             {
-                transmitter?.ClearConnectionToReceiver(receiver);
+                transmitter?.DisconnectFromReceiver(receiver);
             }
 
             receivers.Remove(receiver);
@@ -191,7 +193,7 @@ namespace RFSimulation.Core
         {
             foreach (var transmitter in transmitters)
             {
-                transmitter?.ClearAllLines();
+                transmitter?.ClearAllConnections();
             }
         }
 

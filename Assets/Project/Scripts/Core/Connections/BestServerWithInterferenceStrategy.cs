@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using RFSimulation.Core;
+using RFSimulation.Core.Components;
 
-namespace RFSimulation.Connections
+namespace RFSimulation.Core.Connections
 {
     /// <summary>
     /// Best server with interference calculation
@@ -84,7 +85,7 @@ namespace RFSimulation.Connections
                     {
                         receiver.UpdateSignalStrength(bestSignal);
                         receiver.UpdateSINR(sinr);
-                        receiver.SetConnectedTransmitter(servingTransmitter);
+                        servingTransmitter.ConnectToReceiver(receiver);
                     }
                     else
                     {
@@ -121,7 +122,7 @@ namespace RFSimulation.Connections
                 {
                     if (transmitter != servingTransmitter)
                     {
-                        transmitter.ClearConnectionToReceiver(receiver);
+                        transmitter.DisconnectFromReceiver(receiver);
                     }
                 }
             }

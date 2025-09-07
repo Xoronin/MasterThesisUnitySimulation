@@ -1,19 +1,19 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using RFSimulation.Core;
+using RFSimulation.Core.Components;
 
-namespace RFSimulation.Connections
+namespace RFSimulation.Core.Connections
 {
-
-    // <summary>
-    /// Emergency/Coverage strategy - connects to any available signal
-    /// Relaxed thresholds for emergency scenarios or coverage maximization
+    /// <summary>
+    /// Simple strongest signal strategy - connects to highest signal strength only
+    /// No interference consideration - baseline comparison strategy
     /// </summary>
-    public class EmergencyCoverageStrategy : IConnectionStrategy
+    public class StrongestSignalStrategy : IConnectionStrategy
     {
-        public string StrategyName => "Emergency Coverage";
-        public string Description => "Connects to any available signal with relaxed quality requirements";
-        public StrategyType StrategyType => StrategyType.EmergencyCoverage;
+        public string StrategyName => "Strongest Signal";
+        public string Description => "Connects to transmitter with highest signal strength (no interference calculation)";
+        public StrategyType StrategyType => StrategyType.StrongestSignal;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
         {
@@ -24,24 +24,20 @@ namespace RFSimulation.Connections
                 Transmitter bestTx = null;
                 float bestSignal = float.NegativeInfinity;
 
-                // Relaxed thresholds for emergency scenarios
-                float emergencyThreshold = settings.minimumSignalThreshold - 10f; // 10dB more sensitive
-                float emergencyMargin = settings.handoverMargin * 2f; // Increased hysteresis
-
                 foreach (var transmitter in transmitters)
                 {
                     if (transmitter == null) continue;
 
                     float signal = transmitter.CalculateSignalStrength(receiver.transform.position);
 
-                    // Apply increased handover margin for stability
+                    // Apply handover margin to current serving cell
                     float effectiveSignal = signal;
                     if (receiver.GetConnectedTransmitter() == transmitter)
                     {
-                        effectiveSignal += emergencyMargin;
+                        effectiveSignal += settings.handoverMargin;
                     }
 
-                    if (effectiveSignal > bestSignal && signal > emergencyThreshold)
+                    if (effectiveSignal > bestSignal && signal > settings.minimumSignalThreshold)
                     {
                         bestSignal = signal;
                         bestTx = transmitter;
@@ -49,22 +45,31 @@ namespace RFSimulation.Connections
                 }
 
                 // Update receiver connection
-                receiver.SetConnectedTransmitter(bestTx);
                 receiver.UpdateSignalStrength(bestSignal);
-                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 0f : float.NegativeInfinity); // Assume poor but usable SINR
+                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 20f : float.NegativeInfinity); // Assume good SINR
 
                 // Clear connections to other transmitters
                 foreach (var transmitter in transmitters)
                 {
                     if (transmitter != bestTx)
                     {
-                        transmitter.ClearConnectionToReceiver(receiver);
+                        transmitter.DisconnectFromReceiver(receiver);
                     }
+                }
+
+                // Establish new connection if we found a suitable transmitter
+                if (bestTx != null)
+                {
+                    bestTx.ConnectToReceiver(receiver);
+                }
+                else
+                {
+                    receiver.SetConnectedTransmitter(null);
                 }
 
                 if (settings.enableDebugLogs && bestTx != null)
                 {
-                    Debug.Log($"[Emergency] {receiver.uniqueID} → {bestTx.uniqueID}: {bestSignal:F1}dBm (emergency mode)");
+                    Debug.Log($"[StrongestSignal] {receiver.uniqueID} → {bestTx.uniqueID}: {bestSignal:F1}dBm");
                 }
             }
         }

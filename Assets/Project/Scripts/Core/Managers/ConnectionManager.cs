@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using RFSimulation.Core;
+using RFSimulation.Core.Connections;
+using RFSimulation.Core.Components;
 
-namespace RFSimulation.Connections
+namespace RFSimulation.Core.Managers
 {
     /// <summary>
     /// Manages all connection strategies and switching between them
@@ -31,11 +33,7 @@ namespace RFSimulation.Connections
             strategies = new Dictionary<StrategyType, IConnectionStrategy>
             {
                 { StrategyType.StrongestSignal, new StrongestSignalStrategy() },
-                { StrategyType.BestServerWithInterference, new BestServerWithInterferenceStrategy() },
-                { StrategyType.LoadBalanced, new LoadBalancedStrategy() },
-                { StrategyType.QualityFirst, new QualityFirstStrategy() },
-                { StrategyType.EmergencyCoverage, new EmergencyCoverageStrategy() },
-                { StrategyType.NearestTransmitter, new NearestTransmitterStrategy() }
+                { StrategyType.BestServerWithInterference, new BestServerWithInterferenceStrategy() }
             };
         }
 
@@ -72,12 +70,6 @@ namespace RFSimulation.Connections
 
             // Apply the current strategy
             strategy.UpdateConnections(transmitters, receivers, settings);
-
-            // Update visual connections
-            foreach (var transmitter in transmitters)
-            {
-                transmitter?.UpdateConnectionLines();
-            }
 
             // Notify UI of connection statistics
             int totalConnections = CountTotalConnections(receivers);

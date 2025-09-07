@@ -1,12 +1,14 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Propagation;
-using RFSimulation.Connections;
+using RFSimulation.Core;
 using System.IO;
 using System.Linq;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Core.Components;
+using RFSimulation.Core.Connections;
 
-namespace RFSimulation.Core
+namespace RFSimulation.Core.Managers
 {
     [System.Serializable]
     public class Scenario
@@ -24,7 +26,6 @@ namespace RFSimulation.Core
 
         [Header("Propagation")]
         public PropagationModel propagationModel;
-        public EnvironmentType environmentType;
 
         [Header("Settings")] // NEW: Scenario-specific settings
         public ScenarioSettings settings = new ScenarioSettings();
@@ -38,9 +39,7 @@ namespace RFSimulation.Core
         public float antennaGain;
         public float frequencyMHz;
 
-        // NEW: Additional realistic parameters
         public PropagationModel propagationModel = PropagationModel.LogDistance;
-        public EnvironmentType environmentType = EnvironmentType.Urban;
     }
 
     [System.Serializable]
@@ -97,7 +96,7 @@ namespace RFSimulation.Core
         // Events for UI updates
         public System.Action<List<string>> OnScenariosLoaded;
         public System.Action<string> OnScenarioChanged;
-        public System.Action<Scenario> OnScenarioLoaded; // NEW: More detailed event
+        public System.Action<Scenario> OnScenarioLoaded;
 
         private void Awake()
         {
@@ -189,7 +188,6 @@ namespace RFSimulation.Core
             DebugLog($"📁 Final result: Loaded {scenarios.Count} scenarios");
         }
 
-        // NEW: Smart scenario loading with backward compatibility
         private Scenario LoadScenarioFromJson(string json, string filePath)
         {
             try
@@ -312,7 +310,6 @@ namespace RFSimulation.Core
 
                 // NEW: Apply propagation settings
                 transmitter.propagationModel = config.propagationModel;
-                transmitter.environmentType = config.environmentType;
             }
         }
 
@@ -354,7 +351,6 @@ namespace RFSimulation.Core
                 transmitters = new List<TransmitterConfig>(),
                 receiverPositions = new List<ReceiverConfig>(),
                 propagationModel = PropagationModel.LogDistance, // Default
-                environmentType = EnvironmentType.Urban, // Default
                 settings = new ScenarioSettings()
             };
 
@@ -382,7 +378,6 @@ namespace RFSimulation.Core
                         antennaGain = transmitter.antennaGain,
                         frequencyMHz = transmitter.frequency,
                         propagationModel = transmitter.propagationModel,
-                        environmentType = transmitter.environmentType
                     };
                     newScenario.transmitters.Add(config);
                 }
@@ -406,7 +401,6 @@ namespace RFSimulation.Core
             if (newScenario.transmitters.Count > 0)
             {
                 newScenario.propagationModel = newScenario.transmitters[0].propagationModel;
-                newScenario.environmentType = newScenario.transmitters[0].environmentType;
             }
 
             // Save to file
@@ -492,7 +486,6 @@ namespace RFSimulation.Core
                 DebugLog($"Current Scenario: {scenario.scenarioName}");
                 DebugLog($"Strategy: {scenario.strategyName}");
                 DebugLog($"Equipment: {scenario.transmitters.Count} transmitters, {scenario.receiverPositions.Count} receivers");
-                DebugLog($"Propagation: {scenario.propagationModel} in {scenario.environmentType} environment");
             }
             else
             {
@@ -509,6 +502,5 @@ namespace RFSimulation.Core
         public List<TransmitterConfig> transmitters;
         public List<Vector3> receiverPositions; // Old format: just positions
         public PropagationModel propagationModel;
-        public EnvironmentType environmentType;
     }
 }

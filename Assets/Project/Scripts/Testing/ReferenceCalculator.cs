@@ -183,7 +183,6 @@ namespace RFSimulation.Testing
                     var context = RFSimulation.Propagation.Core.PropagationContext.Create(
                         Vector3.zero, Vector3.forward * dist, power, freq);
                     context.AntennaGainDbi = gain;
-                    context.Environment = RFSimulation.Propagation.Core.EnvironmentType.FreeSpace;
 
                     float yourRxPower = freeSpaceModel.Calculate(context);
                     float error = yourRxPower - refRxPower;

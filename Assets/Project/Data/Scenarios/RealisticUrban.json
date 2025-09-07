@@ -2,7 +2,6 @@
   "scenarioName": "Realistic Dense Urban 5G Network",
   "connectionStrategy": "Best + Interference",
   "propagationModel": 2,
-  "environmentType": 1,
   "settings": {
     "minimumSignalThreshold": -110,
     "connectionMargin": 10,
@@ -21,8 +20,7 @@
       "powerDbm": 23,
       "antennaGain": 8,
       "frequencyMHz": 3500,
-      "propagationModel": 2,
-      "environmentType": 1
+      "propagationModel": 2
     },
     {
       "position": {
@@ -33,8 +31,7 @@
       "powerDbm": 25,
       "antennaGain": 9,
       "frequencyMHz": 3500,
-      "propagationModel": 2,
-      "environmentType": 1
+      "propagationModel": 2
     },
     {
       "position": {
@@ -45,8 +42,7 @@
       "powerDbm": 24,
       "antennaGain": 7,
       "frequencyMHz": 3500,
-      "propagationModel": 2,
-      "environmentType": 1
+      "propagationModel": 2
     },
     {
       "position": {
@@ -57,8 +53,7 @@
       "powerDbm": 22,
       "antennaGain": 8,
       "frequencyMHz": 3500,
-      "propagationModel": 2,
-      "environmentType": 1
+      "propagationModel": 2
     },
     {
       "position": {
@@ -69,8 +64,7 @@
       "powerDbm": 26,
       "antennaGain": 10,
       "frequencyMHz": 3500,
-      "propagationModel": 2,
-      "environmentType": 1
+      "propagationModel": 2
     }
   ],
   "receiverPositions": [

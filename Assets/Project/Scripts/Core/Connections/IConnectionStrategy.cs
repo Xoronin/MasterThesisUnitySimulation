@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using RFSimulation.Core.Components;
+using RFSimulation.Core;
 
-namespace RFSimulation.Connections
+namespace RFSimulation.Core.Connections
 {
 	/// <summary>
 	/// Interface for different connection strategies between transmitters and receivers
@@ -26,8 +28,8 @@ namespace RFSimulation.Connections
         /// <param name="receivers">List of receivers to connect</param>
         /// <param name="settings">Connection settings (thresholds, margins, etc.)</param>
         void UpdateConnections(
-			List<Core.Transmitter> transmitters,
-			List<Core.Receiver> receivers,
+			List<Transmitter> transmitters,
+			List<Receiver> receivers,
 			ConnectionSettings settings
 		);
 	}
@@ -59,10 +61,6 @@ namespace RFSimulation.Connections
     public enum StrategyType
     {
         StrongestSignal,
-        BestServerWithInterference,
-        LoadBalanced,
-        QualityFirst,
-        EmergencyCoverage,
-        NearestTransmitter
+        BestServerWithInterference
     }
 }

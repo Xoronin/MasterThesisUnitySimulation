@@ -67,8 +67,7 @@ namespace RFSimulation.Propagation.PathLoss
 			Vector3 roundedRx = RoundVector(context.ReceiverPosition, 0.1f);
 
 			return $"{roundedTx}_{roundedRx}_{context.TransmitterPowerDbm:F1}_" +
-				   $"{context.AntennaGainDbi:F1}_{context.FrequencyMHz:F0}_" +
-				   $"{context.Model}_{context.Environment}";
+				   $"{context.AntennaGainDbi:F1}_{context.FrequencyMHz:F0}_";
 		}
 
 		private Vector3 RoundVector(Vector3 vector, float precision)

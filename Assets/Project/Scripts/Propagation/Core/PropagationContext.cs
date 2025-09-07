@@ -15,7 +15,6 @@ namespace RFSimulation.Propagation.Core
         public float AntennaGainDbi { get; set; }
         public float ReceiverSensitivityDbm { get; set; }
         public PropagationModel Model { get; set; }
-        public EnvironmentType Environment { get; set; } = EnvironmentType.Urban;
         public LayerMask? BuildingLayers { get; set; }
         public TechnologyType Technology { get; set; }
 
@@ -77,7 +76,6 @@ namespace RFSimulation.Propagation.Core
                 AntennaGainDbi = AntennaGainDbi,
                 ReceiverSensitivityDbm = ReceiverSensitivityDbm,
                 Model = Model,
-                Environment = Environment,
                 BuildingLayers = BuildingLayers,
                 Technology = Technology
             };
@@ -96,12 +94,6 @@ namespace RFSimulation.Propagation.Core
         COST231Hata,
         BasicRayTracing,
         AdvancedRayTracing 
-    }
-
-    public enum EnvironmentType
-    {
-        FreeSpace,
-        Urban
     }
 
     public enum TechnologyType

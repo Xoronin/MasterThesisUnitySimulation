@@ -5,6 +5,8 @@ using RFSimulation.Core;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Propagation.PathLoss;
 using RFSimulation.Propagation.SignalQuality;
+using RFSimulation.Core.Components;
+using RFSimulation.Core.Managers;
 
 namespace RFSimulation.Visualization
 {

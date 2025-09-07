@@ -13,19 +13,16 @@ namespace RFSimulation.UI
         [Header("UI Components")]
         public UIControls mainUIControls;
         public ScenarioUI scenarioUI;
-        public StatusDisplay statusDisplay;
 
         [Header("UI Panels")]
         public GameObject mainControlPanel;
         public GameObject scenarioPanel;
-        public GameObject statusPanel;
         public GameObject advancedPanel;
 
         [Header("Persistent UI Elements")]
         public GameObject topButtonBar;  
         public Button basicModeButton;   
         public Button advancedModeButton;
-        public Button statusModeButton;
         public Button scenarioModeButton;
         public Button resetUIButton;     
 
@@ -38,7 +35,6 @@ namespace RFSimulation.UI
         {
             Basic,      // Simple controls only
             Advanced,   // All controls visible
-            Status,     // Status display prominent
             Scenario    // Scenario management focused
         }
 
@@ -60,9 +56,6 @@ namespace RFSimulation.UI
 
             if (scenarioUI == null)
                 scenarioUI = FindFirstObjectByType<ScenarioUI>();
-
-            if (statusDisplay == null)
-                statusDisplay = FindFirstObjectByType<StatusDisplay>();
 
             // Subscribe to events for coordination
             if (scenarioUI != null)
@@ -93,9 +86,6 @@ namespace RFSimulation.UI
 
             if (advancedModeButton != null)
                 advancedModeButton.onClick.AddListener(() => SetUIMode(UIMode.Advanced));
-
-            if (statusModeButton != null)
-                statusModeButton.onClick.AddListener(() => SetUIMode(UIMode.Status));
 
             if (scenarioModeButton != null)
                 scenarioModeButton.onClick.AddListener(() => SetUIMode(UIMode.Scenario));
@@ -154,9 +144,6 @@ namespace RFSimulation.UI
                 case UIMode.Advanced:
                     SetAdvancedMode();
                     break;
-                case UIMode.Status:
-                    SetStatusMode();
-                    break;
                 case UIMode.Scenario:
                     SetScenarioMode();
                     break;
@@ -176,7 +163,6 @@ namespace RFSimulation.UI
             // Reset all button colors
             ResetButtonColor(basicModeButton);
             ResetButtonColor(advancedModeButton);
-            ResetButtonColor(statusModeButton);
             ResetButtonColor(scenarioModeButton);
 
             // Highlight current mode button
@@ -185,7 +171,6 @@ namespace RFSimulation.UI
             {
                 case UIMode.Basic: activeButton = basicModeButton; break;
                 case UIMode.Advanced: activeButton = advancedModeButton; break;
-                case UIMode.Status: activeButton = statusModeButton; break;
                 case UIMode.Scenario: activeButton = scenarioModeButton; break;
             }
 
@@ -219,7 +204,6 @@ namespace RFSimulation.UI
         {
             SetPanelActive(mainControlPanel, true);
             SetPanelActive(scenarioPanel, false);
-            SetPanelActive(statusPanel, false);
             SetPanelActive(advancedPanel, false);
         }
 
@@ -227,23 +211,13 @@ namespace RFSimulation.UI
         {
             SetPanelActive(mainControlPanel, true);
             SetPanelActive(scenarioPanel, true);
-            SetPanelActive(statusPanel, true);
             SetPanelActive(advancedPanel, true);
-        }
-
-        private void SetStatusMode()
-        {
-            SetPanelActive(mainControlPanel, false);
-            SetPanelActive(scenarioPanel, false);
-            SetPanelActive(statusPanel, true);
-            SetPanelActive(advancedPanel, false);
         }
 
         private void SetScenarioMode()
         {
             SetPanelActive(mainControlPanel, false);
             SetPanelActive(scenarioPanel, true);
-            SetPanelActive(statusPanel, false);
             SetPanelActive(advancedPanel, false);
         }
 
@@ -263,11 +237,6 @@ namespace RFSimulation.UI
             {
                 mainUIControls.RefreshAllUI();
             }
-
-            if (statusDisplay != null)
-            {
-                statusDisplay.ForceUpdate();
-            }
         }
 
         // Public methods for UI control
@@ -275,11 +244,6 @@ namespace RFSimulation.UI
         {
             showAdvancedControls = !showAdvancedControls;
             SetUIMode(showAdvancedControls ? UIMode.Advanced : UIMode.Basic);
-        }
-
-        public void ToggleStatusDisplay()
-        {
-            SetUIMode(currentMode == UIMode.Status ? UIMode.Basic : UIMode.Status);
         }
 
         public void ToggleScenarioUI()
@@ -299,7 +263,6 @@ namespace RFSimulation.UI
             if (topButtonBar != null) topButtonBar.SetActive(true);
             if (mainControlPanel != null) mainControlPanel.SetActive(true);
             if (scenarioPanel != null) scenarioPanel.SetActive(true);
-            if (statusPanel != null) statusPanel.SetActive(true);
             if (advancedPanel != null) advancedPanel.SetActive(true);
 
             SetUIMode(UIMode.Advanced);
@@ -312,7 +275,6 @@ namespace RFSimulation.UI
             // Keyboard shortcuts for UI modes
             if (Input.GetKeyDown(KeyCode.F1)) SetUIMode(UIMode.Basic);
             if (Input.GetKeyDown(KeyCode.F2)) SetUIMode(UIMode.Advanced);
-            if (Input.GetKeyDown(KeyCode.F3)) SetUIMode(UIMode.Status);
             if (Input.GetKeyDown(KeyCode.F4)) SetUIMode(UIMode.Scenario);
             if (Input.GetKeyDown(KeyCode.Escape)) ResetUILayout(); // Emergency reset
         }
@@ -323,9 +285,6 @@ namespace RFSimulation.UI
 
         [ContextMenu("Switch to Advanced Mode")]
         public void SwitchToAdvancedMode() => SetUIMode(UIMode.Advanced);
-
-        [ContextMenu("Switch to Status Mode")]
-        public void SwitchToStatusMode() => SetUIMode(UIMode.Status);
 
         [ContextMenu("Switch to Scenario Mode")]
         public void SwitchToScenarioMode() => SetUIMode(UIMode.Scenario);

@@ -21,13 +21,12 @@ namespace RFSimulation.Propagation.PathLoss
         {
             float distance = context.Distance;
             float frequency = context.FrequencyMHz;
-            EnvironmentType environment = context.Environment;
 
             // Apply selection criteria based on established guidelines
-            return ApplySelectionCriteria(distance, frequency, environment);
+            return ApplySelectionCriteria(distance, frequency);
         }
 
-        private static PropagationModel ApplySelectionCriteria(float distance, float frequency, EnvironmentType environment)
+        private static PropagationModel ApplySelectionCriteria(float distance, float frequency)
         {
             // CRITERIA 1: ITU-R Distance-based recommendations
             if (distance < 100f)
@@ -44,7 +43,7 @@ namespace RFSimulation.Propagation.PathLoss
             }
 
             // CRITERIA 3: Two-Ray model for specific scenarios
-            if (IsTwoRayApplicable(distance, frequency, environment))
+            if (IsTwoRayApplicable(distance, frequency))
             {
                 return PropagationModel.TwoRayGroundReflection;
             }
@@ -99,7 +98,7 @@ namespace RFSimulation.Propagation.PathLoss
         /// Determine if Two-Ray model is most appropriate
         /// Reference: Rappaport Chapter 4.5, ITU-R P.526
         /// </summary>
-        private static bool IsTwoRayApplicable(float distance, float frequency, EnvironmentType environment)
+        private static bool IsTwoRayApplicable(float distance, float frequency)
         {
             // Two-ray is optimal when:
             // 1. Long distance where ground reflection dominates
@@ -108,10 +107,9 @@ namespace RFSimulation.Propagation.PathLoss
             // Reference: Rappaport, Section 4.5.1
 
             bool isLongDistance = distance > 20000f; // Beyond Hata range
-            bool isFlatTerrain = environment == EnvironmentType.FreeSpace;
             bool isReasonableFrequency = frequency >= 30f && frequency <= 3000f; // VHF to UHF range
 
-            return isLongDistance && (isFlatTerrain || isReasonableFrequency);
+            return isLongDistance && isReasonableFrequency;
         }
 
         /// <summary>
@@ -167,14 +165,11 @@ namespace RFSimulation.Propagation.PathLoss
             // Reference: ITU-R P.370-7
             bool distanceOk = context.Distance >= 1000f && context.Distance <= 20000f;
             bool frequencyOk = context.FrequencyMHz >= 150f && context.FrequencyMHz <= 1500f;
-            bool environmentOk = context.Environment == EnvironmentType.Urban;
 
             if (!distanceOk)
                 return new ModelValidityStatus(false, $"Distance {context.Distance}m outside Hata range (1-20km)");
             if (!frequencyOk)
                 return new ModelValidityStatus(false, $"Frequency {context.FrequencyMHz}MHz outside Hata range (150-1500MHz)");
-            if (!environmentOk)
-                return new ModelValidityStatus(false, "Hata model designed for urban environments");
 
             return new ModelValidityStatus(true, "Within Hata model's validated parameter space");
         }
@@ -185,14 +180,11 @@ namespace RFSimulation.Propagation.PathLoss
             // Reference: COST 231 Final Report
             bool distanceOk = context.Distance >= 1000f && context.Distance <= 20000f;
             bool frequencyOk = context.FrequencyMHz >= 1500f && context.FrequencyMHz <= 2000f;
-            bool environmentOk = context.Environment == EnvironmentType.Urban;
 
             if (!distanceOk)
                 return new ModelValidityStatus(false, $"Distance {context.Distance}m outside COST-231 range (1-20km)");
             if (!frequencyOk)
                 return new ModelValidityStatus(false, $"Frequency {context.FrequencyMHz}MHz outside COST-231 range (1500-2000MHz)");
-            if (!environmentOk)
-                return new ModelValidityStatus(false, "COST-231 designed for urban environments");
 
             return new ModelValidityStatus(true, "Within COST-231 validated range for urban cellular");
         }
