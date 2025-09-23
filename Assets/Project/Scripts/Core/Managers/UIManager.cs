@@ -24,7 +24,6 @@ namespace RFSimulation.UI
         public Button basicModeButton;   
         public Button advancedModeButton;
         public Button scenarioModeButton;
-        public Button resetUIButton;     
 
         [Header("UI Modes")]
         public bool showAdvancedControls = false;
@@ -62,8 +61,6 @@ namespace RFSimulation.UI
             {
                 scenarioUI.OnScenarioSelected += OnScenarioSelected;
             }
-
-            Debug.Log("UIManager initialized");
         }
 
         private void SetupPersistentTopBar()
@@ -89,11 +86,6 @@ namespace RFSimulation.UI
 
             if (scenarioModeButton != null)
                 scenarioModeButton.onClick.AddListener(() => SetUIMode(UIMode.Scenario));
-
-            if (resetUIButton != null)
-                resetUIButton.onClick.AddListener(ResetUILayout);
-
-            Debug.Log("Persistent top bar configured");
         }
 
         private void CreatePersistentTopBar()
@@ -249,34 +241,6 @@ namespace RFSimulation.UI
         public void ToggleScenarioUI()
         {
             SetUIMode(currentMode == UIMode.Scenario ? UIMode.Basic : UIMode.Scenario);
-        }
-
-        public void ResetUILayout()
-        {
-            SetUIMode(UIMode.Basic);
-        }
-
-        [ContextMenu("Emergency UI Reset")]
-        public void EmergencyUIReset()
-        {
-            // Force show everything
-            if (topButtonBar != null) topButtonBar.SetActive(true);
-            if (mainControlPanel != null) mainControlPanel.SetActive(true);
-            if (scenarioPanel != null) scenarioPanel.SetActive(true);
-            if (advancedPanel != null) advancedPanel.SetActive(true);
-
-            SetUIMode(UIMode.Advanced);
-            Debug.Log("Emergency UI Reset - All panels shown");
-        }
-
-        // NEW: Method to add keyboard shortcuts for mode switching
-        void Update()
-        {
-            // Keyboard shortcuts for UI modes
-            if (Input.GetKeyDown(KeyCode.F1)) SetUIMode(UIMode.Basic);
-            if (Input.GetKeyDown(KeyCode.F2)) SetUIMode(UIMode.Advanced);
-            if (Input.GetKeyDown(KeyCode.F4)) SetUIMode(UIMode.Scenario);
-            if (Input.GetKeyDown(KeyCode.Escape)) ResetUILayout(); // Emergency reset
         }
 
         // Context menu methods

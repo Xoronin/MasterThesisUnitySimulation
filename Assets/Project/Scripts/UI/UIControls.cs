@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using RFSimulation.Core.Components;
 using RFSimulation.Core.Managers;
 using RFSimulation.Core.Connections;
+using RFSimulation.Visualization; 
 
 public class UIControls : MonoBehaviour
 {
@@ -16,7 +17,7 @@ public class UIControls : MonoBehaviour
     public Button refreshScenariosButton;
     public Text currentScenarioText;
 
-    [Header("Connection Strategy Controls")] 
+    [Header("Connection Strategy Controls")]
     public Dropdown strategyDropdown;
     public Text strategyDescriptionText;
     public Slider signalThresholdSlider;
@@ -27,23 +28,29 @@ public class UIControls : MonoBehaviour
     public Button addTransmitterButton;
     public Button addReceiverButton;
     public Button removeAllButton;
-    public Button pauseResumeButton;
 
     [Header("Parameter Inputs")]
     public InputField transmitterPowerInput;
     public InputField transmitterFrequencyInput;
-    public Dropdown receiverTechnologyDropdown; 
+    public Dropdown receiverTechnologyDropdown;
     public InputField receiverSensitivityInput;
+
+    [Header("Height Controls")]
+    public InputField transmitterHeightInput;
+    public InputField receiverHeightInput;
+    public Text transmitterHeightLabel;
+    public Text receiverHeightLabel;
 
     [Header("Toggle Controls")]
     public Toggle showConnectionsToggle;
     public Toggle showGridToggle;
+    public Toggle showBuildingsToggle;
+    public Toggle showHeatmapToggle;
+    public Toggle showRaysToggle;
 
-    [Header("Status and Speed")]
+    [Header("Status")]
     public Text statusText;
-    public Text connectionStatsText; 
-    public Slider speedSlider;
-    public Text speedText;
+    public Text connectionStatsText;
 
     [Header("Prefab References")]
     public GameObject transmitterPrefab;
@@ -65,9 +72,8 @@ public class UIControls : MonoBehaviour
     private Camera mainCamera;
     private bool isPlacingTransmitter = false;
     private bool isPlacingReceiver = false;
-    private bool isPaused = false;
 
-    // NEW: References to managers
+    // References to managers
     private ConnectionManager connectionManager;
 
     void Start()
@@ -79,7 +85,6 @@ public class UIControls : MonoBehaviour
         InitializeUIFromPrefabs();
     }
 
-    // NEW: Get references to the new manager systems
     private void SetupManagerReferences()
     {
         if (SimulationManager.Instance != null)
@@ -95,14 +100,20 @@ public class UIControls : MonoBehaviour
         {
             ScenarioManager.Instance.OnScenariosLoaded += UpdateScenarioDropdown;
             ScenarioManager.Instance.OnScenarioChanged += OnScenarioChanged;
-            ScenarioManager.Instance.OnScenarioLoaded += OnScenarioLoaded; // NEW: Detailed scenario event
+            ScenarioManager.Instance.OnScenarioLoaded += OnScenarioLoaded;
         }
 
-        // NEW: Subscribe to connection manager events
+        // Subscribe to connection manager events
         if (connectionManager != null)
         {
             connectionManager.OnStrategyChanged += OnStrategyChanged;
             connectionManager.OnConnectionsUpdated += OnConnectionsUpdated;
+        }
+
+        // Subscribe to building manager events
+        if (BuildingManager.Instance != null)
+        {
+            BuildingManager.Instance.OnBuildingsToggled += OnBuildingsToggled;
         }
     }
 
@@ -121,7 +132,7 @@ public class UIControls : MonoBehaviour
         if (refreshScenariosButton != null)
             refreshScenariosButton.onClick.AddListener(RefreshScenarios);
 
-        // NEW: Strategy controls
+        // Strategy controls
         if (strategyDropdown != null)
             strategyDropdown.onValueChanged.AddListener(OnStrategyDropdownChanged);
 
@@ -141,18 +152,28 @@ public class UIControls : MonoBehaviour
         if (removeAllButton != null)
             removeAllButton.onClick.AddListener(RemoveAllObjects);
 
-        if (pauseResumeButton != null)
-            pauseResumeButton.onClick.AddListener(TogglePauseResume);
+        // Height input controls
+        if (transmitterHeightInput != null)
+            transmitterHeightInput.onValueChanged.AddListener(OnTransmitterHeightChanged);
+
+        if (receiverHeightInput != null)
+            receiverHeightInput.onValueChanged.AddListener(OnReceiverHeightChanged);
 
         // Toggle controls
         if (showConnectionsToggle != null)
             showConnectionsToggle.onValueChanged.AddListener(ToggleConnections);
 
-        if (speedSlider != null)
-            speedSlider.onValueChanged.AddListener(OnSpeedChanged);
-
         if (showGridToggle != null)
             showGridToggle.onValueChanged.AddListener(ToggleGrid);
+
+        if (showBuildingsToggle != null)
+            showBuildingsToggle.onValueChanged.AddListener(ToggleBuildings);
+
+        if (showHeatmapToggle != null)
+            showHeatmapToggle.onValueChanged.AddListener(ToggleHeatmap);
+
+        if (showRaysToggle != null)
+            showRaysToggle.onValueChanged.AddListener(ToggleRays);
 
         // Auto-find GroundGrid if not assigned
         if (groundGridComponent == null)
@@ -160,20 +181,16 @@ public class UIControls : MonoBehaviour
             groundGridComponent = FindFirstObjectByType<GroundGrid>();
         }
 
-        // NEW: Initialize strategy dropdown
+        // Initialize dropdowns
         InitializeStrategyDropdown();
-
-        // NEW: Initialize receiver technology dropdown
         InitializeReceiverTechnologyDropdown();
 
         // Set default values
         SetDefaultUIValues();
 
         UpdateStatusText("Ready to place objects");
-        UpdateSpeedText(1f);
     }
 
-    // NEW: Initialize strategy dropdown with available strategies
     private void InitializeStrategyDropdown()
     {
         if (strategyDropdown != null && connectionManager != null)
@@ -212,10 +229,34 @@ public class UIControls : MonoBehaviour
     {
         if (showConnectionsToggle != null) showConnectionsToggle.isOn = true;
         if (showGridToggle != null) showGridToggle.isOn = true;
-        if (speedSlider != null) speedSlider.value = 1f;
         if (saveScenarioNameInput != null) saveScenarioNameInput.text = "New Scenario";
 
-        // NEW: Set signal threshold slider
+        // Set buildings toggle to current state
+        if (showBuildingsToggle != null)
+            showBuildingsToggle.isOn = BuildingManager.AreBuildingsEnabled();
+
+        // Set heatmap toggle to current state (assume enabled by default)
+        if (showHeatmapToggle != null)
+            showHeatmapToggle.isOn = true;
+
+        // Set heatmap toggle to current state (assume enabled by default)
+        if (showRaysToggle != null)
+            showRaysToggle.isOn = true;
+
+        // Set height input fields
+        if (transmitterHeightInput != null)
+        {
+            transmitterHeightInput.text = transmitterHeight.ToString("F1");
+            UpdateTransmitterHeightLabel();
+        }
+
+        if (receiverHeightInput != null)
+        {
+            receiverHeightInput.text = receiverHeight.ToString("F1");
+            UpdateReceiverHeightLabel();
+        }
+
+        // Set signal threshold slider
         if (signalThresholdSlider != null)
         {
             signalThresholdSlider.minValue = -140f;
@@ -233,6 +274,108 @@ public class UIControls : MonoBehaviour
             UpdateConnectionStatistics();
         }
     }
+
+    #region Height Controls
+
+    private void OnTransmitterHeightChanged(string value)
+    {
+        if (float.TryParse(value, out float height))
+        {
+            transmitterHeight = Mathf.Clamp(height, 0.1f, 200f);
+            UpdateTransmitterHeightLabel();
+        }
+    }
+
+    private void OnReceiverHeightChanged(string value)
+    {
+        if (float.TryParse(value, out float height))
+        {
+            receiverHeight = Mathf.Clamp(height, 0.1f, 50f);
+            UpdateReceiverHeightLabel();
+        }
+    }
+
+    private void UpdateTransmitterHeightLabel()
+    {
+        if (transmitterHeightLabel != null)
+        {
+            transmitterHeightLabel.text = $"TX Height: {transmitterHeight:F1}m";
+        }
+    }
+
+    private void UpdateReceiverHeightLabel()
+    {
+        if (receiverHeightLabel != null)
+        {
+            receiverHeightLabel.text = $"RX Height: {receiverHeight:F1}m";
+        }
+    }
+
+    #endregion
+
+    #region Building and Heatmap Controls
+
+    private void ToggleBuildings(bool enabled)
+    {
+        if (BuildingManager.Instance != null)
+        {
+            BuildingManager.Instance.SetBuildingsEnabled(enabled);
+        }
+
+        UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")}");
+    }
+
+    private void OnBuildingsToggled(bool enabled)
+    {
+        // Update toggle without triggering event
+        if (showBuildingsToggle != null)
+        {
+            showBuildingsToggle.SetIsOnWithoutNotify(enabled);
+        }
+
+        UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")} - RF calculations updated");
+    }
+
+    private void ToggleHeatmap(bool enabled)
+    {
+        // Find all signal heatmaps in the scene
+        SignalHeatmap[] heatmaps = FindObjectsByType<SignalHeatmap>(FindObjectsSortMode.None);
+
+        foreach (var heatmap in heatmaps)
+        {
+            if (heatmap != null)
+            {
+                heatmap.ToggleVisibility(enabled);
+            }
+        }
+
+        UpdateStatusText($"Heatmap {(enabled ? "enabled" : "disabled")}");
+    }
+
+    private void ToggleRays(bool enabled)
+    {
+        // Find all unified transmitters in the scene
+        Transmitter[] transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.None);
+
+        foreach (var transmitter in transmitters)
+        {
+            if (transmitter != null)
+            {
+                if (enabled)
+                {
+                    transmitter.EnableRayVisualization();
+                }
+                else
+                {
+                    transmitter.DisableRayVisualization();
+                }
+            }
+        }
+
+        UpdateStatusText($"Ray visualization {(enabled ? "enabled" : "disabled")}");
+    }
+
+    #endregion
 
     #region Scenario Management
 
@@ -289,7 +432,7 @@ public class UIControls : MonoBehaviour
         string scenarioName = saveScenarioNameInput.text.Trim();
         if (string.IsNullOrEmpty(scenarioName))
         {
-            UpdateStatusText("❌ Please enter a scenario name");
+            UpdateStatusText("Please enter a scenario name");
             return;
         }
 
@@ -312,7 +455,6 @@ public class UIControls : MonoBehaviour
         UpdateStatusText($"Scenario changed to: {scenarioName}");
     }
 
-    // NEW: Handle detailed scenario loading
     private void OnScenarioLoaded(Scenario scenario)
     {
         // Update UI to match scenario settings
@@ -353,7 +495,7 @@ public class UIControls : MonoBehaviour
 
     #endregion
 
-    #region NEW: Strategy Management
+    #region Strategy Management
 
     private void OnStrategyDropdownChanged(int index)
     {
@@ -427,7 +569,7 @@ public class UIControls : MonoBehaviour
 
     #endregion
 
-    #region Object Placement (existing functionality with minor updates)
+    #region Object Placement
 
     private void InitializeUIFromPrefabs()
     {
@@ -574,7 +716,7 @@ public class UIControls : MonoBehaviour
 
     private void PlaceTransmitter(Vector3 position)
     {
-        position.y += transmitterHeight;
+        position.y += transmitterHeight; // Use the UI-controlled height
 
         GameObject newTransmitter = Instantiate(transmitterPrefab, position, Quaternion.identity);
         Transmitter transmitterComponent = newTransmitter.GetComponent<Transmitter>();
@@ -596,7 +738,7 @@ public class UIControls : MonoBehaviour
 
     private void PlaceReceiver(Vector3 position)
     {
-        position.y += receiverHeight;
+        position.y += receiverHeight; // Use the UI-controlled height
 
         GameObject newReceiver = Instantiate(receiverPrefab, position, Quaternion.identity);
         Receiver receiverComponent = newReceiver.GetComponent<Receiver>();
@@ -607,7 +749,7 @@ public class UIControls : MonoBehaviour
             if (receiverSensitivityInput != null && float.TryParse(receiverSensitivityInput.text, out float sensitivity))
                 receiverComponent.sensitivity = sensitivity;
 
-            // NEW: Apply selected technology
+            // Apply selected technology
             if (receiverTechnologyDropdown != null)
             {
                 string selectedTech = receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text;
@@ -655,30 +797,6 @@ public class UIControls : MonoBehaviour
         UpdateStatusText($"Connections {(enabled ? "enabled" : "disabled")}");
     }
 
-    public void TogglePauseResume()
-    {
-        isPaused = !isPaused;
-
-        if (isPaused)
-        {
-            if (SimulationManager.Instance != null)
-                SimulationManager.Instance.PauseSimulation();
-
-            if (pauseResumeButton != null)
-                pauseResumeButton.GetComponentInChildren<Text>().text = "Resume";
-            UpdateStatusText("Simulation paused");
-        }
-        else
-        {
-            if (SimulationManager.Instance != null)
-                SimulationManager.Instance.ResumeSimulation();
-
-            if (pauseResumeButton != null)
-                pauseResumeButton.GetComponentInChildren<Text>().text = "Pause";
-            UpdateStatusText("Simulation resumed");
-        }
-    }
-
     void ToggleGrid(bool show)
     {
         GroundGrid grid = FindFirstObjectByType<GroundGrid>();
@@ -687,21 +805,6 @@ public class UIControls : MonoBehaviour
             grid.gameObject.SetActive(show);
             UpdateStatusText($"Grid {(show ? "enabled" : "disabled")}");
         }
-    }
-
-    void OnSpeedChanged(float value)
-    {
-        if (connectionManager != null)
-        {
-            connectionManager.updateInterval = 0.1f / value; // Adjust update interval
-        }
-        UpdateSpeedText(value);
-    }
-
-    void UpdateSpeedText(float speed)
-    {
-        if (speedText != null)
-            speedText.text = $"Speed: {speed:F1}x";
     }
 
     private void UpdateStatusText(string message)
@@ -715,18 +818,20 @@ public class UIControls : MonoBehaviour
 
     #endregion
 
-    #region NEW: Advanced Features
+    #region Advanced Features
 
-    // Method to update all UI elements when scenario changes
     public void RefreshAllUI()
     {
         InitializeStrategyDropdown();
         UpdateCurrentScenarioText();
         UpdateConnectionStatistics();
         UpdateStrategyDescription();
+
+        // Update building toggle state
+        if (showBuildingsToggle != null)
+            showBuildingsToggle.SetIsOnWithoutNotify(BuildingManager.AreBuildingsEnabled());
     }
 
-    // Method to apply settings from a scenario
     public void ApplyScenarioToUI(Scenario scenario)
     {
         if (scenario?.settings != null)
@@ -742,7 +847,6 @@ public class UIControls : MonoBehaviour
         }
     }
 
-    // Method to get current UI settings for saving
     public ScenarioSettings GetCurrentUISettings()
     {
         var settings = new ScenarioSettings();
@@ -775,6 +879,11 @@ public class UIControls : MonoBehaviour
         {
             connectionManager.OnStrategyChanged -= OnStrategyChanged;
             connectionManager.OnConnectionsUpdated -= OnConnectionsUpdated;
+        }
+
+        if (BuildingManager.Instance != null)
+        {
+            BuildingManager.Instance.OnBuildingsToggled -= OnBuildingsToggled;
         }
     }
 }

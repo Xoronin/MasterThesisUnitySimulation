@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Core;
 using RFSimulation.Propagation.Core;
@@ -36,6 +36,52 @@ namespace RFSimulation.Propagation.PathLoss.Models
         private UrbanSpatialGrid spatialGrid;
         private List<BuildingEdge> urbanEdges = new List<BuildingEdge>();
         private bool spatialGridInitialized = false;
+
+        [Header("Ray Visualization")]
+        public bool enableRayVisualization = false;
+        public bool showDirectRays = true;
+        public bool showReflectionRays = true;
+        public bool showDiffractionRays = true;
+        public float rayDisplayDuration = 2f;
+        public bool persistentRays = false; // Keep rays visible permanently
+
+        [Header("Ray Colors")]
+        public Color directRayColor = Color.green;
+        public Color reflectionRayColor = Color.blue;
+        public Color diffractionRayColor = Color.red;
+        public Color blockedRayColor = Color.red;
+        public Color freeSpaceRayColor = Color.green;
+
+        [Header("Ray Appearance")]
+        public float rayWidth = 0.1f;
+        public bool use3DRayLines = true; // Use LineRenderer vs Debug.DrawLine
+
+        // Ray tracking for visualization
+        private List<RayVisualization> activeRays = new List<RayVisualization>();
+        private GameObject rayContainer;
+
+        // Ray data structure
+        public class RayVisualization
+        {
+            public Vector3 start;
+            public Vector3 end;
+            public Vector3[] waypoints; // For multi-segment rays (reflections/diffraction)
+            public Color color;
+            public RayType type;
+            public float power; // Signal strength for this ray
+            public string label;
+            public LineRenderer lineRenderer;
+            public float createdTime;
+        }
+
+        public enum RayType
+        {
+            Direct,
+            Reflection,
+            Diffraction,
+            Blocked
+        }
+
 
         public float Calculate(PropagationContext context)
         {
@@ -172,15 +218,52 @@ namespace RFSimulation.Propagation.PathLoss.Models
             Vector3 direction = (context.ReceiverPosition - context.TransmitterPosition).normalized;
             float distance = context.Distance;
 
-            // Check for obstacles using Mapbox buildings
-            if (Physics.Raycast(context.TransmitterPosition, direction, out RaycastHit hit, distance, mapboxBuildingLayer))
+            // Visualize the direct ray attempt
+            if (enableRayVisualization && showDirectRays)
             {
-                return float.NegativeInfinity; // Blocked by building
-            }
+                // Check for obstacles using Mapbox buildings
+                if (Physics.Raycast(context.TransmitterPosition, direction, out RaycastHit hit, distance, mapboxBuildingLayer))
+                {
+                    // Ray blocked - show red ray to hit point
+                    CreateRayVisualization(
+                        context.TransmitterPosition,
+                        hit.point,
+                        blockedRayColor,
+                        RayType.Blocked,
+                        float.NegativeInfinity,
+                        $"Direct (Blocked by {hit.collider.name})"
+                    );
+                    return float.NegativeInfinity;
+                }
+                else
+                {
+                    // Clear path - show green ray
+                    float fspl = CalculateFreeSpacePathLoss(distance, context.FrequencyMHz);
+                    float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - fspl;
 
-            // Clear line of sight - calculate free space loss
-            float fspl = CalculateFreeSpacePathLoss(distance, context.FrequencyMHz);
-            return context.TransmitterPowerDbm + context.AntennaGainDbi - fspl;
+                    CreateRayVisualization(
+                        context.TransmitterPosition,
+                        context.ReceiverPosition,
+                        freeSpaceRayColor,
+                        RayType.Direct,
+                        receivedPower,
+                        $"Direct LOS ({receivedPower:F1}dBm)"
+                    );
+                    return receivedPower;
+                }
+            }
+            else
+            {
+                // Original logic without visualization
+                if (Physics.Raycast(context.TransmitterPosition, direction, out RaycastHit hit, distance, mapboxBuildingLayer))
+                {
+                    return float.NegativeInfinity;
+                }
+
+                // Clear line of sight - calculate free space loss
+                float fspl = CalculateFreeSpacePathLoss(distance, context.FrequencyMHz);
+                return context.TransmitterPowerDbm + context.AntennaGainDbi - fspl;
+            }
         }
 
         private float Calculate2DUrbanPropagation(PropagationContext context)
@@ -270,10 +353,25 @@ namespace RFSimulation.Propagation.PathLoss.Models
             Vector3 txToReflection = reflectionPoint - context.TransmitterPosition;
             Vector3 reflectionToRx = context.ReceiverPosition - reflectionPoint;
 
-            if (Physics.Raycast(context.TransmitterPosition, txToReflection.normalized, txToReflection.magnitude, mapboxBuildingLayer) ||
-                Physics.Raycast(reflectionPoint, reflectionToRx.normalized, reflectionToRx.magnitude, mapboxBuildingLayer))
+            // Check if reflection path is clear
+            bool pathClear = !Physics.Raycast(context.TransmitterPosition, txToReflection.normalized, txToReflection.magnitude, mapboxBuildingLayer) &&
+                           !Physics.Raycast(reflectionPoint, reflectionToRx.normalized, reflectionToRx.magnitude, mapboxBuildingLayer);
+
+            if (!pathClear)
             {
-                return float.NegativeInfinity; // Path blocked
+                if (enableRayVisualization && showReflectionRays)
+                {
+                    // Show blocked reflection path
+                    Vector3[] waypoints = { context.TransmitterPosition, reflectionPoint, context.ReceiverPosition };
+                    CreateMultiSegmentRayVisualization(
+                        waypoints,
+                        blockedRayColor,
+                        RayType.Reflection,
+                        float.NegativeInfinity,
+                        $"Reflection (Blocked)"
+                    );
+                }
+                return float.NegativeInfinity;
             }
 
             // Calculate total path length
@@ -285,7 +383,22 @@ namespace RFSimulation.Propagation.PathLoss.Models
             // Add reflection loss (simplified urban value from paper)
             float reflectionLoss = 6f; // Typical urban reflection loss
 
-            return context.TransmitterPowerDbm + context.AntennaGainDbi - pathLoss - reflectionLoss;
+            float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - pathLoss - reflectionLoss;
+
+            if (enableRayVisualization && showReflectionRays)
+            {
+                // Show successful reflection path
+                Vector3[] waypoints = { context.TransmitterPosition, reflectionPoint, context.ReceiverPosition };
+                CreateMultiSegmentRayVisualization(
+                    waypoints,
+                    reflectionRayColor,
+                    RayType.Reflection,
+                    receivedPower,
+                    $"Reflection via {building.name} ({receivedPower:F1}dBm)"
+                );
+            }
+
+            return receivedPower;
         }
 
         private float CalculateEdgeDiffraction(PropagationContext context, BuildingEdge edge)
@@ -311,8 +424,22 @@ namespace RFSimulation.Propagation.PathLoss.Models
             // Total path length
             float totalDistance = txToEdge.magnitude + edgeToRx.magnitude;
             float pathLoss = CalculateFreeSpacePathLoss(totalDistance, context.FrequencyMHz);
+            float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - pathLoss - diffractionLoss;
 
-            return context.TransmitterPowerDbm + context.AntennaGainDbi - pathLoss - diffractionLoss;
+            if (enableRayVisualization && showDiffractionRays)
+            {
+                // Show diffraction path
+                Vector3[] waypoints = { context.TransmitterPosition, edgePoint, context.ReceiverPosition };
+                CreateMultiSegmentRayVisualization(
+                    waypoints,
+                    diffractionRayColor,
+                    RayType.Diffraction,
+                    receivedPower,
+                    $"Diffraction via edge ({receivedPower:F1}dBm, v={fresnelParameter:F2})"
+                );
+            }
+
+            return receivedPower;
         }
 
         private float CalculateFresnelParameter(Vector3 tx, Vector3 rx, Vector3 edge, float frequency)
@@ -369,8 +496,158 @@ namespace RFSimulation.Propagation.PathLoss.Models
         {
             return $"urban_{context.TransmitterPosition}_{context.ReceiverPosition}_{context.FrequencyMHz:F0}";
         }
-    }
 
+        private void CreateRayVisualization(Vector3 start, Vector3 end, Color color, RayType type, float power, string label)
+        {
+            if (!enableRayVisualization) return;
+
+            var rayViz = new RayVisualization
+            {
+                start = start,
+                end = end,
+                color = color,
+                type = type,
+                power = power,
+                label = label,
+                createdTime = Time.time
+            };
+
+            if (use3DRayLines)
+            {
+                CreateLineRenderer(rayViz, new Vector3[] { start, end });
+            }
+            else
+            {
+                // Use Unity's debug lines
+                float duration = persistentRays ? 1000f : rayDisplayDuration;
+                Debug.DrawLine(start, end, color, duration);
+            }
+
+            activeRays.Add(rayViz);
+
+            // Log ray information
+            Debug.Log($"[Ray] {label} - Distance: {Vector3.Distance(start, end):F1}m");
+        }
+
+        private void CreateMultiSegmentRayVisualization(Vector3[] waypoints, Color color, RayType type, float power, string label)
+        {
+            if (!enableRayVisualization || waypoints.Length < 2) return;
+
+            var rayViz = new RayVisualization
+            {
+                start = waypoints[0],
+                end = waypoints[waypoints.Length - 1],
+                waypoints = waypoints,
+                color = color,
+                type = type,
+                power = power,
+                label = label,
+                createdTime = Time.time
+            };
+
+            if (use3DRayLines)
+            {
+                CreateLineRenderer(rayViz, waypoints);
+            }
+            else
+            {
+                float duration = persistentRays ? 1000f : rayDisplayDuration;
+                for (int i = 0; i < waypoints.Length - 1; i++)
+                {
+                    Debug.DrawLine(waypoints[i], waypoints[i + 1], color, duration);
+                }
+            }
+
+            activeRays.Add(rayViz);
+
+            // Calculate total distance
+            float totalDistance = 0f;
+            for (int i = 0; i < waypoints.Length - 1; i++)
+            {
+                totalDistance += Vector3.Distance(waypoints[i], waypoints[i + 1]);
+            }
+
+            Debug.Log($"[Ray] {label} - Total Distance: {totalDistance:F1}m");
+        }
+
+        private void CreateLineRenderer(RayVisualization rayViz, Vector3[] points)
+        {
+            if (rayContainer == null)
+            {
+                rayContainer = new GameObject("RF_Ray_Visualizations");
+            }
+
+            GameObject rayObject = new GameObject($"Ray_{rayViz.type}_{Time.time:F2}");
+            rayObject.transform.SetParent(rayContainer.transform);
+
+            LineRenderer lr = rayObject.AddComponent<LineRenderer>();
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.material.color = rayViz.color; // FIX: Use material.color instead of color
+            lr.startWidth = rayWidth;
+            lr.endWidth = rayWidth;
+            lr.positionCount = points.Length;
+            lr.SetPositions(points);
+            lr.useWorldSpace = true;
+
+            rayViz.lineRenderer = lr;
+
+            // Auto-cleanup if not persistent
+            if (!persistentRays)
+            {
+                Object.Destroy(rayObject, rayDisplayDuration);
+            }
+        }
+
+        [ContextMenu("Clear All Rays")]
+        public void ClearAllRays()
+        {
+            activeRays.Clear();
+
+            if (rayContainer != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Object.Destroy(rayContainer);
+                }
+                else
+                {
+                    Object.DestroyImmediate(rayContainer);
+                }
+                rayContainer = null;
+            }
+
+            Debug.Log("🧹 All ray visualizations cleared");
+        }
+
+        [ContextMenu("Toggle Ray Visualization")]
+        public void ToggleRayVisualization()
+        {
+            enableRayVisualization = !enableRayVisualization;
+            Debug.Log($"Ray visualization: {(enableRayVisualization ? "ENABLED" : "DISABLED")}");
+
+            if (!enableRayVisualization)
+            {
+                ClearAllRays();
+            }
+        }
+
+        public void ShowRaysForTransmitter(Vector3 transmitterPos, List<Vector3> receiverPositions)
+        {
+            if (!enableRayVisualization) return;
+
+            Debug.Log($"🌐 Visualizing rays from transmitter at {transmitterPos}");
+
+            foreach (var rxPos in receiverPositions)
+            {
+                var context = PropagationContext.Create(transmitterPos, rxPos, 40f, 2400f);
+                Calculate(context); // This will trigger ray visualization
+            }
+        }
+        private void OnDestroy()
+        {
+            ClearAllRays();
+        }
+    }
     // Supporting classes for urban ray tracing
     public class BuildingEdge
     {

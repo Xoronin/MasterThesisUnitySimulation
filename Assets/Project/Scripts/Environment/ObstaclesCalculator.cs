@@ -2,6 +2,7 @@
 using RFSimulation.Environment;
 using RFSimulation.Interfaces;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Core.Managers;
 
 namespace RFSimulation.Environment
 {
@@ -13,7 +14,11 @@ namespace RFSimulation.Environment
 
 		public bool HasLineOfSight(PropagationContext context)
 		{
-			if (!context.BuildingLayers.HasValue)
+            // Check if buildings are globally disabled
+            if (!BuildingManager.AreBuildingsEnabled())
+                return true; // Clear line of sight when buildings are disabled
+
+            if (!context.BuildingLayers.HasValue)
 				return true; // No obstacles defined
 
 			Vector3 direction = context.ReceiverPosition - context.TransmitterPosition;
@@ -29,10 +34,19 @@ namespace RFSimulation.Environment
 
 		public float CalculatePenetrationLoss(PropagationContext context)
 		{
-			if (!context.BuildingLayers.HasValue)
+            // Check if buildings are globally disabled
+            if (!BuildingManager.AreBuildingsEnabled())
+                return 0f; // Clear line of sight when buildings are disabled
+
+            if (!context.BuildingLayers.HasValue)
 				return 0f; // No obstacles
 
-			Vector3 direction = context.ReceiverPosition - context.TransmitterPosition;
+            // Use the active building layers
+            LayerMask activeLayers = BuildingManager.GetActiveBuildingLayers();
+            if (activeLayers == 0)
+                return 0f; // No active building layers
+
+            Vector3 direction = context.ReceiverPosition - context.TransmitterPosition;
 			float maxDistance = direction.magnitude;
 
 			Debug.Log($"🔍 Calculating penetration loss from {context.TransmitterPosition} to {context.ReceiverPosition}");

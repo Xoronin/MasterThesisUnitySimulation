@@ -1,347 +1,397 @@
-﻿using UnityEngine;
-using RFSimulation.Propagation.Core;
-using RFSimulation.Propagation.PathLoss;
-using RFSimulation.Core.Components;
-using System.Collections.Generic;
+﻿//using UnityEngine;
+//using RFSimulation.Propagation.Core;
+//using RFSimulation.Propagation.PathLoss;
+//using RFSimulation.Core.Components;
+//using System.Collections.Generic;
 
-namespace RFSimulation.Core.Components
-{
-    /// <summary>
-    /// Integration component to upgrade existing Transmitters with urban ray tracing capabilities
-    /// Add this to your transmitter prefab or existing transmitters to enable Mapbox-aware propagation
-    /// </summary>
-    [System.Serializable]
-    public class UrbanTransmitterSettings
-    {
-        [Header("Urban Ray Tracing")]
-        public bool enableUrbanRayTracing = true;
-        public bool autoDetectUrbanEnvironment = true;
-        public PropagationModel urbanModel = PropagationModel.BasicRayTracing;
-        public PropagationModel fallbackModel = PropagationModel.LogDistance;
+//namespace RFSimulation.Core.Components
+//{
+//    /// <summary>
+//    /// Integration component to upgrade existing Transmitters with urban ray tracing capabilities
+//    /// Add this to your transmitter prefab or existing transmitters to enable Mapbox-aware propagation
+//    /// </summary>
+//    [System.Serializable]
+//    public class UrbanTransmitterSettings
+//    {
+//        [Header("Urban Ray Tracing")]
+//        public bool enableUrbanRayTracing = true;
+//        public bool autoDetectUrbanEnvironment = true;
+//        public PropagationModel urbanModel = PropagationModel.BasicRayTracing;
+//        public PropagationModel fallbackModel = PropagationModel.LogDistance;
 
-        [Header("Urban Performance")]
-        public bool usePerformanceOptimizations = true;
-        public int maxReflections = 2; // Reduced for real-time performance
-        public int maxDiffractions = 2;
-        public float maxUrbanCalculationDistance = 1500f;
+//        [Header("Urban Performance")]
+//        public bool usePerformanceOptimizations = true;
+//        public int maxReflections = 2; // Reduced for real-time performance
+//        public int maxDiffractions = 2;
+//        public float maxUrbanCalculationDistance = 1500f;
 
-        [Header("Mapbox Integration")]
-        public LayerMask mapboxBuildingLayer = 1 << 8;
-        public bool enableBuildingMaterialDetection = true;
-        public float buildingDetectionRadius = 1000f;
-    }
+//        [Header("Mapbox Integration")]
+//        public LayerMask mapboxBuildingLayer = 1 << 8;
+//        public bool enableBuildingMaterialDetection = true;
+//        public float buildingDetectionRadius = 1000f;
+//    }
 
-    /// <summary>
-    /// Enhanced Transmitter component with urban ray tracing support
-    /// Either replace your existing Transmitter or add this as a component alongside it
-    /// </summary>
-    public class UrbanTransmitter : MonoBehaviour
-    {
-        [Header("Basic Transmitter Properties")]
-        public string uniqueID;
-        public float transmitterPower = 40f; // dBm
-        public float antennaGain = 12f; // dBi
-        public float frequency = 2400f; // MHz
+//    /// <summary>
+//    /// Enhanced Transmitter component with urban ray tracing support
+//    /// Either replace your existing Transmitter or add this as a component alongside it
+//    /// </summary>
+//    public class UrbanTransmitter : MonoBehaviour
+//    {
+//        [Header("Basic Transmitter Properties")]
+//        public string uniqueID;
+//        public float transmitterPower = 40f; // dBm
+//        public float antennaGain = 12f; // dBi
+//        public float frequency = 2400f; // MHz
 
-        [Header("Urban Settings")]
-        public UrbanTransmitterSettings urbanSettings = new UrbanTransmitterSettings();
+//        [Header("Urban Settings")]
+//        public UrbanTransmitterSettings urbanSettings = new UrbanTransmitterSettings();
 
-        [Header("Visualization")]
-        public bool showConnections = true;
-        public bool showUrbanRayPaths = false; // Debug visualization
-        public Material connectionLineMaterial;
+//        [Header("Visualization")]
+//        public bool showConnections = true;
+//        public bool showUrbanRayPaths = false; // Debug visualization
+//        public Material connectionLineMaterial;
 
-        // Enhanced path loss calculator with urban support
-        private UrbanPathLossCalculator urbanPathLossCalculator;
-        private bool isUrbanEnvironmentDetected = false;
-        private float lastUrbanDetectionTime = 0f;
-        private const float URBAN_DETECTION_INTERVAL = 5f; // Check every 5 seconds
+//        // Enhanced path loss calculator with urban support
+//        private UrbanPathLossCalculator urbanPathLossCalculator;
+//        private bool isUrbanEnvironmentDetected = false;
+//        private float lastUrbanDetectionTime = 0f;
+//        private const float URBAN_DETECTION_INTERVAL = 5f; // Check every 5 seconds
 
-        void Awake()
-        {
-            InitializeUrbanTransmitter();
-        }
+//        void Awake()
+//        {
+//            InitializeUrbanTransmitter();
+//        }
 
-        void Start()
-        {
-            InitializeUrbanCalculator();
-            DetectUrbanEnvironment();
-        }
+//        void Start()
+//        {
+//            InitializeUrbanCalculator();
+//            DetectUrbanEnvironment();
+//        }
 
-        private void InitializeUrbanTransmitter()
-        {
-            if (string.IsNullOrEmpty(uniqueID))
-                uniqueID = "UTX_" + GetInstanceID();
+//        private void InitializeUrbanTransmitter()
+//        {
+//            if (string.IsNullOrEmpty(uniqueID))
+//                uniqueID = "UTX_" + GetInstanceID();
 
-            // Ensure collider for interaction
-            if (GetComponent<Collider>() == null)
-            {
-                var collider = gameObject.AddComponent<SphereCollider>();
-                collider.radius = 1f;
-            }
-        }
+//            // Ensure collider for interaction
+//            if (GetComponent<Collider>() == null)
+//            {
+//                var collider = gameObject.AddComponent<SphereCollider>();
+//                collider.radius = 1f;
+//            }
+//        }
 
-        private void InitializeUrbanCalculator()
-        {
-            // Initialize the urban-enhanced path loss calculator
-            urbanPathLossCalculator = new UrbanPathLossCalculator();
+//        public void VisualizeRaysToReceivers()
+//        {
+//            // Get the urban ray tracing model from the calculator
+//            if (urbanPathLossCalculator != null)
+//            {
+//                // You need to add a method to access the urban ray tracing model
+//                var urbanModel = urbanPathLossCalculator.GetUrbanRayTracingModel();
+//                if (urbanModel != null)
+//                {
+//                    urbanModel.enableRayVisualization = true;
 
-            // Configure urban settings
-            urbanPathLossCalculator.autoDetectUrbanEnvironment = urbanSettings.autoDetectUrbanEnvironment;
-            urbanPathLossCalculator.urbanDetectionRadius = urbanSettings.buildingDetectionRadius;
-            urbanPathLossCalculator.mapboxBuildingLayer = urbanSettings.mapboxBuildingLayer;
-            urbanPathLossCalculator.preferUrbanRayTracing = urbanSettings.enableUrbanRayTracing;
-            urbanPathLossCalculator.maxUrbanDistance = urbanSettings.maxUrbanCalculationDistance;
+//                    var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
+//                    foreach (var receiver in receivers)
+//                    {
+//                        CalculateSignalStrength(receiver.transform.position);
+//                    }
+//                }
+//            }
+//        }
 
-            Debug.Log($"[UrbanTransmitter] {uniqueID} initialized with urban ray tracing");
-        }
+//        private void InitializeUrbanCalculator()
+//        {
+//            // Initialize the urban-enhanced path loss calculator
+//            urbanPathLossCalculator = new UrbanPathLossCalculator();
 
-        public float CalculateSignalStrength(Vector3 receiverPosition)
-        {
-            // Periodic urban environment detection
-            if (Time.time - lastUrbanDetectionTime > URBAN_DETECTION_INTERVAL)
-            {
-                DetectUrbanEnvironment();
-                lastUrbanDetectionTime = Time.time;
-            }
+//            // Configure urban settings
+//            urbanPathLossCalculator.autoDetectUrbanEnvironment = urbanSettings.autoDetectUrbanEnvironment;
+//            urbanPathLossCalculator.urbanDetectionRadius = urbanSettings.buildingDetectionRadius;
+//            urbanPathLossCalculator.mapboxBuildingLayer = urbanSettings.mapboxBuildingLayer;
+//            urbanPathLossCalculator.preferUrbanRayTracing = urbanSettings.enableUrbanRayTracing;
+//            urbanPathLossCalculator.maxUrbanDistance = urbanSettings.maxUrbanCalculationDistance;
 
-            // Create propagation context
-            var context = CreatePropagationContext(receiverPosition);
+//            Debug.Log($"[UrbanTransmitter] {uniqueID} initialized with urban ray tracing");
+//        }
 
-            // Select appropriate model based on environment and settings
-            context.Model = SelectOptimalModel(context);
+//        public float CalculateSignalStrength(Vector3 receiverPosition)
+//        {
+//            // Periodic urban environment detection
+//            if (Time.time - lastUrbanDetectionTime > URBAN_DETECTION_INTERVAL)
+//            {
+//                DetectUrbanEnvironment();
+//                lastUrbanDetectionTime = Time.time;
+//            }
 
-            try
-            {
-                // Calculate using urban-enhanced calculator
-                float receivedPower = urbanPathLossCalculator.CalculateReceivedPower(context);
+//            // Create propagation context
+//            var context = CreatePropagationContext(receiverPosition);
 
-                if (urbanSettings.enableUrbanRayTracing && showUrbanRayPaths)
-                {
-                    VisualizeUrbanRayPath(transform.position, receiverPosition, receivedPower);
-                }
+//            // Select appropriate model based on environment and settings
+//            context.Model = SelectOptimalModel(context);
 
-                return receivedPower;
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[UrbanTransmitter] Error calculating signal strength: {e.Message}");
-                return float.NegativeInfinity;
-            }
-        }
+//            try
+//            {
+//                // Calculate using urban-enhanced calculator
+//                float receivedPower = urbanPathLossCalculator.CalculateReceivedPower(context);
 
-        private PropagationContext CreatePropagationContext(Vector3 receiverPosition)
-        {
-            var context = PropagationContext.Create(
-                transform.position,
-                receiverPosition,
-                transmitterPower,
-                frequency
-            );
+//                if (urbanSettings.enableUrbanRayTracing && showUrbanRayPaths)
+//                {
+//                    VisualizeUrbanRayPath(transform.position, receiverPosition, receivedPower);
+//                }
 
-            context.AntennaGainDbi = antennaGain;
-            context.ReceiverSensitivityDbm = -105f; // Default receiver sensitivity
+//                return receivedPower;
+//            }
+//            catch (System.Exception e)
+//            {
+//                Debug.LogError($"[UrbanTransmitter] Error calculating signal strength: {e.Message}");
+//                return float.NegativeInfinity;
+//            }
+//        }
 
-            // Add Mapbox building layer information
-            context.BuildingLayers = urbanSettings.mapboxBuildingLayer;
+//        private PropagationContext CreatePropagationContext(Vector3 receiverPosition)
+//        {
+//            var context = PropagationContext.Create(
+//                transform.position,
+//                receiverPosition,
+//                transmitterPower,
+//                frequency
+//            );
 
-            return context;
-        }
+//            context.AntennaGainDbi = antennaGain;
+//            context.ReceiverSensitivityDbm = -105f; // Default receiver sensitivity
 
-        private PropagationModel SelectOptimalModel(PropagationContext context)
-        {
-            float distance = context.Distance;
+//            // Add Mapbox building layer information
+//            context.BuildingLayers = urbanSettings.mapboxBuildingLayer;
 
-            // If urban ray tracing is disabled, use fallback
-            if (!urbanSettings.enableUrbanRayTracing)
-            {
-                return urbanSettings.fallbackModel;
-            }
+//            return context;
+//        }
 
-            // Performance optimization: use simpler models for very long distances
-            if (distance > urbanSettings.maxUrbanCalculationDistance)
-            {
-                Debug.Log($"[UrbanTransmitter] Distance {distance:F0}m exceeds urban limit, using fallback model");
-                return urbanSettings.fallbackModel;
-            }
+//        private PropagationModel SelectOptimalModel(PropagationContext context)
+//        {
+//            float distance = context.Distance;
 
-            // In detected urban environments, prefer ray tracing
-            if (isUrbanEnvironmentDetected)
-            {
-                return urbanSettings.urbanModel;
-            }
+//            // If urban ray tracing is disabled, use fallback
+//            if (!urbanSettings.enableUrbanRayTracing)
+//            {
+//                return urbanSettings.fallbackModel;
+//            }
 
-            // Auto-selection for non-urban or unknown environments
-            return PropagationModel.Auto;
-        }
+//            // Performance optimization: use simpler models for very long distances
+//            if (distance > urbanSettings.maxUrbanCalculationDistance)
+//            {
+//                Debug.Log($"[UrbanTransmitter] Distance {distance:F0}m exceeds urban limit, using fallback model");
+//                return urbanSettings.fallbackModel;
+//            }
 
-        private void DetectUrbanEnvironment()
-        {
-            if (!urbanSettings.autoDetectUrbanEnvironment) return;
+//            // In detected urban environments, prefer ray tracing
+//            if (isUrbanEnvironmentDetected)
+//            {
+//                return urbanSettings.urbanModel;
+//            }
 
-            // Count nearby Mapbox buildings
-            Collider[] nearbyBuildings = Physics.OverlapSphere(
-                transform.position,
-                urbanSettings.buildingDetectionRadius,
-                urbanSettings.mapboxBuildingLayer
-            );
+//            // Auto-selection for non-urban or unknown environments
+//            return PropagationModel.Auto;
+//        }
 
-            int validBuildings = 0;
-            foreach (var building in nearbyBuildings)
-            {
-                // Validate building height
-                Renderer renderer = building.GetComponent<Renderer>();
-                if (renderer != null && renderer.bounds.size.y > 2f)
-                {
-                    validBuildings++;
-                }
-            }
+//        private void DetectUrbanEnvironment()
+//        {
+//            if (!urbanSettings.autoDetectUrbanEnvironment) return;
 
-            bool wasUrban = isUrbanEnvironmentDetected;
-            isUrbanEnvironmentDetected = validBuildings >= 5; // Minimum threshold
+//            // Count nearby Mapbox buildings
+//            Collider[] nearbyBuildings = Physics.OverlapSphere(
+//                transform.position,
+//                urbanSettings.buildingDetectionRadius,
+//                urbanSettings.mapboxBuildingLayer
+//            );
 
-            if (wasUrban != isUrbanEnvironmentDetected)
-            {
-                Debug.Log($"[UrbanTransmitter] {uniqueID} environment changed: " +
-                         $"Urban={isUrbanEnvironmentDetected} ({validBuildings} buildings detected)");
-            }
-        }
+//            int validBuildings = 0;
+//            foreach (var building in nearbyBuildings)
+//            {
+//                // Validate building height
+//                Renderer renderer = building.GetComponent<Renderer>();
+//                if (renderer != null && renderer.bounds.size.y > 2f)
+//                {
+//                    validBuildings++;
+//                }
+//            }
 
-        private void VisualizeUrbanRayPath(Vector3 start, Vector3 end, float signalStrength)
-        {
-            // Simple line visualization for debugging
-            Debug.DrawLine(start, end, GetSignalStrengthColor(signalStrength), 2f);
-        }
+//            bool wasUrban = isUrbanEnvironmentDetected;
+//            isUrbanEnvironmentDetected = validBuildings >= 5; // Minimum threshold
 
-        private Color GetSignalStrengthColor(float signalStrength)
-        {
-            if (float.IsNegativeInfinity(signalStrength)) return Color.black;
+//            if (wasUrban != isUrbanEnvironmentDetected)
+//            {
+//                Debug.Log($"[UrbanTransmitter] {uniqueID} environment changed: " +
+//                         $"Urban={isUrbanEnvironmentDetected} ({validBuildings} buildings detected)");
+//            }
+//        }
 
-            // Normalize signal strength for color mapping
-            float normalized = Mathf.Clamp01((signalStrength + 120f) / 40f); // -120 to -80 dBm range
+//        private void VisualizeUrbanRayPath(Vector3 start, Vector3 end, float signalStrength)
+//        {
+//            // Simple line visualization for debugging
+//            Debug.DrawLine(start, end, GetSignalStrengthColor(signalStrength), 2f);
+//        }
 
-            if (normalized > 0.8f) return Color.green;
-            if (normalized > 0.6f) return Color.yellow;
-            if (normalized > 0.4f) return Color.blue;
-            return Color.red;
-        }
+//        private Color GetSignalStrengthColor(float signalStrength)
+//        {
+//            if (float.IsNegativeInfinity(signalStrength)) return Color.black;
 
-        // Enhanced coverage calculation
-        public float EstimateCoverageRadius()
-        {
-            var baseContext = CreatePropagationContext(transform.position + Vector3.forward);
-            return urbanPathLossCalculator.EstimateCoverageRadius(baseContext);
-        }
+//            // Normalize signal strength for color mapping
+//            float normalized = Mathf.Clamp01((signalStrength + 120f) / 40f); // -120 to -80 dBm range
 
-        // Compatibility methods for existing Transmitter interface
-        public bool CanConnectTo(RFSimulation.Core.Components.Receiver receiver)
-        {
-            float signalStrength = CalculateSignalStrength(receiver.transform.position);
-            return signalStrength >= (receiver.sensitivity + receiver.connectionMargin);
-        }
+//            if (normalized > 0.8f) return Color.green;
+//            if (normalized > 0.6f) return Color.yellow;
+//            if (normalized > 0.4f) return Color.blue;
+//            return Color.red;
+//        }
 
-        public void ConnectToReceiver(RFSimulation.Core.Components.Receiver receiver)
-        {
-            // Implementation depends on your existing connection system
-            // This method maintains compatibility with existing code
-        }
+//        // Enhanced coverage calculation
+//        public float EstimateCoverageRadius()
+//        {
+//            var baseContext = CreatePropagationContext(transform.position + Vector3.forward);
+//            return urbanPathLossCalculator.EstimateCoverageRadius(baseContext);
+//        }
 
-        public void DisconnectFromReceiver(RFSimulation.Core.Components.Receiver receiver)
-        {
-            // Implementation depends on your existing connection system
-        }
+//        // Compatibility methods for existing Transmitter interface
+//        public bool CanConnectTo(RFSimulation.Core.Components.Receiver receiver)
+//        {
+//            float signalStrength = CalculateSignalStrength(receiver.transform.position);
+//            return signalStrength >= (receiver.sensitivity + receiver.connectionMargin);
+//        }
 
-        public void ClearAllConnections()
-        {
-            // Implementation depends on your existing connection system
-        }
+//        public void ConnectToReceiver(RFSimulation.Core.Components.Receiver receiver)
+//        {
+//            // Implementation depends on your existing connection system
+//            // This method maintains compatibility with existing code
+//        }
 
-        public List<RFSimulation.Core.Components.Receiver> GetConnectedReceivers()
-        {
-            // Return connected receivers - implement based on your existing system
-            return new List<RFSimulation.Core.Components.Receiver>();
-        }
+//        public void DisconnectFromReceiver(RFSimulation.Core.Components.Receiver receiver)
+//        {
+//            // Implementation depends on your existing connection system
+//        }
 
-        public int GetConnectionCount()
-        {
-            return GetConnectedReceivers().Count;
-        }
+//        public void ClearAllConnections()
+//        {
+//            // Implementation depends on your existing connection system
+//        }
 
-        // Configuration methods
-        public void SetUrbanRayTracingEnabled(bool enabled)
-        {
-            urbanSettings.enableUrbanRayTracing = enabled;
-            Debug.Log($"[UrbanTransmitter] {uniqueID} urban ray tracing: {enabled}");
-        }
+//        public List<RFSimulation.Core.Components.Receiver> GetConnectedReceivers()
+//        {
+//            // Return connected receivers - implement based on your existing system
+//            return new List<RFSimulation.Core.Components.Receiver>();
+//        }
 
-        public void SetMaxUrbanDistance(float maxDistance)
-        {
-            urbanSettings.maxUrbanCalculationDistance = maxDistance;
-        }
+//        public int GetConnectionCount()
+//        {
+//            return GetConnectedReceivers().Count;
+//        }
 
-        public void UpdateUrbanSettings(UrbanTransmitterSettings newSettings)
-        {
-            urbanSettings = newSettings;
-            InitializeUrbanCalculator(); // Reinitialize with new settings
-        }
+//        // Configuration methods
+//        public void SetUrbanRayTracingEnabled(bool enabled)
+//        {
+//            urbanSettings.enableUrbanRayTracing = enabled;
+//            Debug.Log($"[UrbanTransmitter] {uniqueID} urban ray tracing: {enabled}");
+//        }
 
-        // Debug and testing methods
-        [ContextMenu("Test Urban Signal Calculation")]
-        public void TestUrbanSignalCalculation()
-        {
-            // Find a nearby receiver for testing
-            var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
-            if (receivers.Length > 0)
-            {
-                var testReceiver = receivers[0];
-                float signal = CalculateSignalStrength(testReceiver.transform.position);
-                float distance = Vector3.Distance(transform.position, testReceiver.transform.position);
+//        public void SetMaxUrbanDistance(float maxDistance)
+//        {
+//            urbanSettings.maxUrbanCalculationDistance = maxDistance;
+//        }
 
-                Debug.Log($"[UrbanTransmitter] Test calculation:");
-                Debug.Log($"  Distance: {distance:F1}m");
-                Debug.Log($"  Signal: {signal:F1}dBm");
-                Debug.Log($"  Urban environment: {isUrbanEnvironmentDetected}");
-                Debug.Log($"  Model used: {SelectOptimalModel(CreatePropagationContext(testReceiver.transform.position))}");
-            }
-            else
-            {
-                Debug.LogWarning("[UrbanTransmitter] No receivers found for testing");
-            }
-        }
+//        public void UpdateUrbanSettings(UrbanTransmitterSettings newSettings)
+//        {
+//            urbanSettings = newSettings;
+//            InitializeUrbanCalculator(); // Reinitialize with new settings
+//        }
 
-        [ContextMenu("Force Urban Environment Detection")]
-        public void ForceUrbanDetection()
-        {
-            DetectUrbanEnvironment();
-            Debug.Log($"[UrbanTransmitter] Forced detection result: Urban={isUrbanEnvironmentDetected}");
-        }
+//        // Debug and testing methods
+//        [ContextMenu("Test Urban Signal Calculation")]
+//        public void TestUrbanSignalCalculation()
+//        {
+//            // Find a nearby receiver for testing
+//            var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
+//            if (receivers.Length > 0)
+//            {
+//                var testReceiver = receivers[0];
+//                float signal = CalculateSignalStrength(testReceiver.transform.position);
+//                float distance = Vector3.Distance(transform.position, testReceiver.transform.position);
 
-        [ContextMenu("Debug Urban Settings")]
-        public void DebugUrbanSettings()
-        {
-            Debug.Log("=== URBAN TRANSMITTER DEBUG ===");
-            Debug.Log($"Transmitter ID: {uniqueID}");
-            Debug.Log($"Power: {transmitterPower}dBm, Gain: {antennaGain}dBi, Freq: {frequency}MHz");
-            Debug.Log($"Urban ray tracing enabled: {urbanSettings.enableUrbanRayTracing}");
-            Debug.Log($"Auto-detect urban: {urbanSettings.autoDetectUrbanEnvironment}");
-            Debug.Log($"Current environment: {(isUrbanEnvironmentDetected ? "Urban" : "Non-urban")}");
-            Debug.Log($"Max urban distance: {urbanSettings.maxUrbanCalculationDistance}m");
-            Debug.Log($"Building layer: {urbanSettings.mapboxBuildingLayer.value}");
+//                Debug.Log($"[UrbanTransmitter] Test calculation:");
+//                Debug.Log($"  Distance: {distance:F1}m");
+//                Debug.Log($"  Signal: {signal:F1}dBm");
+//                Debug.Log($"  Urban environment: {isUrbanEnvironmentDetected}");
+//                Debug.Log($"  Model used: {SelectOptimalModel(CreatePropagationContext(testReceiver.transform.position))}");
+//            }
+//            else
+//            {
+//                Debug.LogWarning("[UrbanTransmitter] No receivers found for testing");
+//            }
+//        }
 
-            if (urbanPathLossCalculator != null)
-            {
-                Debug.Log("Urban calculator initialized: ✓");
-            }
-            else
-            {
-                Debug.LogWarning("Urban calculator not initialized!");
-            }
-        }
+//        [ContextMenu("Force Urban Environment Detection")]
+//        public void ForceUrbanDetection()
+//        {
+//            DetectUrbanEnvironment();
+//            Debug.Log($"[UrbanTransmitter] Forced detection result: Urban={isUrbanEnvironmentDetected}");
+//        }
 
-        // Cleanup
-        void OnDestroy()
-        {
-            ClearAllConnections();
-        }
-    }
-}
+//        [ContextMenu("Debug Urban Settings")]
+//        public void DebugUrbanSettings()
+//        {
+//            Debug.Log("=== URBAN TRANSMITTER DEBUG ===");
+//            Debug.Log($"Transmitter ID: {uniqueID}");
+//            Debug.Log($"Power: {transmitterPower}dBm, Gain: {antennaGain}dBi, Freq: {frequency}MHz");
+//            Debug.Log($"Urban ray tracing enabled: {urbanSettings.enableUrbanRayTracing}");
+//            Debug.Log($"Auto-detect urban: {urbanSettings.autoDetectUrbanEnvironment}");
+//            Debug.Log($"Current environment: {(isUrbanEnvironmentDetected ? "Urban" : "Non-urban")}");
+//            Debug.Log($"Max urban distance: {urbanSettings.maxUrbanCalculationDistance}m");
+//            Debug.Log($"Building layer: {urbanSettings.mapboxBuildingLayer.value}");
+
+//            if (urbanPathLossCalculator != null)
+//            {
+//                Debug.Log("Urban calculator initialized: ✓");
+//            }
+//            else
+//            {
+//                Debug.LogWarning("Urban calculator not initialized!");
+//            }
+//        }
+
+//        [ContextMenu("Enable Ray Visualization")]
+//        public void EnableRayVisualization()
+//        {
+//            showUrbanRayPaths = true;
+
+//            var urbanModel = urbanPathLossCalculator?.GetUrbanRayTracingModel();
+//            if (urbanModel != null)
+//            {
+//                urbanModel.enableRayVisualization = true;
+//                urbanModel.showDirectRays = true;
+//                urbanModel.showReflectionRays = true;
+//                urbanModel.showDiffractionRays = true;
+//                urbanModel.persistentRays = true; // Keep rays visible
+//                urbanModel.rayDisplayDuration = 10f;
+
+//                Debug.Log("Ray visualization enabled - calculating signals to trigger ray display...");
+
+//                // Force calculation to all receivers to show rays
+//                var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
+//                foreach (var receiver in receivers)
+//                {
+//                    CalculateSignalStrength(receiver.transform.position);
+//                }
+//            }
+//            else
+//            {
+//                Debug.LogError("Could not access UrbanRayTracingModel for visualization");
+//            }
+//        }
+
+//        // Cleanup
+//        void OnDestroy()
+//        {
+//            ClearAllConnections();
+//        }
+//    }
+//}

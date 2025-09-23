@@ -8,41 +8,35 @@ using RFSimulation.Propagation.SignalQuality;
 namespace RFSimulation.Propagation.PathLoss
 {
     /// <summary>
-    /// Enhanced PathLossCalculator with urban ray tracing support for Mapbox environments
-    /// Uses composition instead of inheritance to avoid virtual method issues
+    ///  PathLossCalculator with integrated urban ray tracing support
+    /// Assumes urban environment by default and includes all propagation models
     /// </summary>
-    public class UrbanPathLossCalculator
+    public class PathLossCalculator
     {
-        [Header("Urban Environment Detection")]
-        public bool autoDetectUrbanEnvironment = true;
-        public float urbanDetectionRadius = 500f;
-        public int minimumBuildingsForUrban = 5;
+        [Header("Model Selection Settings")]
+        public bool enableAutomaticModelSelection = true;
+        public bool logModelSelectionReasons = false;
+
+        [Header("Urban Settings")]
+        public bool preferRayTracing = true;
+        public bool fallbackToBasicModels = true;
+        public float maxDistance = 2000f; // Beyond this, use empirical models
         public LayerMask mapboxBuildingLayer = 1 << 8;
 
-        [Header("Urban Model Selection")]
-        public bool preferUrbanRayTracing = true;
-        public bool fallbackToBasicModels = true;
-        public float maxUrbanDistance = 2000f; // Beyond this, use empirical models
+        // Model dictionary with all available models
+        private readonly Dictionary<PropagationModel, IPathLossModel> _models;
+        private readonly PathLossCache _cache;
+        private readonly IObstacleCalculator _obstacleCalculator;
 
-        // Base calculator for fallback functionality
-        private readonly PathLossCalculator baseCalculator;
-
-        // Enhanced model dictionary with urban models
-        private readonly Dictionary<PropagationModel, IPathLossModel> urbanModels;
-        private readonly PathLossCache urbanCache;
-
-        public UrbanPathLossCalculator(IObstacleCalculator obstacleCalculator = null)
+        public PathLossCalculator(IObstacleCalculator obstacleCalculator = null)
         {
-            // Initialize base calculator
-            baseCalculator = new PathLossCalculator(obstacleCalculator);
+            _obstacleCalculator = obstacleCalculator;
+            _cache = new PathLossCache();
 
-            // Initialize urban cache
-            urbanCache = new PathLossCache();
-
-            // Initialize urban-specific models
-            urbanModels = new Dictionary<PropagationModel, IPathLossModel>
+            // Initialize all available models including urban ray tracing
+            _models = new Dictionary<PropagationModel, IPathLossModel>
             {
-                // Keep original models
+                // Standard propagation models
                 { PropagationModel.FreeSpace, new FreeSpaceModel() },
                 { PropagationModel.LogDistance, new LogDistanceModel() },
                 { PropagationModel.TwoRaySimple, new TwoRaySimpleModel() },
@@ -50,7 +44,7 @@ namespace RFSimulation.Propagation.PathLoss
                 { PropagationModel.Hata, new HataModel() },
                 { PropagationModel.COST231Hata, new COST231HataModel() },
                 
-                // Add urban ray tracing models
+                // Urban ray tracing models
                 { PropagationModel.BasicRayTracing, new UrbanRayTracingModel() },
                 { PropagationModel.AdvancedRayTracing, new UrbanRayTracingModel() }
             };
@@ -61,103 +55,91 @@ namespace RFSimulation.Propagation.PathLoss
             // Validate input
             if (!context.IsValid(out string error))
             {
-                Debug.LogWarning($"[UrbanPathLoss] Invalid context: {error}");
+                Debug.LogWarning($"[PathLoss] Invalid context: {error}");
                 return float.NegativeInfinity;
             }
 
             // Check cache first
-            string cacheKey = GenerateUrbanCacheKey(context);
-            if (urbanCache.TryGetValue(context, out float cachedResult))
-            {
+            if (_cache.TryGetValue(context, out float cachedResult))
                 return cachedResult;
-            }
 
-            // Enhanced model selection for urban environments
-            if (context.Model == PropagationModel.Auto)
+            // Automatic model selection
+            if (enableAutomaticModelSelection && context.Model == PropagationModel.Auto)
             {
-                context.Model = SelectUrbanOptimizedModel(context);
+                context.Model = SelectOptimalModel(context);
             }
 
-            float result;
-
-            // Use urban model if available, fallback to base implementation
-            if (urbanModels.TryGetValue(context.Model, out IPathLossModel model))
+            // Get appropriate model
+            if (!_models.TryGetValue(context.Model, out IPathLossModel model))
             {
-                result = CalculateWithUrbanModel(model, context);
-            }
-            else
-            {
-                // Fallback to base calculator
-                result = baseCalculator.CalculateReceivedPower(context);
+                context.Model = SelectOptimalModel(context);
+                model = _models[context.Model];
             }
 
-            // Cache the result
-            urbanCache.Store(context, result);
-            return result;
+            float receivedPower;
+
+            try
+            {
+                // Calculate base received power
+                receivedPower = model.Calculate(context);
+
+                // Apply urban-specific corrections for urban environment
+                receivedPower = ApplyUrbanCorrections(receivedPower, context);
+
+                // Add obstacle losses if available
+                if (context.HasObstacles && _obstacleCalculator != null)
+                {
+                    float obstacleLoss = _obstacleCalculator.CalculatePenetrationLoss(context);
+                    receivedPower -= obstacleLoss;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[PathLoss] Error with {model.ModelName}: {e.Message}");
+
+                if (fallbackToBasicModels)
+                {
+                    // Fallback to free space model
+                    var fallbackModel = new FreeSpaceModel();
+                    receivedPower = fallbackModel.Calculate(context);
+                }
+                else
+                {
+                    receivedPower = float.NegativeInfinity;
+                }
+            }
+
+            // Cache result
+            _cache.Store(context, receivedPower);
+            return receivedPower;
         }
 
-        private PropagationModel SelectUrbanOptimizedModel(PropagationContext context)
+        private PropagationModel SelectOptimalModel(PropagationContext context)
         {
-            // Detect if we're in an urban environment
-            bool isUrbanEnvironment = DetectUrbanEnvironment(context);
-
-            if (isUrbanEnvironment && preferUrbanRayTracing)
+            if (preferRayTracing)
             {
-                return SelectUrbanRayTracingModel(context);
+                return SelectUrbanOptimizedModel(context);
             }
             else
             {
-                // Use original model selection logic for non-urban environments
                 return SelectStandardModel(context);
             }
         }
 
-        private bool DetectUrbanEnvironment(PropagationContext context)
-        {
-            if (!autoDetectUrbanEnvironment) return false;
-
-            // Count nearby buildings using Mapbox layer
-            Vector3 searchCenter = (context.TransmitterPosition + context.ReceiverPosition) * 0.5f;
-            Collider[] nearbyBuildings = Physics.OverlapSphere(searchCenter, urbanDetectionRadius, mapboxBuildingLayer);
-
-            int validBuildings = 0;
-            foreach (var building in nearbyBuildings)
-            {
-                // Validate it's actually a building (has reasonable height)
-                Renderer renderer = building.GetComponent<Renderer>();
-                if (renderer != null && renderer.bounds.size.y > 2f)
-                {
-                    validBuildings++;
-                }
-            }
-
-            bool isUrban = validBuildings >= minimumBuildingsForUrban;
-
-            if (isUrban)
-            {
-                Debug.Log($"[UrbanPathLoss] Urban environment detected: {validBuildings} buildings in {urbanDetectionRadius}m radius");
-            }
-
-            return isUrban;
-        }
-
-        private PropagationModel SelectUrbanRayTracingModel(PropagationContext context)
+        private PropagationModel SelectUrbanOptimizedModel(PropagationContext context)
         {
             float distance = context.Distance;
             float frequency = context.FrequencyMHz;
 
-            // Decision logic based on paper recommendations and computational constraints
-
-            // For very short urban distances, use free space or two-ray
+            // For very short distances, use free space or two-ray
             if (distance < 100f)
             {
                 return frequency > 1000f ? PropagationModel.FreeSpace : PropagationModel.TwoRaySimple;
             }
 
-            // For medium urban distances, use ray tracing if computationally feasible
-            if (distance <= maxUrbanDistance)
+            // For medium distances in urban environment, use ray tracing
+            if (distance <= maxDistance)
             {
-                // Use basic ray tracing for most urban scenarios
                 return PropagationModel.BasicRayTracing;
             }
 
@@ -173,39 +155,12 @@ namespace RFSimulation.Propagation.PathLoss
 
         private PropagationModel SelectStandardModel(PropagationContext context)
         {
-            // Use the model selection logic from ModelSelectionCriteria
             return ModelSelectionCriteria.SelectOptimalModel(context);
-        }
-
-        private float CalculateWithUrbanModel(IPathLossModel model, PropagationContext context)
-        {
-            try
-            {
-                float receivedPower = model.Calculate(context);
-
-                // Apply urban-specific corrections if needed
-                receivedPower = ApplyUrbanCorrections(receivedPower, context);
-
-                return receivedPower;
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[UrbanPathLoss] Error with {model.ModelName}: {e.Message}");
-
-                if (fallbackToBasicModels)
-                {
-                    // Fallback to free space model
-                    var fallbackModel = new FreeSpaceModel();
-                    return fallbackModel.Calculate(context);
-                }
-
-                return float.NegativeInfinity;
-            }
         }
 
         private float ApplyUrbanCorrections(float receivedPower, PropagationContext context)
         {
-            // Apply urban-specific corrections based on paper recommendations
+            // Apply urban-specific corrections since we're always in urban environment
 
             // 1. Building density correction
             float buildingDensityLoss = CalculateBuildingDensityLoss(context);
@@ -220,13 +175,13 @@ namespace RFSimulation.Propagation.PathLoss
 
         private float CalculateBuildingDensityLoss(PropagationContext context)
         {
-            // Simplified building density loss calculation
+            // Calculate building density loss for urban environment
             Vector3 midpoint = (context.TransmitterPosition + context.ReceiverPosition) * 0.5f;
             float sampleRadius = Mathf.Min(context.Distance * 0.3f, 200f);
 
             Collider[] buildings = Physics.OverlapSphere(midpoint, sampleRadius, mapboxBuildingLayer);
 
-            if (buildings.Length == 0) return 0f;
+            if (buildings.Length == 0) return 2f; // Minimum urban loss even if no buildings detected
 
             // Calculate building density
             float sampleArea = Mathf.PI * sampleRadius * sampleRadius;
@@ -240,8 +195,8 @@ namespace RFSimulation.Propagation.PathLoss
 
             float buildingDensity = Mathf.Clamp01(totalBuildingArea / sampleArea);
 
-            // Convert to additional loss (0-5 dB based on density)
-            return buildingDensity * 5f;
+            // Convert to additional loss (2-7 dB based on density, always some urban loss)
+            return 2f + (buildingDensity * 5f);
         }
 
         private float CalculateUrbanFrequencyFactor(float frequencyMHz)
@@ -253,7 +208,6 @@ namespace RFSimulation.Propagation.PathLoss
             return 0.5f; // Lower frequencies
         }
 
-        // Helper methods from original ModelSelectionCriteria
         private bool IsWithinHataRange(float distance, float frequency)
         {
             bool frequencyInRange = frequency >= 150f && frequency <= 1500f;
@@ -277,41 +231,82 @@ namespace RFSimulation.Propagation.PathLoss
             }
         }
 
-        // Enhanced coverage calculation for urban environments
-        public float EstimateCoverageRadius(PropagationContext baseContext)
+        public SignalQualityCategory GetSignalQuality(PropagationContext context)
         {
-            bool isUrban = DetectUrbanEnvironment(baseContext);
+            float receivedPower = CalculateReceivedPower(context);
+            float margin = receivedPower - context.ReceiverSensitivityDbm;
 
-            if (isUrban)
-            {
-                return EstimateUrbanCoverageRadius(baseContext);
-            }
-            else
-            {
-                return baseCalculator.EstimateCoverageRadius(baseContext);
-            }
+            if (margin < 0f) return SignalQualityCategory.NoService;
+            if (margin < 5f) return SignalQualityCategory.Poor;
+            if (margin < 10f) return SignalQualityCategory.Fair;
+            if (margin < 15f) return SignalQualityCategory.Good;
+            return SignalQualityCategory.Excellent;
         }
 
-        private float EstimateUrbanCoverageRadius(PropagationContext baseContext)
+        public SignalQualityMetrics GetSignalQualityMetrics(PropagationContext context)
         {
-            // Start with base calculation
-            float baseCoverage = baseCalculator.EstimateCoverageRadius(baseContext);
+            float receivedPower = CalculateReceivedPower(context);
 
-            // Apply urban-specific reductions
-            float urbanReductionFactor = 0.6f; // Urban environments typically reduce coverage by ~40%
+            // Estimate SINR from received power (simplified)
+            float estimatedSINR = receivedPower - (-110f); // Assume -110dBm noise floor
+
+            return new SignalQualityMetrics(estimatedSINR, context.Technology);
+        }
+
+        public float EstimateCoverageRadius(PropagationContext baseContext)
+        {
+            // Calculate coverage radius with urban considerations
+            float txPower = baseContext.TransmitterPowerDbm;
+            float txGain = baseContext.AntennaGainDbi;
+            float frequency = baseContext.FrequencyMHz;
+            float sensitivity = baseContext.ReceiverSensitivityDbm;
+            float connectionMargin = 10f; // Standard margin
+
+            // Calculate available link budget
+            float linkBudget = txPower + txGain - (sensitivity + connectionMargin);
+
+            // Use path loss model parameters
+            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
+            float referenceDistance = RFConstants.REFERENCE_DISTANCE;
+
+            // Calculate reference path loss at reference distance
+            float referenceLoss = CalculateReferencePathLoss(frequency, referenceDistance);
+
+            // Available path loss budget beyond reference distance
+            float additionalLoss = linkBudget - referenceLoss;
+
+            if (additionalLoss <= 0)
+            {
+                return referenceDistance * 0.5f;
+            }
+
+            // Calculate coverage using log-distance model
+            float distanceRatio = Mathf.Pow(10f, additionalLoss / (10f * pathLossExponent));
+            float coverageRadius = referenceDistance * distanceRatio;
+
+            // Apply urban-specific reductions (always urban environment)
+            coverageRadius = ApplyUrbanCoverageReductions(coverageRadius, baseContext);
+
+            // Apply realistic limits
+            return Mathf.Clamp(coverageRadius, 50f, 2000f); // Urban coverage typically limited
+        }
+
+        private float ApplyUrbanCoverageReductions(float baseCoverage, PropagationContext context)
+        {
+            // Urban environments typically reduce coverage by ~40%
+            float urbanReductionFactor = 0.6f;
 
             // Additional reduction based on building density
-            float densityReduction = CalculateBuildingDensityLoss(baseContext) / 10f; // Convert dB loss to ratio
-            urbanReductionFactor -= densityReduction * 0.1f; // Further reduce coverage based on density
+            float densityReduction = CalculateBuildingDensityLoss(context) / 10f;
+            urbanReductionFactor -= densityReduction * 0.1f;
 
             float urbanCoverage = baseCoverage * urbanReductionFactor;
 
             // Apply frequency-specific urban limitations
-            float frequencyFactor = GetUrbanFrequencyFactor(baseContext.FrequencyMHz);
+            float frequencyFactor = GetUrbanFrequencyFactor(context.FrequencyMHz);
             urbanCoverage *= frequencyFactor;
 
-            // Ensure reasonable bounds for urban coverage
-            return Mathf.Clamp(urbanCoverage, 50f, 1000f);
+            return urbanCoverage;
         }
 
         private float GetUrbanFrequencyFactor(float frequencyMHz)
@@ -323,73 +318,58 @@ namespace RFSimulation.Propagation.PathLoss
             return 1.0f; // Lower frequencies penetrate urban environments better
         }
 
-        // Delegate methods to base calculator
-        public SignalQualityCategory GetSignalQuality(PropagationContext context)
+        private float CalculateReferencePathLoss(float frequencyMHz, float referenceDistance)
         {
-            return baseCalculator.GetSignalQuality(context);
+            // Use free space path loss at reference distance
+            float distanceKm = referenceDistance / 1000f;
+            return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
         }
 
-        public SignalQualityMetrics GetSignalQualityMetrics(PropagationContext context)
+        public UrbanRayTracingModel GetRayTracingModel()
         {
-            return baseCalculator.GetSignalQualityMetrics(context);
+            if (_models.TryGetValue(PropagationModel.BasicRayTracing, out IPathLossModel model))
+            {
+                return model as UrbanRayTracingModel;
+            }
+            return null;
         }
 
         public void ClearCache()
         {
-            urbanCache.Clear();
-            baseCalculator.ClearCache();
+            _cache.Clear();
         }
 
         public (int entries, float hitRate) GetCacheStats()
         {
-            return urbanCache.GetStats();
+            return _cache.GetStats();
         }
 
-        private string GenerateUrbanCacheKey(PropagationContext context)
+        // Validation and debugging methods
+        public void ValidateModelSelection(PropagationContext context)
         {
-            return $"urban_{context.TransmitterPosition}_{context.ReceiverPosition}_{context.FrequencyMHz:F0}";
+            var applicabilityInfo = ModelSelectionCriteria.GetApplicabilityInfo(context);
+            applicabilityInfo.LogDebugInfo();
         }
 
-        // Debug and validation methods
-        [ContextMenu("Test Urban Detection")]
-        public void TestUrbanDetection()
+        public void DebugCoverageCalculation(PropagationContext context)
         {
-            // Find a test point in the scene
-            var transmitters = Object.FindObjectsByType<RFSimulation.Core.Components.Transmitter>(FindObjectsSortMode.None);
-            if (transmitters.Length > 0)
-            {
-                var tx = transmitters[0];
-                var context = PropagationContext.Create(
-                    tx.transform.position,
-                    tx.transform.position + Vector3.forward * 500f,
-                    tx.transmitterPower,
-                    tx.frequency
-                );
+            Debug.Log("=== URBAN COVERAGE CALCULATION DEBUG ===");
+            Debug.Log($"TX Power: {context.TransmitterPowerDbm:F1} dBm");
+            Debug.Log($"TX Gain: {context.AntennaGainDbi:F1} dBi");
+            Debug.Log($"Frequency: {context.FrequencyMHz:F0} MHz");
+            Debug.Log($"Sensitivity: {context.ReceiverSensitivityDbm:F1} dBm");
 
-                bool isUrban = DetectUrbanEnvironment(context);
-                Debug.Log($"[UrbanPathLoss] Test location urban status: {isUrban}");
+            float linkBudget = context.TransmitterPowerDbm + context.AntennaGainDbi - (context.ReceiverSensitivityDbm + 10f);
+            Debug.Log($"Link Budget: {linkBudget:F1} dB");
 
-                var selectedModel = SelectUrbanOptimizedModel(context);
-                Debug.Log($"[UrbanPathLoss] Selected model: {selectedModel}");
-            }
-        }
+            float buildingLoss = CalculateBuildingDensityLoss(context);
+            Debug.Log($"Building Density Loss: {buildingLoss:F1} dB");
 
-        [ContextMenu("Debug Urban Models")]
-        public void DebugUrbanModels()
-        {
-            Debug.Log("=== URBAN PATHLOSS CALCULATOR DEBUG ===");
-            Debug.Log($"Available urban models: {urbanModels.Count}");
+            float frequencyLoss = CalculateUrbanFrequencyFactor(context.FrequencyMHz);
+            Debug.Log($"Urban Frequency Factor: {frequencyLoss:F1} dB");
 
-            foreach (var model in urbanModels)
-            {
-                Debug.Log($"  {model.Key}: {model.Value.ModelName}");
-            }
-
-            Debug.Log($"Auto-detect urban: {autoDetectUrbanEnvironment}");
-            Debug.Log($"Urban detection radius: {urbanDetectionRadius}m");
-            Debug.Log($"Minimum buildings for urban: {minimumBuildingsForUrban}");
-            Debug.Log($"Prefer urban ray tracing: {preferUrbanRayTracing}");
-            Debug.Log($"Max urban distance: {maxUrbanDistance}m");
+            float coverage = EstimateCoverageRadius(context);
+            Debug.Log($"URBAN COVERAGE RADIUS: {coverage:F0} meters");
         }
     }
 }

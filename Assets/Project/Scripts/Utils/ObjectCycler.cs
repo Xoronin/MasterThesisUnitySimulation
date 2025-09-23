@@ -521,35 +521,6 @@ namespace RFSimulation.Utils
 
         #endregion
 
-        #region Context Menu Debug
-
-        [ContextMenu("Select Next Transmitter")]
-        public void DebugSelectNextTransmitter()
-        {
-            CycleToNextTransmitter();
-        }
-
-        [ContextMenu("Select Next Receiver")]
-        public void DebugSelectNextReceiver()
-        {
-            CycleToNextReceiver();
-        }
-
-        [ContextMenu("Focus on Current")]
-        public void DebugFocusOnCurrent()
-        {
-            FocusOnSelectedObject();
-        }
-
-        [ContextMenu("Print Object Counts")]
-        public void DebugPrintCounts()
-        {
-            Debug.Log($"Transmitters: {transmitters.Count}, Receivers: {receivers.Count}, Total: {GetTotalObjectCount()}");
-            Debug.Log($"Current indices: All={currentAllIndex}, TX={currentTransmitterIndex}, RX={currentReceiverIndex}");
-        }
-
-        #endregion
-
         void OnDestroy()
         {
             // Clean up highlight materials
