@@ -35,7 +35,6 @@ namespace RFSimulation.Core.Managers
             if (Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(gameObject);
                 InitializeSimulation();
             }
             else

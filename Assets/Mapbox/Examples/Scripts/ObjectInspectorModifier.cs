@@ -29,7 +29,7 @@ namespace Mapbox.Examples
 			{
 				if(_root == null)
 				{
-					_root = FindObjectOfType<AbstractMap>().transform;
+					_root = FindFirstObjectByType<AbstractMap>().transform;
 				}
 
 				var go = new GameObject("InteractiveSelectionCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));

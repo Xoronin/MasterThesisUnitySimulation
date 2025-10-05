@@ -1,11 +1,12 @@
-﻿using RFSimulation.Visualization;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace RFSimulation.Visualization
 {
     /// <summary>
     /// Handles visual representation of connections between transmitters and receivers
+    /// (pooling, color, width, simple LOD). Transmitters call into this class to
+    /// create/update/remove lines; this class owns the actual LineRenderer objects.
     /// </summary>
     public class ConnectionLineRenderer : MonoBehaviour
     {
@@ -14,63 +15,50 @@ namespace RFSimulation.Visualization
         public float lineWidth = 0.3f;
         public bool useWorldSpace = true;
 
-        [Header("Quality Colors")]
+        [Header("Quality Colors (3 bands + none)")]
         public Color excellentSignalColor = Color.green;
         public Color goodSignalColor = Color.yellow;
-        public Color fairSignalColor = new Color(1f, 0.5f, 0f);
         public Color poorSignalColor = Color.red;
         public Color noSignalColor = Color.gray;
 
-        [Header("Animation")]
-        public bool animateLines = true;
-        public float animationSpeed = 2f;
-        public AnimationType animationType = AnimationType.Pulse;
-
         [Header("Performance")]
+        [Tooltip("Preallocated lines in the pool and soft cap for active lines.")]
         public int maxLines = 100;
         public bool enableLOD = true;
         public float lodDistance = 200f;
 
-        public enum AnimationType
-        {
-            None,
-            Pulse,
-            Flow,
-            Glow
-        }
+        // connectionId -> active LineRenderer
+        private readonly Dictionary<string, LineRenderer> activeLines = new Dictionary<string, LineRenderer>();
+        // pooled lines waiting for reuse
+        private readonly Queue<LineRenderer> linePool = new Queue<LineRenderer>();
 
-        private Dictionary<string, LineRenderer> activeLines = new Dictionary<string, LineRenderer>();
-        private Queue<LineRenderer> linePool = new Queue<LineRenderer>();
         private Camera mainCamera;
+
+        void Awake()
+        {
+            if (mainCamera == null) mainCamera = Camera.main;
+        }
 
         void Start()
         {
-            mainCamera = Camera.main;
+            if (mainCamera == null) mainCamera = Camera.main;
             InitializeLinePool();
         }
 
         void Update()
         {
-            if (animateLines)
-            {
-                UpdateLineAnimations();
-            }
-
-            if (enableLOD)
-            {
-                UpdateLevelOfDetail();
-            }
+            if (mainCamera == null) mainCamera = Camera.main;
+            if (enableLOD) UpdateLevelOfDetail();
         }
 
         private void InitializeLinePool()
         {
-            // Pre-create line renderers for performance
             for (int i = 0; i < maxLines; i++)
             {
-                GameObject lineObj = new GameObject($"ConnectionLine_{i}");
-                lineObj.transform.SetParent(transform);
+                var lineObj = new GameObject($"ConnectionLine_{i}");
+                lineObj.transform.SetParent(transform, false);
 
-                LineRenderer line = lineObj.AddComponent<LineRenderer>();
+                var line = lineObj.AddComponent<LineRenderer>();
                 ConfigureLineRenderer(line);
 
                 lineObj.SetActive(false);
@@ -87,77 +75,107 @@ namespace RFSimulation.Visualization
             line.useWorldSpace = useWorldSpace;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
+            line.alignment = LineAlignment.View;
+            line.textureMode = LineTextureMode.Stretch;
+            // Initial color (will be overridden by ApplyStyle)
+            line.startColor = noSignalColor;
+            line.endColor = noSignalColor;
         }
 
-        public void CreateConnection(string connectionId, Vector3 startPos, Vector3 endPos, float signalStrength, float sensitivity)
+        /// <summary>
+        /// Create or replace a connection line for the given id.
+        /// Returns the LineRenderer used, or null if pool/cap is exhausted.
+        /// </summary>
+        public LineRenderer CreateConnection(string connectionId, Vector3 startPos, Vector3 endPos, float signalStrength, float sensitivity)
         {
-            // Remove existing connection if it exists
+            // If it exists already, recycle it first
             RemoveConnection(connectionId);
 
-            // Get line from pool
-            LineRenderer line = GetLineFromPool();
-            if (line == null) return; // Pool exhausted
+            var line = GetLineFromPool();
+            if (line == null) return null; // pool/cap exhausted
 
-            // Configure the line
+            line.gameObject.name = $"ConnectionLine_{connectionId}";
             line.gameObject.SetActive(true);
             line.SetPosition(0, startPos);
             line.SetPosition(1, endPos);
 
-            // Set color based on signal quality
-            Color lineColor = GetSignalQualityColor(signalStrength, sensitivity);
-            line.material.SetColor("_BaseColor", lineColor);
-            line.material.SetColor("_BaseColor", lineColor);
+            ApplyStyle(line, signalStrength, sensitivity);
 
-            // Store the connection
             activeLines[connectionId] = line;
+            return line;
         }
 
+        /// <summary>
+        /// Update an existing connection's positions & style.
+        /// </summary>
         public void UpdateConnection(string connectionId, Vector3 startPos, Vector3 endPos, float signalStrength, float sensitivity)
         {
-            if (activeLines.TryGetValue(connectionId, out LineRenderer line))
-            {
-                line.SetPosition(0, startPos);
-                line.SetPosition(1, endPos);
+            if (!activeLines.TryGetValue(connectionId, out var line) || line == null) return;
 
-                Color lineColor = GetSignalQualityColor(signalStrength, sensitivity);
-                line.material.SetColor("_BaseColor", lineColor);
-                line.material.SetColor("_BaseColor", lineColor);
-            }
+            line.SetPosition(0, startPos);
+            line.SetPosition(1, endPos);
+            ApplyStyle(line, signalStrength, sensitivity);
         }
 
+        /// <summary>
+        /// Remove (recycle) a connection by id.
+        /// </summary>
         public void RemoveConnection(string connectionId)
         {
-            if (activeLines.TryGetValue(connectionId, out LineRenderer line))
+            if (activeLines.TryGetValue(connectionId, out var line) && line != null)
             {
                 line.gameObject.SetActive(false);
+                // Reset width to current global width so it’s correct when reused
+                line.startWidth = lineWidth;
+                line.endWidth = lineWidth;
                 linePool.Enqueue(line);
                 activeLines.Remove(connectionId);
             }
         }
 
+        /// <summary>
+        /// Remove (recycle) all active connections.
+        /// </summary>
         public void ClearAllConnections()
         {
             foreach (var line in activeLines.Values)
             {
+                if (line == null) continue;
                 line.gameObject.SetActive(false);
+                line.startWidth = lineWidth;
+                line.endWidth = lineWidth;
                 linePool.Enqueue(line);
             }
             activeLines.Clear();
         }
 
+        /// <summary>
+        /// Toggle visibility for all active lines (keeps them active in pool).
+        /// </summary>
         public void SetLineVisibility(bool visible)
         {
             foreach (var line in activeLines.Values)
-            {
-                line.enabled = visible;
-            }
+                if (line != null) line.enabled = visible;
         }
 
+        /// <summary>
+        /// Set a new global width and apply to both active and pooled lines.
+        /// </summary>
         public void SetLineWidth(float width)
         {
             lineWidth = width;
+
             foreach (var line in activeLines.Values)
             {
+                if (line == null) continue;
+                line.startWidth = width;
+                line.endWidth = width;
+            }
+
+            // Also update pooled ones so new rentals have correct width
+            foreach (var line in linePool)
+            {
+                if (line == null) continue;
                 line.startWidth = width;
                 line.endWidth = width;
             }
@@ -166,17 +184,15 @@ namespace RFSimulation.Visualization
         private LineRenderer GetLineFromPool()
         {
             if (linePool.Count > 0)
-            {
                 return linePool.Dequeue();
-            }
 
-            // Pool exhausted - try to create new one or reuse oldest
+            // Pool exhausted — allow expansion up to maxLines (soft cap)
             if (activeLines.Count < maxLines)
             {
-                GameObject lineObj = new GameObject($"ConnectionLine_Extra_{activeLines.Count}");
-                lineObj.transform.SetParent(transform);
+                var lineObj = new GameObject($"ConnectionLine_Extra_{activeLines.Count}");
+                lineObj.transform.SetParent(transform, false);
 
-                LineRenderer line = lineObj.AddComponent<LineRenderer>();
+                var line = lineObj.AddComponent<LineRenderer>();
                 ConfigureLineRenderer(line);
                 return line;
             }
@@ -185,67 +201,26 @@ namespace RFSimulation.Visualization
             return null;
         }
 
+        private void ApplyStyle(LineRenderer line, float signalStrength, float sensitivity)
+        {
+            if (line == null) return;
+            var c = GetSignalQualityColor(signalStrength, sensitivity);
+            line.startColor = c;
+            line.endColor = c;
+            // Width is managed by LOD and SetLineWidth; no need to reset here.
+        }
+
+        // 3-band quality + none (matches your “only 3 colors” request)
         private Color GetSignalQualityColor(float signalStrength, float sensitivity)
         {
             if (float.IsNegativeInfinity(signalStrength))
                 return noSignalColor;
 
             float margin = signalStrength - sensitivity;
-
-            if (margin < 0f) return noSignalColor;
-            if (margin < 5f) return poorSignalColor;
-            if (margin < 10f) return fairSignalColor;
-            if (margin < 15f) return goodSignalColor;
-            return excellentSignalColor;
-        }
-
-        private void UpdateLineAnimations()
-        {
-            float time = Time.time * animationSpeed;
-
-            foreach (var line in activeLines.Values)
-            {
-                if (!line.gameObject.activeSelf) continue;
-
-                switch (animationType)
-                {
-                    case AnimationType.Pulse:
-                        UpdatePulseAnimation(line, time);
-                        break;
-                    case AnimationType.Flow:
-                        UpdateFlowAnimation(line, time);
-                        break;
-                    case AnimationType.Glow:
-                        UpdateGlowAnimation(line, time);
-                        break;
-                }
-            }
-        }
-
-        private void UpdatePulseAnimation(LineRenderer line, float time)
-        {
-            float alpha = 0.5f + 0.5f * Mathf.Sin(time);
-            Color color = line.startColor;
-            color.a = alpha;
-            line.startColor = color;
-            line.endColor = color;
-        }
-
-        private void UpdateFlowAnimation(LineRenderer line, float time)
-        {
-            // Create flowing effect by offsetting material texture
-            if (line.material.HasProperty("_MainTex"))
-            {
-                Vector2 offset = new Vector2(time % 1f, 0);
-                line.material.SetTextureOffset("_MainTex", offset);
-            }
-        }
-
-        private void UpdateGlowAnimation(LineRenderer line, float time)
-        {
-            float intensity = 1f + 0.5f * Mathf.Sin(time * 2f);
-            line.startWidth = lineWidth * intensity;
-            line.endWidth = lineWidth * intensity;
+            if (margin < 0f) return noSignalColor;     // none / below sensitivity
+            if (margin < 8f) return poorSignalColor;   // low
+            if (margin < 15f) return goodSignalColor;   // mid
+            return excellentSignalColor;                 // high
         }
 
         private void UpdateLevelOfDetail()
@@ -256,29 +231,20 @@ namespace RFSimulation.Visualization
 
             foreach (var kvp in activeLines)
             {
-                LineRenderer line = kvp.Value;
-                if (!line.gameObject.activeSelf) continue;
+                var line = kvp.Value;
+                if (line == null || !line.gameObject.activeSelf) continue;
 
-                // Calculate distance to camera
-                Vector3 lineCenter = (line.GetPosition(0) + line.GetPosition(1)) * 0.5f;
-                float distance = Vector3.Distance(cameraPos, lineCenter);
+                var p0 = line.GetPosition(0);
+                var p1 = line.GetPosition(1);
+                float distance = Vector3.Distance(cameraPos, (p0 + p1) * 0.5f);
 
-                // Adjust line based on distance
                 if (distance > lodDistance)
                 {
-                    // Reduce quality for distant lines
                     line.startWidth = lineWidth * 0.5f;
                     line.endWidth = lineWidth * 0.5f;
-
-                    // Optionally disable animation for distant lines
-                    if (animateLines && animationType == AnimationType.Flow)
-                    {
-                        line.material.SetTextureOffset("_MainTex", Vector2.zero);
-                    }
                 }
                 else
                 {
-                    // Full quality for near lines
                     line.startWidth = lineWidth;
                     line.endWidth = lineWidth;
                 }
@@ -287,73 +253,40 @@ namespace RFSimulation.Visualization
 
         private Material CreateDefaultMaterial()
         {
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            // Simple transparent unlit for predictable coloring
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
             mat.SetFloat("_Surface", 1); // Transparent
             mat.SetFloat("_Blend", 0);   // Alpha blend
             mat.SetFloat("_ZWrite", 0);  // Disable depth writes
             mat.SetInt("_Cull", 2);      // Backface culling
             mat.renderQueue = 3000;
-            mat.SetColor("_BaseColor", Color.white);
             return mat;
         }
 
-        public int GetActiveLineCount()
-        {
-            return activeLines.Count;
-        }
+        // --- Diagnostics / helpers ---
 
-        public int GetAvailableLineCount()
-        {
-            return linePool.Count;
-        }
-
-        public int GetMaxLineCount()
-        {
-            return maxLines;
-        }
-
-        public void SetAnimationType(AnimationType type)
-        {
-            animationType = type;
-        }
-
-        public void SetAnimationSpeed(float speed)
-        {
-            animationSpeed = speed;
-        }
+        public int GetActiveLineCount() => activeLines.Count;
+        public int GetAvailableLineCount() => linePool.Count;
+        public int GetMaxLineCount() => maxLines;
 
         public void SetMaxLines(int maxCount)
         {
-            maxLines = Mathf.Max(10, maxCount);
+            maxLines = Mathf.Max(1, maxCount);
         }
 
         public bool IsConnectionActive(string connectionId)
-        {
-            return activeLines.ContainsKey(connectionId);
-        }
+            => activeLines.ContainsKey(connectionId);
 
         public LineRenderer GetConnectionLine(string connectionId)
         {
-            activeLines.TryGetValue(connectionId, out LineRenderer line);
+            activeLines.TryGetValue(connectionId, out var line);
             return line;
         }
 
-        public void PauseAnimations()
-        {
-            animateLines = false;
-        }
-
-        public void ResumeAnimations()
-        {
-            animateLines = true;
-        }
-
-        // Debug method to visualize all lines
         [ContextMenu("Debug Line Info")]
         public void DebugLineInfo()
         {
             Debug.Log($"[ConnectionLineRenderer] Active: {activeLines.Count}, Available: {linePool.Count}, Max: {maxLines}");
-            Debug.Log($"Animations: {animateLines} ({animationType} @ {animationSpeed:F1}x), LOD: {enableLOD} ({lodDistance:F0}m)");
         }
 
         [ContextMenu("Clear All Lines")]
@@ -364,7 +297,7 @@ namespace RFSimulation.Visualization
     }
 
     /// <summary>
-    /// Statistics structure for ConnectionLineRenderer
+    /// Optional stats struct (kept for compatibility/inspections)
     /// </summary>
     [System.Serializable]
     public struct ConnectionLineStats
@@ -372,7 +305,6 @@ namespace RFSimulation.Visualization
         public int activeLines;
         public int availableLines;
         public int maxLines;
-        public bool animationsEnabled;
         public bool lodEnabled;
         public float lodDistance;
 

@@ -92,7 +92,7 @@
 				}
 				if(_abstractMap == null)
 				{
-					_abstractMap = FindObjectOfType<AbstractMap>();
+					_abstractMap = FindFirstObjectByType<AbstractMap>();
 				}
 				if(_abstractMap != null)
 				{

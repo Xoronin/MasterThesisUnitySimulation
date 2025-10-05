@@ -1,265 +1,143 @@
 using UnityEngine;
 using UnityEngine.UI;
-using RFSimulation.UI;
-using RFSimulation.Core;
 
 namespace RFSimulation.UI
 {
     /// <summary>
-    /// Central UI manager that coordinates all UI components
+    /// Simple panel toggle manager: each button toggles its corresponding panel.
     /// </summary>
     public class UIManager : MonoBehaviour
     {
-        [Header("UI Components")]
-        public UIControls mainUIControls;
+        [Header("UI Components (Optional)")]
+        public ControlUI controlUI;
         public ScenarioUI scenarioUI;
+        public StatusUI statusUI;
 
         [Header("UI Panels")]
-        public GameObject mainControlPanel;
+        public GameObject controlPanel;
         public GameObject scenarioPanel;
-        public GameObject advancedPanel;
+        public GameObject statusPanel;
 
-        [Header("Persistent UI Elements")]
-        public GameObject topButtonBar;  
-        public Button basicModeButton;   
-        public Button advancedModeButton;
-        public Button scenarioModeButton;
+        [Header("Top Bar (Optional)")]
+        public GameObject topButtonBar;
+        public Button controlButton;
+        public Button scenarioButton;
+        public Button statusButton;
 
-        [Header("UI Modes")]
-        public bool showAdvancedControls = false;
-        public bool autoHidePanels = false;
-        public UIMode currentMode = UIMode.Basic;
+        [Header("Behavior")]
+        [Tooltip("If enabled, showing one panel will hide the others.")]
+        public bool autoHideOthers = false;
 
-        public enum UIMode
-        {
-            Basic,      // Simple controls only
-            Advanced,   // All controls visible
-            Scenario    // Scenario management focused
-        }
-
-        // Events
-        public System.Action<UIMode> OnUIModeChanged;
+        // Fired after any visibility change: (controlVisible, scenarioVisible, statusVisible)
+        public System.Action<bool, bool, bool> OnPanelVisibilityChanged;
 
         void Start()
         {
-            InitializeUI();
-            SetupPersistentTopBar();
-            SetUIMode(currentMode);
+            InitializeComponents();
+            WireButtons();
+
+            // Ensure initial highlights match current active states
+            FireVisibilityEvent();
         }
 
-        private void InitializeUI()
+        private void InitializeComponents()
         {
-            // Ensure all UI components are connected
-            if (mainUIControls == null)
-                mainUIControls = FindFirstObjectByType<UIControls>();
+            if (controlUI == null) controlUI = FindFirstObjectByType<ControlUI>();
+            if (scenarioUI == null) scenarioUI = FindFirstObjectByType<ScenarioUI>();
+            if (statusUI == null) statusUI = FindFirstObjectByType<StatusUI>();
 
-            if (scenarioUI == null)
-                scenarioUI = FindFirstObjectByType<ScenarioUI>();
-
-            // Subscribe to events for coordination
+            // Optional cross-component hookups
             if (scenarioUI != null)
             {
-                scenarioUI.OnScenarioSelected += OnScenarioSelected;
+                scenarioUI.OnScenarioSelected -= HandleScenarioSelected;
+                scenarioUI.OnScenarioSelected += HandleScenarioSelected;
             }
         }
 
-        private void SetupPersistentTopBar()
+        private void WireButtons()
         {
-            // Create top button bar if it doesn't exist
-            if (topButtonBar == null)
+            if (controlButton != null)
             {
-                CreatePersistentTopBar();
+                controlButton.onClick.RemoveAllListeners();
+                controlButton.onClick.AddListener(ToggleControlPanel);
             }
 
-            // Ensure top bar is always active
-            if (topButtonBar != null)
+            if (scenarioButton != null)
             {
-                topButtonBar.SetActive(true);
+                scenarioButton.onClick.RemoveAllListeners();
+                scenarioButton.onClick.AddListener(ToggleScenarioPanel);
             }
 
-            // Setup button listeners
-            if (basicModeButton != null)
-                basicModeButton.onClick.AddListener(() => SetUIMode(UIMode.Basic));
-
-            if (advancedModeButton != null)
-                advancedModeButton.onClick.AddListener(() => SetUIMode(UIMode.Advanced));
-
-            if (scenarioModeButton != null)
-                scenarioModeButton.onClick.AddListener(() => SetUIMode(UIMode.Scenario));
-        }
-
-        private void CreatePersistentTopBar()
-        {
-            Canvas canvas = FindFirstObjectByType<Canvas>();
-            if (canvas == null)
+            if (statusButton != null)
             {
-                Debug.LogError("No Canvas found! Cannot create top bar.");
-                return;
+                statusButton.onClick.RemoveAllListeners();
+                statusButton.onClick.AddListener(ToggleStatusPanel);
             }
-
-            // Create top bar container
-            GameObject topBar = new GameObject("TopButtonBar");
-            topBar.transform.SetParent(canvas.transform, false);
-
-            RectTransform topBarRect = topBar.AddComponent<RectTransform>();
-
-            // Position at top of screen
-            topBarRect.anchorMin = new Vector2(0, 1);
-            topBarRect.anchorMax = new Vector2(1, 1);
-            topBarRect.anchoredPosition = new Vector2(0, 0);
-            topBarRect.sizeDelta = new Vector2(0, 50); // 50 pixels high
-
-            // Add background
-            Image background = topBar.AddComponent<Image>();
-            background.color = new Color(0.2f, 0.2f, 0.2f, 0.8f); // Dark semi-transparent
-
-            // Add horizontal layout
-            HorizontalLayoutGroup layout = topBar.AddComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 5, 5);
-            layout.spacing = 10;
-            layout.childAlignment = TextAnchor.MiddleLeft;
-
-            topButtonBar = topBar;
-
-            Debug.Log("Persistent top bar created programmatically");
         }
 
-        public void SetUIMode(UIMode mode)
-        {
-            currentMode = mode;
+        // -------- Public toggle API --------
 
-            switch (mode)
+        public void ToggleControlPanel() => TogglePanel(controlPanel, controlButton, hideOthers: autoHideOthers);
+        public void ToggleScenarioPanel() => TogglePanel(scenarioPanel, scenarioButton, hideOthers: autoHideOthers);
+        public void ToggleStatusPanel() => TogglePanel(statusPanel, statusButton, hideOthers: autoHideOthers);
+
+        public void ShowControlPanel(bool show) => SetPanel(controlPanel, controlButton, show, autoHideOthers);
+        public void ShowScenarioPanel(bool show) => SetPanel(scenarioPanel, scenarioButton, show, autoHideOthers);
+        public void ShowStatusPanel(bool show) => SetPanel(statusPanel, statusButton, show, autoHideOthers);
+
+        // -------- Internals --------
+
+        private void TogglePanel(GameObject panel, Button button, bool hideOthers)
+        {
+            if (panel == null) return;
+
+            bool newState = !panel.activeSelf;
+            SetPanel(panel, button, newState, hideOthers);
+        }
+
+        private void SetPanel(GameObject targetPanel, Button targetButton, bool show, bool hideOthers)
+        {
+            if (targetPanel == null) return;
+
+            if (hideOthers && show)
             {
-                case UIMode.Basic:
-                    SetBasicMode();
-                    break;
-                case UIMode.Advanced:
-                    SetAdvancedMode();
-                    break;
-                case UIMode.Scenario:
-                    SetScenarioMode();
-                    break;
+                // Hide others first
+                SetActiveSafe(controlPanel, false, except: targetPanel);
+                SetActiveSafe(scenarioPanel, false, except: targetPanel);
+                SetActiveSafe(statusPanel, false, except: targetPanel);
             }
 
-            if (topButtonBar != null)
-            {
-                topButtonBar.SetActive(true);
-            }
+            targetPanel.SetActive(show);
 
-            OnUIModeChanged?.Invoke(mode);
-            Debug.Log($"UI Mode changed to: {mode}");
+            FireVisibilityEvent();
         }
 
-        private void UpdateModeButtons()
+        private void SetActiveSafe(GameObject panel, bool active, GameObject except = null)
         {
-            // Reset all button colors
-            ResetButtonColor(basicModeButton);
-            ResetButtonColor(advancedModeButton);
-            ResetButtonColor(scenarioModeButton);
-
-            // Highlight current mode button
-            Button activeButton = null;
-            switch (currentMode)
-            {
-                case UIMode.Basic: activeButton = basicModeButton; break;
-                case UIMode.Advanced: activeButton = advancedModeButton; break;
-                case UIMode.Scenario: activeButton = scenarioModeButton; break;
-            }
-
-            if (activeButton != null)
-            {
-                HighlightButton(activeButton);
-            }
+            if (panel == null || panel == except) return;
+            panel.SetActive(active);
         }
 
-        private void ResetButtonColor(Button button)
+        private void FireVisibilityEvent()
         {
-            if (button != null)
-            {
-                ColorBlock colors = button.colors;
-                colors.normalColor = Color.white;
-                button.colors = colors;
-            }
+            bool c = controlPanel != null && controlPanel.activeSelf;
+            bool s = scenarioPanel != null && scenarioPanel.activeSelf;
+            bool t = statusPanel != null && statusPanel.activeSelf;
+            OnPanelVisibilityChanged?.Invoke(c, s, t);
         }
 
-        private void HighlightButton(Button button)
+        // Example: if selecting a scenario should ensure status/info is visible
+        private void HandleScenarioSelected(string scenarioName)
         {
-            if (button != null)
-            {
-                ColorBlock colors = button.colors;
-                colors.normalColor = Color.green;
-                button.colors = colors;
-            }
+            // Show status panel so details can be displayed there
+            if (statusPanel != null && !statusPanel.activeSelf)
+                ShowStatusPanel(true);
         }
-
-        private void SetBasicMode()
-        {
-            SetPanelActive(mainControlPanel, true);
-            SetPanelActive(scenarioPanel, false);
-            SetPanelActive(advancedPanel, false);
-        }
-
-        private void SetAdvancedMode()
-        {
-            SetPanelActive(mainControlPanel, true);
-            SetPanelActive(scenarioPanel, true);
-            SetPanelActive(advancedPanel, true);
-        }
-
-        private void SetScenarioMode()
-        {
-            SetPanelActive(mainControlPanel, false);
-            SetPanelActive(scenarioPanel, true);
-            SetPanelActive(advancedPanel, false);
-        }
-
-        private void SetPanelActive(GameObject panel, bool active)
-        {
-            if (panel != null)
-            {
-                panel.SetActive(active);
-            }
-        }
-
-        // Event handlers
-        private void OnScenarioSelected(string scenarioName)
-        {
-            // Coordinate UI updates when scenario changes
-            if (mainUIControls != null)
-            {
-                mainUIControls.RefreshAllUI();
-            }
-        }
-
-        // Public methods for UI control
-        public void ToggleAdvancedControls()
-        {
-            showAdvancedControls = !showAdvancedControls;
-            SetUIMode(showAdvancedControls ? UIMode.Advanced : UIMode.Basic);
-        }
-
-        public void ToggleScenarioUI()
-        {
-            SetUIMode(currentMode == UIMode.Scenario ? UIMode.Basic : UIMode.Scenario);
-        }
-
-        // Context menu methods
-        [ContextMenu("Switch to Basic Mode")]
-        public void SwitchToBasicMode() => SetUIMode(UIMode.Basic);
-
-        [ContextMenu("Switch to Advanced Mode")]
-        public void SwitchToAdvancedMode() => SetUIMode(UIMode.Advanced);
-
-        [ContextMenu("Switch to Scenario Mode")]
-        public void SwitchToScenarioMode() => SetUIMode(UIMode.Scenario);
 
         void OnDestroy()
         {
-            // Unsubscribe from events
             if (scenarioUI != null)
-            {
-                scenarioUI.OnScenarioSelected -= OnScenarioSelected;
-            }
+                scenarioUI.OnScenarioSelected -= HandleScenarioSelected;
         }
     }
 }

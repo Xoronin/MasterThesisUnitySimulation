@@ -64,8 +64,6 @@ namespace RFSimulation.Propagation.PathLoss.Models
 
             // Clamp the final result to reasonable bounds
             return Mathf.Clamp(result, -15f, 15f); // Limit shadowing to ±30dB
-
-            return result;
         }
     }
 }

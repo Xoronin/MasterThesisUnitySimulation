@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using RFSimulation.Core;
 using RFSimulation.Core.Components;
 using RFSimulation.Core.Managers;
+using RFSimulation.UI;
 
 namespace RFSimulation.Utils
 {
@@ -16,6 +17,9 @@ namespace RFSimulation.Utils
     /// </summary>
     public class ObjectCycler : MonoBehaviour
     {
+        [Header("Status Panel")]
+        public StatusUI statusUI;
+
         [Header("Cycling Controls")]
         public KeyCode cycleAllKey = KeyCode.Tab;
         public KeyCode cycleTransmittersKey = KeyCode.T;
@@ -24,7 +28,7 @@ namespace RFSimulation.Utils
 
         [Header("Camera Settings")]
         public Camera targetCamera;
-        public float focusDistance = 50f;
+        public float focusDistance = 30f;
         public float focusHeight = 20f;
         public float cameraTransitionSpeed = 3f;
         public bool smoothCameraTransition = true;
@@ -216,6 +220,8 @@ namespace RFSimulation.Utils
             if (index < 0 || index >= transmitters.Count) return;
 
             var transmitter = transmitters[index];
+            statusUI?.ClearSelection();
+            statusUI?.ShowTransmitter(transmitter);
             SelectObject(transmitter.gameObject, "Transmitter", GetTransmitterStatusText(transmitter));
         }
 
@@ -224,6 +230,8 @@ namespace RFSimulation.Utils
             if (index < 0 || index >= receivers.Count) return;
 
             var receiver = receivers[index];
+            statusUI?.ClearSelection();
+            statusUI?.ShowReceiver(receiver);
             SelectObject(receiver.gameObject, "Receiver", receiver.GetStatusText());
         }
 

@@ -1,208 +1,375 @@
-//using UnityEngine;
-//using System.Collections.Generic;
-//using RFSimulation.Interfaces;
-//using RFSimulation.Propagation.PathLoss.Models;
-//using RFSimulation.Propagation.Core;
-//using RFSimulation.Propagation.SignalQuality;
+using UnityEngine;
+using System.Collections.Generic;
+using RFSimulation.Interfaces;
+using RFSimulation.Propagation.PathLoss.Models;
+using RFSimulation.Propagation.Core;
+using RFSimulation.Propagation.SignalQuality;
 
-//namespace RFSimulation.Propagation.PathLoss
-//{
-//    public class PathLossCalculator
-//    {
-//        private readonly Dictionary<PropagationModel, IPathLossModel> _models;
-//        private readonly PathLossCache _cache;
-//        private readonly IObstacleCalculator _obstacleCalculator;
+namespace RFSimulation.Propagation.PathLoss
+{
+    /// <summary>
+    ///  PathLossCalculator with integrated urban ray tracing support
+    /// Assumes urban environment by default and includes all propagation models
+    /// </summary>
+    public class PathLossCalculator
+    {
+        [Header("Model Selection Settings")]
+        public bool enableAutomaticModelSelection = true;
+        public bool logModelSelectionReasons = false;
 
-//        [Header("Model Selection Settings")]
-//        public bool enableAutomaticModelSelection = true;
-//        public bool logModelSelectionReasons = false;
+        [Header("Urban Settings")]
+        public bool preferRayTracing = true;
+        public bool fallbackToBasicModels = true;
+        public float maxDistance = 2000f; // Beyond this, use empirical models
+        public LayerMask mapboxBuildingLayer = 1 << 8;
 
-//        public PathLossCalculator(IObstacleCalculator obstacleCalculator = null)
-//        {
-//            _models = new Dictionary<PropagationModel, IPathLossModel>
-//            {
-//                { PropagationModel.FreeSpace, new FreeSpaceModel() },
-//                { PropagationModel.LogDistance, new LogDistanceModel() },
-//                { PropagationModel.TwoRaySimple, new TwoRaySimpleModel() },
-//                { PropagationModel.TwoRayGroundReflection, new TwoRayGroundReflectionModel() },
-//                { PropagationModel.Hata, new HataModel() },                    
-//                { PropagationModel.COST231Hata, new COST231HataModel() }       
-//            };
+        // Model dictionary with all available models
+        private readonly Dictionary<PropagationModel, IPathLossModel> _models;
+        private readonly PathLossCache _cache;
+        private readonly IObstacleCalculator _obstacleCalculator;
 
-//            _cache = new PathLossCache();
-//            _obstacleCalculator = obstacleCalculator;
-//        }
+        public PathLossCalculator(IObstacleCalculator obstacleCalculator = null)
+        {
+            _obstacleCalculator = obstacleCalculator;
+            _cache = new PathLossCache();
 
-//        public float CalculateReceivedPower(PropagationContext context)
-//        {
-//            // Validate input
-//            if (!context.IsValid(out string error))
-//            {
-//                return float.NegativeInfinity;
-//            }
+            // Initialize all available models including urban ray tracing
+            _models = new Dictionary<PropagationModel, IPathLossModel>
+            {
+                // Standard propagation models
+                { PropagationModel.FreeSpace, new FreeSpaceModel() },
+                { PropagationModel.LogDistance, new LogDistanceModel() },
+                { PropagationModel.TwoRaySimple, new TwoRaySimpleModel() },
+                { PropagationModel.TwoRayGroundReflection, new TwoRayGroundReflectionModel() },
+                { PropagationModel.Hata, new HataModel() },
+                { PropagationModel.COST231Hata, new COST231HataModel() },
+                
+                // Urban ray tracing models
+                { PropagationModel.BasicRayTracing, new UrbanRayTracingModel() },
+                { PropagationModel.AdvancedRayTracing, new UrbanRayTracingModel() }
+            };
+        }
 
-//            // AUTOMATIC MODEL SELECTION - Choose best model for scenario
-//            if (enableAutomaticModelSelection && context.Model == PropagationModel.Auto)
-//            {
-//                context.Model = SelectPropagationModel(context);
-//            }
+        public float CalculateReceivedPower(PropagationContext context)
+        {
+            // Validate input
+            if (!context.IsValid(out string error))
+            {
+                Debug.LogWarning($"[PathLoss] Invalid context: {error}");
+                return float.NegativeInfinity;
+            }
 
-//            // Check cache first
-//            if (_cache.TryGetValue(context, out float cachedResult))
-//                return cachedResult;
+            // Check cache first
+            if (_cache.TryGetValue(context, out float cachedResult))
+                return cachedResult;
 
-//            // Get appropriate model
-//            if (!_models.TryGetValue(context.Model, out IPathLossModel model))
-//            {
-//                context.Model = SelectPropagationModel(context);
-//                model = _models[context.Model];
-//            }
+            // Automatic model selection
+            if (enableAutomaticModelSelection && context.Model == PropagationModel.Auto)
+            {
+                context.Model = SelectOptimalModel(context);
+            }
 
-//            // Calculate base received power
-//            float receivedPower = model.Calculate(context);
+            // Get appropriate model
+            if (!_models.TryGetValue(context.Model, out IPathLossModel model))
+            {
+                context.Model = SelectOptimalModel(context);
+                model = _models[context.Model];
+            }
 
-//            // Add obstacle losses if available
-//            if (context.HasObstacles && _obstacleCalculator != null)
-//            {
-//                float obstacleLoss = _obstacleCalculator.CalculatePenetrationLoss(context);
-//                receivedPower -= obstacleLoss; // Subtract loss from received power
-//            }
+            float receivedPower;
 
-//            // Cache result
-//            _cache.Store(context, receivedPower);
+            try
+            {
+                // Calculate base received power
+                receivedPower = model.Calculate(context);
 
-//            return receivedPower;
-//        }
+                // Apply urban-specific corrections for urban environment
+                receivedPower = ApplyUrbanCorrections(receivedPower, context);
 
-//        /// <summary>
-//        /// Evidence-based model selection using established criteria
-//        /// </summary>
-//        private PropagationModel SelectPropagationModel(PropagationContext context)
-//        {
-//            var selectedModel = ModelSelectionCriteria.SelectOptimalModel(context);
+                // Add obstacle losses if available
+                if (context.HasObstacles && _obstacleCalculator != null)
+                {
+                    float obstacleLoss = _obstacleCalculator.CalculatePenetrationLoss(context);
+                    receivedPower -= obstacleLoss;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[PathLoss] Error with {model.ModelName}: {e.Message}");
 
-//            if (logModelSelectionReasons)
-//            {
-//                var applicabilityInfo = ModelSelectionCriteria.GetApplicabilityInfo(context);
+                if (fallbackToBasicModels)
+                {
+                    // Fallback to free space model
+                    var fallbackModel = new FreeSpaceModel();
+                    receivedPower = fallbackModel.Calculate(context);
+                }
+                else
+                {
+                    receivedPower = float.NegativeInfinity;
+                }
+            }
 
-//                // Detailed analysis if needed
-//                if (Application.isEditor)
-//                {
-//                    applicabilityInfo.LogDebugInfo();
-//                }
-//            }
+            // Cache result
+            _cache.Store(context, receivedPower);
+            return receivedPower;
+        }
 
-//            return selectedModel;
-//        }
+        private PropagationModel SelectOptimalModel(PropagationContext context)
+        {
+            if (preferRayTracing)
+            {
+                return SelectUrbanOptimizedModel(context);
+            }
+            else
+            {
+                return SelectStandardModel(context);
+            }
+        }
 
-//        public SignalQualityCategory GetSignalQuality(PropagationContext context)
-//        {
-//            float receivedPower = CalculateReceivedPower(context);
-//            float margin = receivedPower - context.ReceiverSensitivityDbm;
+        private PropagationModel SelectUrbanOptimizedModel(PropagationContext context)
+        {
+            float distance = context.Distance;
+            float frequency = context.FrequencyMHz;
 
-//            // Use the same logic but return SignalQualityCategory
-//            if (margin < 0f) return SignalQualityCategory.NoService;
-//            if (margin < 5f) return SignalQualityCategory.Poor;
-//            if (margin < 10f) return SignalQualityCategory.Fair;
-//            if (margin < 15f) return SignalQualityCategory.Good;
-//            return SignalQualityCategory.Excellent;
-//        }
+            // For very short distances, use free space or two-ray
+            if (distance < 100f)
+            {
+                return frequency > 1000f ? PropagationModel.FreeSpace : PropagationModel.TwoRaySimple;
+            }
 
-//        public SignalQualityMetrics GetSignalQualityMetrics(PropagationContext context)
-//        {
-//            float receivedPower = CalculateReceivedPower(context);
+            // For medium distances in urban environment, use ray tracing
+            if (distance <= maxDistance)
+            {
+                return PropagationModel.BasicRayTracing;
+            }
 
-//            // Estimate SINR from received power (simplified)
-//            float estimatedSINR = receivedPower - (-110f); // Assume -110dBm noise floor
+            // For long distances, fallback to empirical models for performance
+            if (IsWithinHataRange(distance, frequency))
+            {
+                return SelectHataVariant(frequency);
+            }
 
-//            return new SignalQualityMetrics(estimatedSINR, context.Technology);
-//        }
+            // Ultimate fallback
+            return PropagationModel.LogDistance;
+        }
 
-//        public float EstimateCoverageRadius(PropagationContext baseContext)
-//        {
-//            // Use deterministic calculation based on link budget
-//            // This ensures the same transmitter always has the same coverage
+        private PropagationModel SelectStandardModel(PropagationContext context)
+        {
+            return PathLossModelSelection.SelectOptimalModel(context);
+        }
 
-//            float txPower = baseContext.TransmitterPowerDbm;
-//            float txGain = baseContext.AntennaGainDbi;
-//            float frequency = baseContext.FrequencyMHz;
-//            float sensitivity = baseContext.ReceiverSensitivityDbm;
-//            float connectionMargin = 10f; // Standard margin
+        private float ApplyUrbanCorrections(float receivedPower, PropagationContext context)
+        {
+            // Apply urban-specific corrections since we're always in urban environment
 
-//            // Calculate available link budget
-//            float linkBudget = txPower + txGain - (sensitivity + connectionMargin);
+            // 1. Building density correction
+            float buildingDensityLoss = CalculateBuildingDensityLoss(context);
+            receivedPower -= buildingDensityLoss;
 
-//            // Use path loss model parameters directly (no randomness)
-//            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
-//            float referenceDistance = RFConstants.REFERENCE_DISTANCE;
+            // 2. Frequency-dependent urban effects
+            float frequencyUrbanFactor = CalculateUrbanFrequencyFactor(context.FrequencyMHz);
+            receivedPower -= frequencyUrbanFactor;
 
-//            // Calculate reference path loss at reference distance (typically 100m)
-//            float referenceLoss = CalculateReferencePathLoss(frequency, referenceDistance);
+            return receivedPower;
+        }
 
-//            // Available path loss budget beyond reference distance
-//            float additionalLoss = linkBudget - referenceLoss;
+        private float CalculateBuildingDensityLoss(PropagationContext context)
+        {
+            // Calculate building density loss for urban environment
+            Vector3 midpoint = (context.TransmitterPosition + context.ReceiverPosition) * 0.5f;
+            float sampleRadius = Mathf.Min(context.Distance * 0.3f, 200f);
 
-//            if (additionalLoss <= 0)
-//            {
-//                // Coverage doesn't even reach reference distance
-//                return referenceDistance * 0.5f;
-//            }
+            Collider[] buildings = Physics.OverlapSphere(midpoint, sampleRadius, mapboxBuildingLayer);
 
-//            // Calculate coverage using log-distance model
-//            // PathLoss = ReferenceLoss + 10*n*log10(d/d0)
-//            // Solving for d: d = d0 * 10^((PathLoss - ReferenceLoss)/(10*n))
+            if (buildings.Length == 0) return 2f; // Minimum urban loss even if no buildings detected
 
-//            float distanceRatio = Mathf.Pow(10f, additionalLoss / (10f * pathLossExponent));
-//            float coverageRadius = referenceDistance * distanceRatio;
+            // Calculate building density
+            float sampleArea = Mathf.PI * sampleRadius * sampleRadius;
+            float totalBuildingArea = 0f;
 
-//            // Apply realistic limits
-//            coverageRadius = Mathf.Clamp(coverageRadius, 50f, 5000f);
+            foreach (var building in buildings)
+            {
+                Bounds bounds = building.bounds;
+                totalBuildingArea += bounds.size.x * bounds.size.z;
+            }
 
-//            // Apply environment-specific reduction factors (deterministic)
-//            float environmentFactor = 0.75f;
-//            coverageRadius *= environmentFactor;
+            float buildingDensity = Mathf.Clamp01(totalBuildingArea / sampleArea);
 
-//            return coverageRadius;
-//        }
+            // Convert to additional loss (2-7 dB based on density, always some urban loss)
+            return 2f + (buildingDensity * 5f);
+        }
 
-//        private float CalculateReferencePathLoss(float frequencyMHz, float referenceDistance)
-//        {
-//            // Use free space path loss at reference distance
-//            // FSPL = 20*log10(d) + 20*log10(f) + 32.45 (d in km, f in MHz)
-//            float distanceKm = referenceDistance / 1000f;
-//            return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
-//        }
+        private float CalculateUrbanFrequencyFactor(float frequencyMHz)
+        {
+            // Urban environments cause more attenuation at higher frequencies
+            if (frequencyMHz > 2400f) return 2f;    // 5G+ frequencies
+            if (frequencyMHz > 1800f) return 1.5f;  // Higher LTE bands
+            if (frequencyMHz > 900f) return 1f;     // Lower LTE bands
+            return 0.5f; // Lower frequencies
+        }
 
-//        /// Validate model selection against established criteria
-//        /// </summary>
-//        [ContextMenu("Validate Model Selection")]
-//        public void ValidateModelSelection(PropagationContext context)
-//        {
-//            var applicabilityInfo = ModelSelectionCriteria.GetApplicabilityInfo(context);
-//            applicabilityInfo.LogDebugInfo();
-//        }
+        private bool IsWithinHataRange(float distance, float frequency)
+        {
+            bool frequencyInRange = frequency >= 150f && frequency <= 1500f;
+            bool distanceInRange = distance >= 1000f && distance <= 20000f;
+            return frequencyInRange && distanceInRange;
+        }
 
-//        [ContextMenu("Debug Coverage Calculation")]
-//        public void DebugCoverageCalculation(PropagationContext context)
-//        {
-//            Debug.Log("=== COVERAGE CALCULATION DEBUG ===");
-//            Debug.Log($"TX Power: {context.TransmitterPowerDbm:F1} dBm");
-//            Debug.Log($"TX Gain: {context.AntennaGainDbi:F1} dBi");
-//            Debug.Log($"Frequency: {context.FrequencyMHz:F0} MHz");
-//            Debug.Log($"Sensitivity: {context.ReceiverSensitivityDbm:F1} dBm");
+        private PropagationModel SelectHataVariant(float frequency)
+        {
+            if (frequency <= 1500f)
+            {
+                return PropagationModel.Hata;
+            }
+            else if (frequency <= 2000f)
+            {
+                return PropagationModel.COST231Hata;
+            }
+            else
+            {
+                return PropagationModel.LogDistance;
+            }
+        }
 
-//            float linkBudget = context.TransmitterPowerDbm + context.AntennaGainDbi - (context.ReceiverSensitivityDbm + 10f);
-//            Debug.Log($"Link Budget: {linkBudget:F1} dB");
+        public SignalQualityCategory GetSignalQuality(PropagationContext context)
+        {
+            float receivedPower = CalculateReceivedPower(context);
+            float margin = receivedPower - context.ReceiverSensitivityDbm;
 
-//            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
-//            Debug.Log($"Path Loss Exponent: {pathLossExponent:F1}");
+            if (margin < 0f) return SignalQualityCategory.NoService;
+            if (margin < 5f) return SignalQualityCategory.Poor;
+            if (margin < 10f) return SignalQualityCategory.Fair;
+            if (margin < 15f) return SignalQualityCategory.Good;
+            return SignalQualityCategory.Excellent;
+        }
 
-//            float coverage = EstimateCoverageRadius(context);
-//            Debug.Log($"COVERAGE RADIUS: {coverage:F0} meters");
-//        }
+        public SignalQualityMetrics GetSignalQualityMetrics(PropagationContext context)
+        {
+            float receivedPower = CalculateReceivedPower(context);
 
+            // Estimate SINR from received power (simplified)
+            float estimatedSINR = receivedPower - (-110f); // Assume -110dBm noise floor
 
-//        public void ClearCache() => _cache.Clear();
-//        public (int entries, float hitRate) GetCacheStats() => _cache.GetStats();
-//    }
-//}
+            return new SignalQualityMetrics(estimatedSINR, context.Technology);
+        }
+
+        public float EstimateCoverageRadius(PropagationContext baseContext)
+        {
+            // Calculate coverage radius with urban considerations
+            float txPower = baseContext.TransmitterPowerDbm;
+            float txGain = baseContext.AntennaGainDbi;
+            float frequency = baseContext.FrequencyMHz;
+            float sensitivity = baseContext.ReceiverSensitivityDbm;
+            float connectionMargin = 10f; // Standard margin
+
+            // Calculate available link budget
+            float linkBudget = txPower + txGain - (sensitivity + connectionMargin);
+
+            // Use path loss model parameters
+            float pathLossExponent = RFConstants.PATH_LOSS_EXPONENT;
+            float referenceDistance = RFConstants.REFERENCE_DISTANCE;
+
+            // Calculate reference path loss at reference distance
+            float referenceLoss = CalculateReferencePathLoss(frequency, referenceDistance);
+
+            // Available path loss budget beyond reference distance
+            float additionalLoss = linkBudget - referenceLoss;
+
+            if (additionalLoss <= 0)
+            {
+                return referenceDistance * 0.5f;
+            }
+
+            // Calculate coverage using log-distance model
+            float distanceRatio = Mathf.Pow(10f, additionalLoss / (10f * pathLossExponent));
+            float coverageRadius = referenceDistance * distanceRatio;
+
+            // Apply urban-specific reductions (always urban environment)
+            coverageRadius = ApplyUrbanCoverageReductions(coverageRadius, baseContext);
+
+            // Apply realistic limits
+            return Mathf.Clamp(coverageRadius, 50f, 2000f); // Urban coverage typically limited
+        }
+
+        private float ApplyUrbanCoverageReductions(float baseCoverage, PropagationContext context)
+        {
+            // Urban environments typically reduce coverage by ~40%
+            float urbanReductionFactor = 0.6f;
+
+            // Additional reduction based on building density
+            float densityReduction = CalculateBuildingDensityLoss(context) / 10f;
+            urbanReductionFactor -= densityReduction * 0.1f;
+
+            float urbanCoverage = baseCoverage * urbanReductionFactor;
+
+            // Apply frequency-specific urban limitations
+            float frequencyFactor = GetUrbanFrequencyFactor(context.FrequencyMHz);
+            urbanCoverage *= frequencyFactor;
+
+            return urbanCoverage;
+        }
+
+        private float GetUrbanFrequencyFactor(float frequencyMHz)
+        {
+            // Higher frequencies have more limited urban coverage
+            if (frequencyMHz > 3500f) return 0.7f;  // 5G frequencies
+            if (frequencyMHz > 2400f) return 0.8f;  // Upper cellular bands
+            if (frequencyMHz > 1800f) return 0.9f;  // Mid cellular bands
+            return 1.0f; // Lower frequencies penetrate urban environments better
+        }
+
+        private float CalculateReferencePathLoss(float frequencyMHz, float referenceDistance)
+        {
+            // Use free space path loss at reference distance
+            float distanceKm = referenceDistance / 1000f;
+            return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
+        }
+
+        public UrbanRayTracingModel GetRayTracingModel()
+        {
+            if (_models.TryGetValue(PropagationModel.BasicRayTracing, out IPathLossModel model))
+            {
+                return model as UrbanRayTracingModel;
+            }
+            return null;
+        }
+
+        public void ClearCache()
+        {
+            _cache.Clear();
+        }
+
+        public (int entries, float hitRate) GetCacheStats()
+        {
+            return _cache.GetStats();
+        }
+
+        // Validation and debugging methods
+        public void ValidateModelSelection(PropagationContext context)
+        {
+            var applicabilityInfo = PathLossModelSelection.GetApplicabilityInfo(context);
+            applicabilityInfo.LogDebugInfo();
+        }
+
+        public void DebugCoverageCalculation(PropagationContext context)
+        {
+            Debug.Log("=== URBAN COVERAGE CALCULATION DEBUG ===");
+            Debug.Log($"TX Power: {context.TransmitterPowerDbm:F1} dBm");
+            Debug.Log($"TX Gain: {context.AntennaGainDbi:F1} dBi");
+            Debug.Log($"Frequency: {context.FrequencyMHz:F0} MHz");
+            Debug.Log($"Sensitivity: {context.ReceiverSensitivityDbm:F1} dBm");
+
+            float linkBudget = context.TransmitterPowerDbm + context.AntennaGainDbi - (context.ReceiverSensitivityDbm + 10f);
+            Debug.Log($"Link Budget: {linkBudget:F1} dB");
+
+            float buildingLoss = CalculateBuildingDensityLoss(context);
+            Debug.Log($"Building Density Loss: {buildingLoss:F1} dB");
+
+            float frequencyLoss = CalculateUrbanFrequencyFactor(context.FrequencyMHz);
+            Debug.Log($"Urban Frequency Factor: {frequencyLoss:F1} dB");
+
+            float coverage = EstimateCoverageRadius(context);
+            Debug.Log($"URBAN COVERAGE RADIUS: {coverage:F0} meters");
+        }
+    }
+}

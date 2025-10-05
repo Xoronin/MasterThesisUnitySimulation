@@ -37,7 +37,6 @@ namespace RFSimulation.Visualization
         public Color weakSignalColor = Color.red;
         public Color mediumSignalColor = Color.yellow;
         public Color strongSignalColor = Color.green;
-        public Color excellentSignalColor = Color.cyan;
 
         [Header("Robustness")]
         [Tooltip("Meters to cast from above and below when probing the terrain.")]
@@ -57,6 +56,7 @@ namespace RFSimulation.Visualization
         [SerializeField] private bool updateInRealTime = false;
         [SerializeField] private float updateInterval = 1f;
         [SerializeField] private bool keepRootOnTerrain = true;
+        [SerializeField] private bool enabledByUI = false;
 
         private GameObject heatmapObject;
         private MeshRenderer heatmapRenderer;
@@ -81,10 +81,12 @@ namespace RFSimulation.Visualization
             if (autoFindTransmitters) FindTransmitters();
             if (centerPoint == null) centerPoint = transform;
 
-            if (!HasTransmitters())
-                return; // do nothing until a transmitter appears
+            // If UI toggle is OFF, do not create anything at startup
+            if (!enabledByUI) return;
 
-            // Ensure root is at center and sits on terrain height
+            if (!HasTransmitters()) return;
+
+            // Ensure root sits on terrain before creating
             transform.position = centerPoint.position;
             float h = GetTerrainHeightAtPosition(transform.position, out bool ok);
             if (ok) transform.position = new Vector3(transform.position.x, h, transform.position.z);
@@ -93,8 +95,32 @@ namespace RFSimulation.Visualization
             GenerateHeatmap();
         }
 
+        public void SetUIEnabled(bool enabled)
+        {
+            enabledByUI = enabled;
+
+            if (!enabledByUI)
+            {
+                // turn OFF → fully remove the GPU/texture stuff to save memory
+                DestroyHeatmapIfExists();
+                return;
+            }
+
+            // turn ON → (re)create lazily if we can
+            if (HasTransmitters())
+            {
+                EnsureHeatmapCreated();
+                if (heatmapObject != null) GenerateHeatmap();
+            }
+        }
+
         void Update()
         {
+            if (!enabledByUI)          // UI OFF: ensure nothing exists and skip work
+            {
+                if (heatmapObject != null) DestroyHeatmapIfExists();
+                return;
+            }
             if (!updateInRealTime) return;
             if (Time.time - lastUpdateTime <= updateInterval) return;
 
@@ -124,7 +150,7 @@ namespace RFSimulation.Visualization
         private void FindTransmitters()
         {
             transmitters.Clear();
-            transmitters.AddRange(FindObjectsOfType<Transmitter>());
+            transmitters.AddRange(FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID));
         }
 
         private void InitializeHeatmap()
@@ -461,10 +487,12 @@ namespace RFSimulation.Visualization
             float n = Mathf.InverseLerp(settings.minSignalStrength, settings.maxSignalStrength, rssi);
             n = Mathf.Clamp01(n);
 
-            if (n < 0.2f) return Color.Lerp(settings.noSignalColor, settings.weakSignalColor, n / 0.2f);
-            if (n < 0.4f) return Color.Lerp(settings.weakSignalColor, settings.mediumSignalColor, (n - 0.2f) / 0.2f);
-            if (n < 0.7f) return Color.Lerp(settings.mediumSignalColor, settings.strongSignalColor, (n - 0.4f) / 0.3f);
-            return Color.Lerp(settings.strongSignalColor, settings.excellentSignalColor, (n - 0.7f) / 0.3f);
+            if (n < 0.33f)
+                return Color.Lerp(settings.noSignalColor, settings.weakSignalColor, n / 0.33f);
+            else if (n < 0.66f)
+                return Color.Lerp(settings.weakSignalColor, settings.mediumSignalColor, (n - 0.33f) / 0.33f);
+            else
+                return Color.Lerp(settings.mediumSignalColor, settings.strongSignalColor, (n - 0.66f) / 0.34f);
         }
 
         private bool HasTransmitters()
@@ -476,6 +504,7 @@ namespace RFSimulation.Visualization
 
         private void EnsureHeatmapCreated()
         {
+            if (!enabledByUI) return;
             if (heatmapObject != null) return;
 
             // snap root to terrain before creating mesh
@@ -544,14 +573,5 @@ namespace RFSimulation.Visualization
             if (heatmapTexture != null) DestroyImmediate(heatmapTexture);
             _terrainHeightCache.Clear();
         }
-
-#if UNITY_EDITOR
-        void OnDrawGizmosSelected()
-        {
-            if (centerPoint == null) return;
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireCube(centerPoint.position + Vector3.up * 0.1f, new Vector3(settings.sampleRadius * 2f, 0.2f, settings.sampleRadius * 2f));
-        }
-#endif
     }
 }

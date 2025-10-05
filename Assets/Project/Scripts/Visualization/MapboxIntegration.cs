@@ -78,7 +78,7 @@ namespace RFSimulation.Visualization
             if (terrainObject == null)
             {
                 // Look for terrain objects
-                GameObject[] allObjects = FindObjectsOfType<GameObject>();
+                GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.InstanceID);
                 foreach (GameObject obj in allObjects)
                 {
                     if (IsTerrainObject(obj))
@@ -277,7 +277,7 @@ namespace RFSimulation.Visualization
         // Method to center heatmap on all transmitters (centroid)
         public void CenterHeatmapOnAllTransmitters()
         {
-            Transmitter[] transmitters = FindObjectsOfType<Transmitter>();
+            Transmitter[] transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
 
             if (transmitters.Length == 0)
             {

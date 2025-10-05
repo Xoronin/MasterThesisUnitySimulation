@@ -12,7 +12,7 @@ namespace RFSimulation.Propagation.PathLoss
     /// - Rappaport "Wireless Communications: Principles and Practice"
     /// - Molisch "Wireless Communications"
     /// </summary>
-    public static class ModelSelectionCriteria
+    public static class PathLossModelSelection
     {
         /// <summary>
         /// Select optimal propagation model based on ITU-R recommendations and literature

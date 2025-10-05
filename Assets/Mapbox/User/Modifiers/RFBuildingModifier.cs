@@ -335,8 +335,6 @@ public class RFBuildingModifier : GameObjectModifier
         }
     }
 
-    // --------- Reuse your existing property helpers ---------
-
     private void SetBuildingProperties(Building b, Dictionary<string, object> props, GameObject go)
     {
         float height = GetBuildingHeight(props, go);
@@ -366,6 +364,6 @@ public class RFBuildingModifier : GameObjectModifier
                 if (float.IsFinite(y) && y > 0.1f) return y;
             }
         }
-        return 10f; // sensible default
+        return 10f;
     }
 }

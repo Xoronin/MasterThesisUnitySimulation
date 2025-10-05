@@ -103,7 +103,6 @@ namespace RFSimulation.Core.Managers
             if (Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(gameObject);
                 DebugLog("ScenarioManager Instance created");
             }
             else

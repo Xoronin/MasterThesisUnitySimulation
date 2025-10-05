@@ -5,11 +5,12 @@ using RFSimulation.Propagation.PathLoss;
 using RFSimulation.Core;
 using RFSimulation.Core.Managers;
 using RFSimulation.Core.Components;
+using RFSimulation.Visualization;
 
 namespace RFSimulation.Core.Components
 {
     /// <summary>
-    /// Settings for  ray tracing functionality
+    /// Settings for ray tracing functionality
     /// </summary>
     [System.Serializable]
     public class TransmitterSettings
@@ -31,7 +32,7 @@ namespace RFSimulation.Core.Components
     }
 
     /// <summary>
-    /// Unified Transmitter combining basic RF functionality with advanced  ray tracing
+    /// Unified Transmitter combining basic RF functionality with advanced ray tracing
     /// </summary>
     public class Transmitter : MonoBehaviour
     {
@@ -39,8 +40,8 @@ namespace RFSimulation.Core.Components
         [Header("Transmitter Properties")]
         public string uniqueID;
         public float transmitterPower = 40f; // dBm
-        public float antennaGain = 12f; // dBi
-        public float frequency = 2400f; // MHz
+        public float antennaGain = 12f;      // dBi
+        public float frequency = 2400f;      // MHz
 
         [Header("Propagation Settings")]
         public PropagationModel propagationModel = PropagationModel.LogDistance;
@@ -51,12 +52,19 @@ namespace RFSimulation.Core.Components
         [Header("Visualization")]
         public bool showConnections = true;
         public bool showRayPaths = false;
-        public Material connectionLineMaterial;
         #endregion
 
+        // Centralized line manager (creates/updates/removes LineRenderers)
+        [SerializeField] private ConnectionLineRenderer connectionRenderer;
+
+        // Per-receiver line bookkeeping (we still keep the list on the transmitter)
+        private readonly Dictionary<Receiver, LineRenderer> connectionLines = new();
+
+        // Stable id builder for the centralized renderer
+        private string ConnId(Receiver r) => $"{uniqueID}->{r.uniqueID}";
+
         #region Private Fields
-        private List<Receiver> connectedReceivers = new List<Receiver>();
-        private List<LineRenderer> connectionLines = new List<LineRenderer>();
+        private readonly List<Receiver> connectedReceivers = new List<Receiver>();
 
         // Path loss calculators
         private PathLossCalculator pathLossCalculator;
@@ -69,6 +77,10 @@ namespace RFSimulation.Core.Components
         void Awake()
         {
             InitializeTransmitter();
+
+            if (connectionRenderer == null)
+                connectionRenderer = FindAnyObjectByType<ConnectionLineRenderer>();
+
             SimulationManager.Instance?.RegisterTransmitter(this);
             _lastAppliedModel = propagationModel;
         }
@@ -82,15 +94,36 @@ namespace RFSimulation.Core.Components
         void Update()
         {
             if (_lastAppliedModel != propagationModel)
-            {
                 UpdatePropagationModel();
+
+            if (!showConnections || connectionRenderer == null) return;
+
+            // Keep visual lines in sync (positions/color) via the centralized renderer
+            foreach (var kv in connectionLines)
+            {
+                var rx = kv.Key;
+                if (rx == null) continue;
+
+                float rssi = CalculateSignalStrength(rx.transform.position);
+                connectionRenderer.UpdateConnection(
+                    ConnId(rx),
+                    transform.position,
+                    rx.transform.position,
+                    rssi,
+                    rx.sensitivity
+                );
             }
         }
 
         void OnDestroy()
         {
-            ClearAllConnections();
-            CleanupVisualization();
+            // Return all lines to the renderer pool
+            foreach (var rx in new List<Receiver>(connectionLines.Keys))
+            {
+                connectionRenderer?.RemoveConnection(ConnId(rx));
+            }
+            connectionLines.Clear();
+
             SimulationManager.Instance?.RemoveTransmitter(this);
         }
         #endregion
@@ -99,7 +132,7 @@ namespace RFSimulation.Core.Components
         private void InitializeTransmitter()
         {
             if (string.IsNullOrEmpty(uniqueID))
-                uniqueID = "UTX_" + GetInstanceID();
+                uniqueID = "TX_" + GetInstanceID();
 
             // Ensure collider for interaction
             if (GetComponent<Collider>() == null)
@@ -111,47 +144,29 @@ namespace RFSimulation.Core.Components
 
         private void InitializeCalculators()
         {
-            // Initialize basic path loss calculator
             pathLossCalculator = new PathLossCalculator();
 
-            // Initialize -enhanced calculator
-            PathLossCalculator = new PathLossCalculator();
+            // Configure settings
+            pathLossCalculator.mapboxBuildingLayer = settings.mapboxBuildingLayer;
+            pathLossCalculator.preferRayTracing = settings.enableRayTracing;
+            pathLossCalculator.maxDistance = settings.maxCalculationDistance;
 
-            // Configure  settings
-            PathLossCalculator.mapboxBuildingLayer = settings.mapboxBuildingLayer;
-            PathLossCalculator.preferRayTracing = settings.enableRayTracing;
-            PathLossCalculator.maxDistance = settings.maxCalculationDistance;
-
-            Debug.Log($"[UnifiedTransmitter] {uniqueID} initialized with  ray tracing support");
+            Debug.Log($"[UnifiedTransmitter] {uniqueID} initialized with ray tracing support");
         }
         #endregion
 
         #region Core Signal Calculation
         public float CalculateSignalStrength(Vector3 receiverPosition)
         {
-            // Create propagation context
             var context = CreatePropagationContext(receiverPosition);
-
-            // Select optimal model based on environment and settings
             context.Model = SelectOptimalModel(context);
 
             try
             {
-                // Use  calculator if  features are enabled, otherwise basic calculator
-                float receivedPower;
-                if (settings.enableRayTracing && ShouldUseCalculator(context))
-                {
-                    receivedPower = PathLossCalculator.CalculateReceivedPower(context);
+                float receivedPower = pathLossCalculator.CalculateReceivedPower(context);
 
-                    if (showRayPaths)
-                    {
-                        VisualizeRayPath(transform.position, receiverPosition, receivedPower);
-                    }
-                }
-                else
-                {
-                    receivedPower = pathLossCalculator.CalculateReceivedPower(context);
-                }
+                if (showRayPaths)
+                    VisualizeRayPath(transform.position, receiverPosition, receivedPower);
 
                 return receivedPower;
             }
@@ -178,33 +193,16 @@ namespace RFSimulation.Core.Components
             return context;
         }
 
-        private bool ShouldUseCalculator(PropagationContext context)
-        {
-            // Check if distance is within  calculation limits
-            if (context.Distance > settings.maxCalculationDistance)
-                return false;
-
-            // Use  calculator if in  environment or  ray tracing is forced
-            return settings.enableRayTracing;
-        }
-
         private PropagationModel SelectOptimalModel(PropagationContext context)
         {
             float distance = context.Distance;
 
-            // If  ray tracing is disabled, use the selected propagation model
             if (!settings.enableRayTracing)
-            {
                 return propagationModel;
-            }
 
-            // Performance optimization: use simpler models for very long distances
             if (distance > settings.maxCalculationDistance)
-            {
                 return settings.fallbackModel;
-            }
 
-            // Default to selected propagation model
             return propagationModel;
         }
         #endregion
@@ -218,40 +216,60 @@ namespace RFSimulation.Core.Components
 
         public void ConnectToReceiver(Receiver receiver)
         {
-            if (!connectedReceivers.Contains(receiver) && CanConnectTo(receiver))
+            if (receiver == null || connectedReceivers.Contains(receiver))
+                return;
+
+            if (!CanConnectTo(receiver))
+                return;
+
+            connectedReceivers.Add(receiver);
+            receiver.SetConnectedTransmitter(this);
+
+            // Create the visual line via the centralized renderer
+            if (showConnections && connectionRenderer != null && !connectionLines.ContainsKey(receiver))
             {
-                connectedReceivers.Add(receiver);
-                CreateConnectionLine(receiver);
-                receiver.SetConnectedTransmitter(this);
+                float rssi = CalculateSignalStrength(receiver.transform.position);
+                var lr = connectionRenderer.CreateConnection(
+                    ConnId(receiver),
+                    transform.position,
+                    receiver.transform.position,
+                    rssi,
+                    receiver.sensitivity
+                );
+                if (lr != null)
+                    connectionLines[receiver] = lr;
             }
         }
 
         public void DisconnectFromReceiver(Receiver receiver)
         {
-            if (connectedReceivers.Remove(receiver))
+            if (receiver == null) return;
+
+            // Remove visual first
+            if (connectionLines.ContainsKey(receiver))
             {
-                RemoveConnectionLine(receiver);
-                receiver.ClearConnection();
+                connectionRenderer?.RemoveConnection(ConnId(receiver));
+                connectionLines.Remove(receiver);
             }
+
+            if (connectedReceivers.Remove(receiver))
+                receiver.ClearConnection();
         }
 
         public void ClearAllConnections()
         {
-            foreach (var receiver in connectedReceivers.ToArray())
-            {
-                DisconnectFromReceiver(receiver);
-            }
+            // Copy to avoid modifying collection during iteration
+            foreach (var rx in new List<Receiver>(connectedReceivers))
+                DisconnectFromReceiver(rx);
         }
 
         private void RefreshConnections()
         {
-            // Re-evaluate all current connections
-            foreach (var receiver in connectedReceivers.ToArray())
+            // Drop links that no longer meet criteria
+            foreach (var receiver in new List<Receiver>(connectedReceivers))
             {
                 if (!CanConnectTo(receiver))
-                {
                     DisconnectFromReceiver(receiver);
-                }
             }
         }
 
@@ -279,7 +297,7 @@ namespace RFSimulation.Core.Components
                 RefreshConnections();
                 return true;
             }
-            Debug.LogWarning($"Invalid power value: {newPowerDbm}dBm. Must be 0-80 dBm.");
+            Debug.LogWarning($"Invalid power value: {newPowerDbm} dBm. Must be 0–80 dBm.");
             return false;
         }
 
@@ -291,7 +309,7 @@ namespace RFSimulation.Core.Components
                 RefreshConnections();
                 return true;
             }
-            Debug.LogWarning($"Invalid frequency: {newFrequencyMHz}MHz. Must be > 0 MHz.");
+            Debug.LogWarning($"Invalid frequency: {newFrequencyMHz} MHz. Must be > 0.");
             return false;
         }
 
@@ -303,7 +321,7 @@ namespace RFSimulation.Core.Components
                 RefreshConnections();
                 return true;
             }
-            Debug.LogWarning($"Invalid gain: {newGainDbi}dBi. Must be 0-50 dBi.");
+            Debug.LogWarning($"Invalid gain: {newGainDbi} dBi. Must be 0–50 dBi.");
             return false;
         }
 
@@ -315,7 +333,7 @@ namespace RFSimulation.Core.Components
         }
         #endregion
 
-        #region  Configuration Methods
+        #region Configuration Methods
         public void SetRayTracingEnabled(bool enabled)
         {
             settings.enableRayTracing = enabled;
@@ -336,15 +354,7 @@ namespace RFSimulation.Core.Components
         public float EstimateCoverageRadius()
         {
             var baseContext = CreatePropagationContext(transform.position + Vector3.forward);
-
-            if (settings.enableRayTracing && ShouldUseCalculator(baseContext))
-            {
-                return PathLossCalculator.EstimateCoverageRadius(baseContext);
-            }
-            else
-            {
-                return pathLossCalculator.EstimateCoverageRadius(baseContext);
-            }
+            return pathLossCalculator.EstimateCoverageRadius(baseContext);
         }
         #endregion
 
@@ -357,41 +367,18 @@ namespace RFSimulation.Core.Components
 
         private void CreateAntennaTower()
         {
-            // Create main antenna pole
             GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pole.name = "AntennaPole";
             pole.transform.SetParent(transform);
             pole.transform.localPosition = Vector3.up * 5f;
             pole.transform.localScale = new Vector3(0.2f, 5f, 0.2f);
 
-            // Create antenna elements (cross-arms)
-            for (int i = 0; i < 3; i++)
-            {
-                GameObject element = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                element.name = $"AntennaElement_{i}";
-                element.transform.SetParent(pole.transform);
-                element.transform.localPosition = Vector3.up * (0.6f + i * 0.3f);
-                element.transform.localScale = new Vector3(2f, 0.1f, 0.1f);
-            }
-
-            // Apply materials
             var renderer = pole.GetComponent<Renderer>();
             if (renderer != null)
             {
                 var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 material.SetColor("_BaseColor", Color.blue);
                 renderer.material = material;
-            }
-
-            foreach (Transform child in pole.transform)
-            {
-                var childRenderer = child.GetComponent<Renderer>();
-                if (childRenderer != null)
-                {
-                    var elementMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                    elementMaterial.SetColor("_BaseColor", Color.cyan);
-                    childRenderer.material = elementMaterial;
-                }
             }
         }
 
@@ -410,57 +397,46 @@ namespace RFSimulation.Core.Components
                 material.SetColor("_BaseColor", Color.gray);
                 renderer.material = material;
             }
+
+            // Remove the child collider so raycasts hit the ROOT collider we add below
+            var childCol = towerBase.GetComponent<Collider>();
+            if (childCol) Destroy(childCol);
+
+            // Build/refresh a single CapsuleCollider on the ROOT that fits all children
+            RebuildTransmitterCollider();
         }
 
-        private void CreateConnectionLine(Receiver receiver)
+        /// <summary>
+        /// Ensures a single CapsuleCollider on the root that encapsulates all child renderers.
+        /// Disables any other child colliders so selection/drags hit the root only.
+        /// </summary>
+        private void RebuildTransmitterCollider()
         {
-            if (!showConnections) return;
+            // Collect bounds of all child renderers (base, pole, etc.)
+            var rends = GetComponentsInChildren<Renderer>(true);
+            if (rends.Length == 0) return;
 
-            GameObject lineObj = new GameObject($"ConnectionLine_{uniqueID}_to_{receiver.uniqueID}");
-            lineObj.transform.SetParent(transform);
+            Bounds world = rends[0].bounds;
+            for (int i = 1; i < rends.Length; i++) world.Encapsulate(rends[i].bounds);
 
-            LineRenderer line = lineObj.AddComponent<LineRenderer>();
+            // Ensure a CapsuleCollider on the root
+            var cap = GetComponent<CapsuleCollider>();
+            if (cap == null) cap = gameObject.AddComponent<CapsuleCollider>();
+            cap.direction = 1; // Y axis
 
-            // Create material with dynamic color based on signal strength
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            float signalStrength = CalculateSignalStrength(receiver.transform.position);
-            Color lineColor = GetSignalQualityColor(signalStrength, receiver.sensitivity);
-            material.SetColor("_BaseColor", lineColor);
+            // Convert world center to local
+            cap.center = transform.InverseTransformPoint(world.center);
 
-            line.material = material;
-            line.startWidth = 0.3f;
-            line.endWidth = 0.3f;
-            line.positionCount = 2;
-            line.useWorldSpace = true;
+            // Approximate radius from X/Z; height from Y size (assumes uniform root scale)
+            cap.radius = Mathf.Max(world.extents.x, world.extents.z);
+            cap.height = world.size.y;
 
-            line.SetPosition(0, transform.position);
-            line.SetPosition(1, receiver.transform.position);
-
-            connectionLines.Add(line);
+            // Disable any other colliders under this object (so root gets the hit)
+            var allCols = GetComponentsInChildren<Collider>(true);
+            foreach (var c in allCols)
+                if (c != cap) Destroy(c);
         }
 
-        private Color GetSignalQualityColor(float signalStrength, float sensitivity)
-        {
-            float margin = signalStrength - sensitivity;
-
-            if (margin < 5f) return Color.red;      // Poor signal
-            if (margin < 10f) return Color.yellow;  // Fair signal  
-            if (margin < 15f) return Color.green;   // Good signal
-            return Color.cyan;                      // Excellent signal
-        }
-
-        private void RemoveConnectionLine(Receiver receiver)
-        {
-            var lineToRemove = connectionLines.Find(line =>
-                line != null && line.GetPosition(1) == receiver.transform.position);
-
-            if (lineToRemove != null)
-            {
-                connectionLines.Remove(lineToRemove);
-                if (lineToRemove.gameObject != null)
-                    DestroyImmediate(lineToRemove.gameObject);
-            }
-        }
 
         private void VisualizeRayPath(Vector3 start, Vector3 end, float signalStrength)
         {
@@ -479,42 +455,26 @@ namespace RFSimulation.Core.Components
             return Color.red;
         }
 
-        public void ToggleVisualization(bool showConnections)
+        public void ToggleConnectionLineVisualization(bool show)
         {
-            this.showConnections = showConnections;
-
-            foreach (var line in connectionLines)
-            {
-                if (line != null) line.gameObject.SetActive(showConnections);
-            }
-        }
-
-        private void CleanupVisualization()
-        {
-            foreach (var line in connectionLines)
-            {
-                if (line != null && line.gameObject != null)
-                    DestroyImmediate(line.gameObject);
-            }
-            connectionLines.Clear();
+            showConnections = show;
+            connectionRenderer?.SetLineVisibility(showConnections);
         }
         #endregion
 
         #region Ray Visualization
         public void VisualizeRaysToReceivers()
         {
-            if (PathLossCalculator != null)
+            if (pathLossCalculator != null)
             {
-                var model = PathLossCalculator.GetRayTracingModel();
+                var model = pathLossCalculator.GetRayTracingModel();
                 if (model != null)
                 {
                     model.enableRayVisualization = true;
 
-                    var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
+                    var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.None);
                     foreach (var receiver in receivers)
-                    {
                         CalculateSignalStrength(receiver.transform.position);
-                    }
                 }
             }
         }
@@ -523,7 +483,7 @@ namespace RFSimulation.Core.Components
         {
             showRayPaths = true;
 
-            var model = PathLossCalculator?.GetRayTracingModel();
+            var model = pathLossCalculator?.GetRayTracingModel();
             if (model != null)
             {
                 model.enableRayVisualization = true;
@@ -533,11 +493,9 @@ namespace RFSimulation.Core.Components
                 model.persistentRays = true;
                 model.rayDisplayDuration = 10f;
 
-                var receivers = FindObjectsByType<RFSimulation.Core.Components.Receiver>(FindObjectsSortMode.None);
+                var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.None);
                 foreach (var receiver in receivers)
-                {
                     CalculateSignalStrength(receiver.transform.position);
-                }
             }
             else
             {
