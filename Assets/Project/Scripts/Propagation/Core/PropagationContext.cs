@@ -10,6 +10,8 @@ namespace RFSimulation.Propagation.Core
         public Vector3 ReceiverPosition { get; set; }
         public float TransmitterPowerDbm { get; set; }
         public float FrequencyMHz { get; set; }
+        public float TransmitterHeight { get; set; }
+        public float ReceiverHeight { get; set; }
 
         // Optional parameters with defaults
         public float AntennaGainDbi { get; set; }
@@ -28,14 +30,18 @@ namespace RFSimulation.Propagation.Core
             Vector3 txPosition,
             Vector3 rxPosition,
             float txPowerDbm,
-            float frequencyMHz)
+            float frequencyMHz,
+            float transmitterHeight,
+            float receiverHeight)
         {
             return new PropagationContext
             {
                 TransmitterPosition = txPosition,
                 ReceiverPosition = rxPosition,
                 TransmitterPowerDbm = txPowerDbm,
-                FrequencyMHz = frequencyMHz
+                FrequencyMHz = frequencyMHz,
+                TransmitterHeight = transmitterHeight,
+                ReceiverHeight = receiverHeight,
             };
         }
 
@@ -88,12 +94,9 @@ namespace RFSimulation.Propagation.Core
         Auto,
         FreeSpace,
         LogDistance,
-        TwoRaySimple,
-        TwoRayGroundReflection,
         Hata,                    
-        COST231Hata,
-        BasicRayTracing,
-        AdvancedRayTracing 
+        COST231,
+        RayTracing
     }
 
     public enum TechnologyType

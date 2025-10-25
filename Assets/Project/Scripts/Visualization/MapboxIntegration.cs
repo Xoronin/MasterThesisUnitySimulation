@@ -18,7 +18,6 @@ namespace RFSimulation.Visualization
         [Header("Heatmap Settings")]
         [SerializeField] private SignalHeatmap heatmapComponent;
         [SerializeField] private bool autoFindMapboxObjects = true;
-        [SerializeField] private bool debugPositioning = true;
 
         [Header("Coordinate System")]
         [SerializeField] private bool useMapboxCoordinates = true;
@@ -47,10 +46,6 @@ namespace RFSimulation.Visualization
 
             isInitialized = true;
 
-            if (debugPositioning)
-            {
-                LogPositioningInfo();
-            }
         }
 
         private void FindMapboxObjects()
@@ -67,8 +62,6 @@ namespace RFSimulation.Visualization
                     if (found != null)
                     {
                         mapboxRoot = found.transform;
-                        if (debugPositioning)
-                            Debug.Log($"[MapboxHeatmap] Found Mapbox root: {found.name} at {found.transform.position}");
                         break;
                     }
                 }
@@ -84,8 +77,6 @@ namespace RFSimulation.Visualization
                     if (IsTerrainObject(obj))
                     {
                         terrainObject = obj;
-                        if (debugPositioning)
-                            Debug.Log($"[MapboxHeatmap] Found terrain object: {obj.name} at {obj.transform.position}");
                         break;
                     }
                 }
@@ -154,10 +145,6 @@ namespace RFSimulation.Visualization
                 mapboxBounds.Encapsulate(renderers[i].bounds);
             }
 
-            if (debugPositioning)
-            {
-                Debug.Log($"[MapboxHeatmap] Calculated Mapbox bounds: Center={mapboxBounds.center}, Size={mapboxBounds.size}");
-            }
         }
 
         private void InitializeHeatmapPositioning()
@@ -195,11 +182,6 @@ namespace RFSimulation.Visualization
                     float recommendedRadius = Mathf.Min(mapboxBounds.size.x, mapboxBounds.size.z) * 0.25f;
                     settings.sampleRadius = Mathf.Clamp(recommendedRadius, 500f, 5000f);
                 }
-            }
-
-            if (debugPositioning)
-            {
-                Debug.Log($"[MapboxHeatmap] Positioned heatmap at {targetPosition} with radius {settings.sampleRadius}");
             }
         }
 
@@ -259,11 +241,6 @@ namespace RFSimulation.Visualization
             {
                 heatmapComponent.SetCenter(transform);
             }
-
-            if (debugPositioning)
-            {
-                Debug.Log($"[MapboxHeatmap] Centered heatmap on {worldPosition} (adjusted: {adjustedPosition})");
-            }
         }
 
         public void CenterHeatmapOnTransmitter(Transmitter transmitter)
@@ -295,17 +272,6 @@ namespace RFSimulation.Visualization
             CenterHeatmapOn(centroid);
         }
 
-        private void LogPositioningInfo()
-        {
-            Debug.Log("=== Mapbox Heatmap Positioning Info ===");
-            Debug.Log($"Mapbox Root: {(mapboxRoot ? mapboxRoot.name : "Not Found")} at {(mapboxRoot ? mapboxRoot.position.ToString() : "N/A")}");
-            Debug.Log($"Terrain Object: {(terrainObject ? terrainObject.name : "Not Found")} at {(terrainObject ? terrainObject.transform.position.ToString() : "N/A")}");
-            Debug.Log($"Mapbox Bounds: {mapboxBounds}");
-            Debug.Log($"Heatmap Position: {transform.position}");
-            Debug.Log($"Using Mapbox Coordinates: {useMapboxCoordinates}");
-            Debug.Log($"Mapbox Offset: {mapboxOffset}");
-            Debug.Log("=====================================");
-        }
 
         // Gizmos for debugging positioning
         void OnDrawGizmosSelected()

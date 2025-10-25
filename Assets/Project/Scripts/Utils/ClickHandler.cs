@@ -1,64 +1,89 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 using RFSimulation.Core.Components;
+using RFSimulation.Utils; 
 using RFSimulation.UI;
 
-namespace RFSimulation.Utils
+namespace RFSimulation.Core.Managers
 {
     public class ClickHandler : MonoBehaviour
     {
-        [Header("UI References")]
-        public StatusUI statusUI;
+        [Header("References")]
+        [SerializeField] private Camera _cam;
 
-        [Header("Settings")]
-        public LayerMask clickableLayerMask = -1;
-        public KeyCode clearKey = KeyCode.Escape;
+        [Header("Layer Masks")]
+        [Tooltip("Layers that can be selected (e.g., Transmitter, Receiver)")]
+        [SerializeField] private LayerMask selectableMask;
+        [Tooltip("Layers that block or cancel clicks (e.g., Buildings)")]
+        [SerializeField] private LayerMask forbiddenMask;
 
-        private Camera mainCamera;
+        [Tooltip("Optional: own layer to ignore when raycasting")]
+        [SerializeField] private int _selfLayer = 0;
 
-        void Start()
+        [Header("UI / Managers")]
+        [SerializeField] private StatusUI statusUI;
+        [SerializeField] private ControlUI controlUI;
+
+        private void Awake()
         {
-            mainCamera = Camera.main;
-
-            // Ensure panel starts in a known state
-            if (statusUI != null) statusUI.ClearSelection();
+            if (_cam == null)
+                _cam = Camera.main;
         }
 
-        void Update()
+        private void Update()
         {
+            // Prevent all click actions while typing in an input field
+            if (UIInput.IsTyping())
+                return;
+
             if (Input.GetMouseButtonDown(0))
             {
-                HandleMouseClick();
-            }
-
-            if (Input.GetKeyDown(clearKey))
-            {
-                if (statusUI != null) statusUI.ClearSelection();
+                if (TryPickSelectable(out var hit))
+                    HandleClick(hit);
             }
         }
 
-        private void HandleMouseClick()
+        private bool TryPickSelectable(out RaycastHit hit)
         {
-            if (statusUI == null) return;
+            hit = default;
+            if (_cam == null)
+                return false;
 
-            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out var hit, Mathf.Infinity, clickableLayerMask))
+            int mask = selectableMask & ~forbiddenMask;
+
+            if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, _selfLayer, out hit))
             {
-                // Prefer Transmitter, then Receiver (same as before)
-                var tx = hit.collider.GetComponent<Transmitter>();
-                if (tx != null)
-                {
-                    statusUI.ShowTransmitter(tx);
-                    return;
-                }
+                if ((forbiddenMask.value & (1 << hit.collider.gameObject.layer)) != 0)
+                    return false;
 
-                var rx = hit.collider.GetComponent<Receiver>();
-                if (rx != null)
-                {
-                    statusUI.ShowReceiver(rx);
-                    return;
-                }
+                return true;
             }
+
+            return false;
+        }
+
+        private void HandleClick(RaycastHit hit)
+        {
+            if (hit.collider == null)
+                return;
+
+            var go = hit.collider.gameObject;
+
+            // Try select transmitter
+            if (go.TryGetComponent(out Transmitter tx))
+            {
+                statusUI?.ShowTransmitter(tx);
+                return;
+            }
+
+            // Try select receiver
+            if (go.TryGetComponent(out Receiver rx))
+            {
+                statusUI?.ShowReceiver(rx);
+                return;
+            }
+
+            // Clicked on something non-selectable
+            statusUI?.ClearSelection();
         }
     }
 }

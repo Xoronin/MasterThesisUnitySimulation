@@ -39,14 +39,11 @@ namespace RFSimulation.Propagation.PathLoss
                 // Standard propagation models
                 { PropagationModel.FreeSpace, new FreeSpaceModel() },
                 { PropagationModel.LogDistance, new LogDistanceModel() },
-                { PropagationModel.TwoRaySimple, new TwoRaySimpleModel() },
-                { PropagationModel.TwoRayGroundReflection, new TwoRayGroundReflectionModel() },
                 { PropagationModel.Hata, new HataModel() },
-                { PropagationModel.COST231Hata, new COST231HataModel() },
+                { PropagationModel.COST231, new COST231HataModel() },
                 
-                // Urban ray tracing models
-                { PropagationModel.BasicRayTracing, new UrbanRayTracingModel() },
-                { PropagationModel.AdvancedRayTracing, new UrbanRayTracingModel() }
+                // Ray tracing model
+                { PropagationModel.RayTracing, new UrbanRayTracingModel() },
             };
         }
 
@@ -134,13 +131,13 @@ namespace RFSimulation.Propagation.PathLoss
             // For very short distances, use free space or two-ray
             if (distance < 100f)
             {
-                return frequency > 1000f ? PropagationModel.FreeSpace : PropagationModel.TwoRaySimple;
+                return PropagationModel.FreeSpace;
             }
 
             // For medium distances in urban environment, use ray tracing
             if (distance <= maxDistance)
             {
-                return PropagationModel.BasicRayTracing;
+                return PropagationModel.RayTracing;
             }
 
             // For long distances, fallback to empirical models for performance
@@ -223,7 +220,7 @@ namespace RFSimulation.Propagation.PathLoss
             }
             else if (frequency <= 2000f)
             {
-                return PropagationModel.COST231Hata;
+                return PropagationModel.COST231;
             }
             else
             {
@@ -327,7 +324,7 @@ namespace RFSimulation.Propagation.PathLoss
 
         public UrbanRayTracingModel GetRayTracingModel()
         {
-            if (_models.TryGetValue(PropagationModel.BasicRayTracing, out IPathLossModel model))
+            if (_models.TryGetValue(PropagationModel.RayTracing, out IPathLossModel model))
             {
                 return model as UrbanRayTracingModel;
             }
@@ -345,11 +342,6 @@ namespace RFSimulation.Propagation.PathLoss
         }
 
         // Validation and debugging methods
-        public void ValidateModelSelection(PropagationContext context)
-        {
-            var applicabilityInfo = PathLossModelSelection.GetApplicabilityInfo(context);
-            applicabilityInfo.LogDebugInfo();
-        }
 
         public void DebugCoverageCalculation(PropagationContext context)
         {

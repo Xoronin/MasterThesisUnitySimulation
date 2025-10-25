@@ -93,7 +93,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
 
             // Check cache first
             string cacheKey = GenerateUrbanCacheKey(context);
-            if (rayCache.TryGetValue(cacheKey, out float cachedResult))
+            if (!enableRayVisualization && rayCache.TryGetValue(cacheKey, out float cachedResult))
             {
                 return cachedResult;
             }
@@ -142,7 +142,6 @@ namespace RFSimulation.Propagation.PathLoss.Models
             ExtractUrbanDiffractionEdges();
 
             spatialGridInitialized = true;
-            Debug.Log($"[UrbanRayTracing] Initialized spatial grid with {urbanEdges.Count} diffraction edges");
         }
 
         private void PopulateGridWithMapboxBuildings()
@@ -524,9 +523,6 @@ namespace RFSimulation.Propagation.PathLoss.Models
             }
 
             activeRays.Add(rayViz);
-
-            // Log ray information
-            Debug.Log($"[Ray] {label} - Distance: {Vector3.Distance(start, end):F1}m");
         }
 
         private void CreateMultiSegmentRayVisualization(Vector3[] waypoints, Color color, RayType type, float power, string label)
@@ -566,8 +562,6 @@ namespace RFSimulation.Propagation.PathLoss.Models
             {
                 totalDistance += Vector3.Distance(waypoints[i], waypoints[i + 1]);
             }
-
-            Debug.Log($"[Ray] {label} - Total Distance: {totalDistance:F1}m");
         }
 
         private void CreateLineRenderer(RayVisualization rayViz, Vector3[] points)
@@ -615,15 +609,12 @@ namespace RFSimulation.Propagation.PathLoss.Models
                 }
                 rayContainer = null;
             }
-
-            Debug.Log("🧹 All ray visualizations cleared");
         }
 
         [ContextMenu("Toggle Ray Visualization")]
         public void ToggleRayVisualization()
         {
             enableRayVisualization = !enableRayVisualization;
-            Debug.Log($"Ray visualization: {(enableRayVisualization ? "ENABLED" : "DISABLED")}");
 
             if (!enableRayVisualization)
             {
@@ -635,11 +626,9 @@ namespace RFSimulation.Propagation.PathLoss.Models
         {
             if (!enableRayVisualization) return;
 
-            Debug.Log($"🌐 Visualizing rays from transmitter at {transmitterPos}");
-
             foreach (var rxPos in receiverPositions)
             {
-                var context = PropagationContext.Create(transmitterPos, rxPos, 40f, 2400f);
+                var context = PropagationContext.Create(transmitterPos, rxPos, 40f, 2400f, transmitterPos.y, rxPos.y);
                 Calculate(context); // This will trigger ray visualization
             }
         }

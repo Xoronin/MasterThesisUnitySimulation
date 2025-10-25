@@ -33,14 +33,20 @@ namespace RFSimulation.Visualization
         public float maxSignalStrength = -40f;  // dBm
 
         [Header("Colors")]
-        public Color noSignalColor = Color.clear; // transparent where invalid/blocked
-        public Color weakSignalColor = Color.red;
-        public Color mediumSignalColor = Color.yellow;
-        public Color strongSignalColor = Color.green;
+        public Color noSignalColor = Color.red; // red
+        public Color lowSignalColor = Color.orange; // orange
+        public Color mediumSignalColor = Color.yellow; // yellow
+        public Color highSignalColor = Color.yellowGreen; // yellow-green
+        public Color excellentSignalColor = Color.green; // green
+
+        [Header("Color Mapping")]
+        public bool autoScaleColors = true;
+        public float clampMin = -120f;  // never map below this
+        public float clampMax = 10f;  // never map above this
 
         [Header("Robustness")]
         [Tooltip("Meters to cast from above and below when probing the terrain.")]
-        public float probeHeight = 5000f;
+        public float probeHeight = 1000f;
         [Tooltip("Extra tries in a small neighborhood if a direct ray miss happens. Helps avoid 'walls' at map edges or gaps between tiles.")]
         [Range(0, 4)] public int neighborhoodSearchRadius = 2; // grid steps
         [Tooltip("Meters per neighborhood step when searching around a miss.")]
@@ -407,12 +413,19 @@ namespace RFSimulation.Visualization
                 return;
             }
 
+            int N = settings.resolution * settings.resolution;
+            float[] rssiBuf = new float[N];
             Color[] pixels = new Color[settings.resolution * settings.resolution];
+
+            float dataMin = float.PositiveInfinity;
+            float dataMax = float.NegativeInfinity;
 
             for (int y = 0; y < settings.resolution; y++)
             {
                 for (int x = 0; x < settings.resolution; x++)
                 {
+                    int idx = y * settings.resolution + x;
+
                     float localX = -_halfSize + (x * _stepSize);
                     float localZ = -_halfSize + (y * _stepSize);
 
@@ -420,7 +433,7 @@ namespace RFSimulation.Visualization
                     float terrainH = GetTerrainHeightAtPosition(samplePos, out bool ok);
                     if (!ok)
                     {
-                        pixels[y * settings.resolution + x] = Color.clear;
+                        pixels[y * settings.resolution + x] = new Color(0f, 0f, 0f, 0.35f);
                         continue;
                     }
 
@@ -428,7 +441,7 @@ namespace RFSimulation.Visualization
 
                     if (IsPositionBlockedByBuildings(samplePos))
                     {
-                        pixels[y * settings.resolution + x] = Color.clear; // transparent over buildings
+                        pixels[y * settings.resolution + x] = new Color(0f, 0f, 0f, 0.35f); // transparent over buildings
                         continue;
                     }
 
@@ -441,58 +454,87 @@ namespace RFSimulation.Visualization
                         if (rssi > maxRssi) maxRssi = rssi;
                     }
 
-                    pixels[y * settings.resolution + x] = SignalStrengthToColor(maxRssi);
+                    rssiBuf[idx] = maxRssi;
+
+                    if (!float.IsNegativeInfinity(maxRssi))
+                    {
+                        if (maxRssi < dataMin) dataMin = maxRssi;
+                        if (maxRssi > dataMax) dataMax = maxRssi;
+                    }
+
+                    //pixels[y * settings.resolution + x] = SignalStrengthToColor(maxRssi);
                 }
             }
+
+            // choose mapping range
+            float lo = settings.minSignalStrength;
+            float hi = settings.maxSignalStrength;
+
+            if (settings.autoScaleColors && dataMin < dataMax)
+            {
+                lo = Mathf.Clamp(dataMin, settings.clampMin, settings.clampMax - 1f);
+                hi = Mathf.Clamp(dataMax, lo + 1f, settings.clampMax);
+            }
+
+            // second pass: colorize
+            for (int i = 0; i < N; i++)
+                pixels[i] = SignalStrengthToColor(rssiBuf[i], lo, hi);
 
             heatmapTexture.SetPixels(pixels);
             heatmapTexture.Apply(false, false);
         }
 
+        private readonly Collider[] _overlapCache = new Collider[16];
+
         private bool IsPositionBlockedByBuildings(Vector3 position)
         {
-            // Check global building state first
-            if (!BuildingManager.AreBuildingsEnabled())
-                return false; // Buildings are globally disabled
+            if (!BuildingManager.AreBuildingsEnabled()) return false;
 
-            const float probeRadius = 0.5f;
+            LayerMask mask = BuildingManager.GetActiveBuildingLayers();
+            if (mask == 0) return false;
 
-            // Use the active building layers from the global manager
-            LayerMask activeBuildingLayers = BuildingManager.GetActiveBuildingLayers();
-            if (activeBuildingLayers == 0)
-                return false; // No active building layers
-
-            // Check for overlap with buildings
-            Collider[] overlapping = Physics.OverlapSphere(position, probeRadius, activeBuildingLayers, QueryTriggerInteraction.Ignore);
-
-            foreach (var collider in overlapping)
+            const float r = 0.15f; // was ~0.5 → too big for street canyons
+            int n = Physics.OverlapSphereNonAlloc(position, r, _overlapCache, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
             {
-                // Additional check: if the object has a Building component, verify it should block signals
-                var building = collider.GetComponent<Building>();
-                if (building != null && !building.blockSignals)
-                {
-                    continue; // This building is set to not block signals
-                }
-
-                // If we get here, there's a blocking building
-                return true;
+                var b = _overlapCache[i].GetComponentInParent<RFSimulation.Environment.Building>();
+                if (b != null && b.blockSignals) return true;   // only real buildings block
             }
-
             return false;
         }
 
-        private Color SignalStrengthToColor(float rssi)
+        private Color SignalStrengthToColor(float rssi, float lo, float hi)
         {
             if (float.IsNegativeInfinity(rssi)) return settings.noSignalColor;
-            float n = Mathf.InverseLerp(settings.minSignalStrength, settings.maxSignalStrength, rssi);
-            n = Mathf.Clamp01(n);
 
-            if (n < 0.33f)
-                return Color.Lerp(settings.noSignalColor, settings.weakSignalColor, n / 0.33f);
-            else if (n < 0.66f)
-                return Color.Lerp(settings.weakSignalColor, settings.mediumSignalColor, (n - 0.33f) / 0.33f);
-            else
-                return Color.Lerp(settings.mediumSignalColor, settings.strongSignalColor, (n - 0.66f) / 0.34f);
+            float t = Mathf.InverseLerp(lo, hi, rssi);
+            t = Mathf.Clamp01(t);
+
+            return EvaluateFiveStop(t,
+                settings.noSignalColor,
+                settings.lowSignalColor,
+                settings.mediumSignalColor,
+                settings.highSignalColor,
+                settings.excellentSignalColor
+            );
+        }
+
+        private static Color EvaluateFiveStop(float t, Color c0, Color c1, Color c2, Color c3, Color c4)
+        {
+            // Which two stops are we between?
+            const int n = 4;                 // 5 stops → 4 segments
+            float scaled = t * n;            // 0..4
+            int i = Mathf.FloorToInt(scaled);
+            if (i >= n) return c4;           // t == 1
+            float u = scaled - i;            // 0..1 within the segment
+
+            switch (i)
+            {
+                case 0: return Color.Lerp(c0, c1, u);
+                case 1: return Color.Lerp(c1, c2, u);
+                case 2: return Color.Lerp(c2, c3, u);
+                default: return Color.Lerp(c3, c4, u);
+            }
         }
 
         private bool HasTransmitters()

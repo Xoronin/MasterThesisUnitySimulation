@@ -3,7 +3,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using RFSimulation.Core.Components; // Transmitter, Receiver
+using RFSimulation.Propagation.Core; // Transmitter, Receiver
 using RFSimulation.Core.Managers; // Transmitter, Receiver
+using RFSimulation.Utils;
 
 namespace RFSimulation.UI
 {
@@ -24,6 +26,7 @@ namespace RFSimulation.UI
         public InputField txPowerInput;             // dBm
         public InputField txFreqInput;              // MHz
         public InputField txHeightInput;            // m (writes to transform.y)
+        public Dropdown txModelDropdown;
         public Text txCoverage;                     // coverage radius in m
         public Text txConnectedReceivers;           // number of connected receivers
 
@@ -34,6 +37,7 @@ namespace RFSimulation.UI
         public InputField rxHeightInput;            // m (writes to transform.y)
         public Text rxSignalLabel;           // optional, read-only
         public Text rxConnectedTransmitter;  // optional, read-only
+        public Text distanceToTransmitter;
 
         [Header("Options")]
         public bool useInvariantDecimal = true;         // dot decimals
@@ -57,6 +61,7 @@ namespace RFSimulation.UI
             WireTransmitter();
             WireReceiver();
             EnsureTechOptions();
+            EnsureTxModelOptions();
             ClearSelection();
         }
 
@@ -159,6 +164,16 @@ namespace RFSimulation.UI
             rxTechDropdown.RefreshShownValue();
         }
 
+        private void EnsureTxModelOptions()
+        {
+            if (txModelDropdown == null) return;
+            txModelDropdown.ClearOptions();
+            txModelDropdown.AddOptions(new System.Collections.Generic.List<string>(
+                new[] { "Auto", "Free Space", "Log Distance", "Hata", "COST 231", "Ray Tracing" }
+            ));
+            txModelDropdown.onValueChanged.AddListener(OnTxModelChanged);
+        }
+
         // --------- UI -> Object handlers ---------
 
         private void OnPosXEdited(string s)
@@ -196,11 +211,18 @@ namespace RFSimulation.UI
             RefreshTransmitterFields();
         }
 
+        private void OnTxModelChanged(int i)
+        {
+            if (_selectedTx == null) return;
+            _selectedTx.SetPropagationModel(ModelFromIndex(i));
+            RefreshTransmitterFields();
+        }
+
         private void OnTxHeightEdited(string s)
         {
             if (_selectedTx == null) return;
             if (TryParseFloat(s, out float v))
-                _selectedTx.transform.position = new Vector3(_selectedTx.transform.position.x, v, _selectedTx.transform.position.z);
+                _selectedTx.SetTransmitterHeight(v);
             RefreshTransmitterFields();
             RefreshCommonFromTransform();
         }
@@ -222,11 +244,22 @@ namespace RFSimulation.UI
         private void OnRxHeightEdited(string s)
         {
             if (_selectedRx == null) return;
-            if (TryParseFloat(s, out float v))
-                _selectedRx.transform.position = new Vector3(_selectedRx.transform.position.x, v, _selectedRx.transform.position.z);
+            if (!TryParseFloat(s, out float h)) return;
+
+            // interpret UI value as height above ground
+            var pos = _selectedRx.transform.position;
+
+            // infer ground Y from current state: worldY = groundY + receiverHeight
+            float groundY = pos.y - _selectedRx.receiverHeight;
+
+            // apply new height
+            _selectedRx.receiverHeight = h;
+            _selectedRx.transform.position = new Vector3(pos.x, groundY + h, pos.z);
+
             RefreshReceiverFields();
             RefreshCommonFromTransform();
         }
+
 
         private void OnRemoveClicked()
         {
@@ -301,17 +334,21 @@ namespace RFSimulation.UI
             _isUpdatingUI = true;
             txPowerInput?.SetTextWithoutNotify(_selectedTx.transmitterPower.ToString("F1", Ci));
             txFreqInput?.SetTextWithoutNotify(_selectedTx.frequency.ToString("F0", Ci));
-            txHeightInput?.SetTextWithoutNotify(_selectedTx.transform.position.y.ToString("F1", Ci));
+            txHeightInput?.SetTextWithoutNotify(_selectedTx.transmitterHeight.ToString("F1", Ci));
+            if (txModelDropdown != null)
+                txModelDropdown.SetValueWithoutNotify(IndexFromModel(_selectedTx.propagationModel));
+
             if (txCoverage != null)
             {
-                int coverage = _selectedTx.EstimateCoverageRadius() < 0 ? 0 : Mathf.RoundToInt(_selectedTx.EstimateCoverageRadius());
-                txCoverage.text = coverage.ToString();
+                float cov = TryGetCoverageRadius(_selectedTx);
+                txCoverage.text = cov > 0 ? Mathf.RoundToInt(cov).ToString() : "—";
             }
             if (txConnectedReceivers != null)
             {
                 int count = _selectedTx.GetConnectedReceivers() != null ? _selectedTx.GetConnectedReceivers().Count : 0;
                 txConnectedReceivers.text = count.ToString();
             }
+
             _isUpdatingUI = false;
         }
 
@@ -326,7 +363,7 @@ namespace RFSimulation.UI
                 if (idx >= 0) rxTechDropdown.SetValueWithoutNotify(idx);
             }
             rxSensitivityInput?.SetTextWithoutNotify(_selectedRx.sensitivity.ToString("F1", Ci));
-            rxHeightInput?.SetTextWithoutNotify(_selectedRx.transform.position.y.ToString("F1", Ci));
+            rxHeightInput?.SetTextWithoutNotify(_selectedRx.receiverHeight.ToString("F1", Ci));
             // Signal label (optional real value)
             if (rxSignalLabel != null) rxSignalLabel.text = _selectedRx.currentSignalStrength.ToString();
             _isUpdatingUI = false;
@@ -335,7 +372,9 @@ namespace RFSimulation.UI
             {
                 var tx = _selectedRx.GetConnectedTransmitter();
                 rxConnectedTransmitter.text = tx != null ? tx.uniqueID : "—";
+                distanceToTransmitter.text = tx != null ? Vector3.Distance(tx.transform.position, _selectedRx.transform.position).ToString("F1", Ci) + " m" : "—";
             }
+
         }
 
         private void ClearCommon()
@@ -348,6 +387,51 @@ namespace RFSimulation.UI
         }
 
         // --------- Helpers ---------
+
+        private static readonly string[] ModelNames =
+            { "Auto", "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
+
+        private static PropagationModel ModelFromIndex(int i)
+        {
+            switch (i)
+            {
+                case 0: return PropagationModel.Auto;
+                case 1: return PropagationModel.FreeSpace;
+                case 2: return PropagationModel.LogDistance;
+                case 3: return PropagationModel.Hata;          
+                case 4: return PropagationModel.COST231;  
+                case 5: return PropagationModel.RayTracing;  
+                default: return PropagationModel.Auto;
+            }
+        }
+
+        private static int IndexFromModel(PropagationModel m)
+        {
+            switch (m)
+            {
+                case PropagationModel.Auto: return 0;
+                case PropagationModel.FreeSpace: return 1;
+                case PropagationModel.LogDistance: return 2;
+                case PropagationModel.Hata: return 3;  // adjust if needed
+                case PropagationModel.COST231: return 4;  // adjust if needed
+                case PropagationModel.RayTracing: return 5;
+                default: return 0;
+            }
+        }
+
+        private float TryGetCoverageRadius(Transmitter tx)
+        {
+            if (tx == null) return -1f;
+            try
+            {
+                return tx.EstimateCoverageRadius();  // call ONCE, guarded
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[StatusUI] Coverage not ready: {e.Message}");
+                return -1f;
+            }
+        }
 
         private void SetHeader(string text)
         {

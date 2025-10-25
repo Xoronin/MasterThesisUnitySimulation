@@ -46,12 +46,6 @@ namespace RFSimulation.UI
             if (scenarioUI == null) scenarioUI = FindFirstObjectByType<ScenarioUI>();
             if (statusUI == null) statusUI = FindFirstObjectByType<StatusUI>();
 
-            // Optional cross-component hookups
-            if (scenarioUI != null)
-            {
-                scenarioUI.OnScenarioSelected -= HandleScenarioSelected;
-                scenarioUI.OnScenarioSelected += HandleScenarioSelected;
-            }
         }
 
         private void WireButtons()
@@ -124,20 +118,6 @@ namespace RFSimulation.UI
             bool s = scenarioPanel != null && scenarioPanel.activeSelf;
             bool t = statusPanel != null && statusPanel.activeSelf;
             OnPanelVisibilityChanged?.Invoke(c, s, t);
-        }
-
-        // Example: if selecting a scenario should ensure status/info is visible
-        private void HandleScenarioSelected(string scenarioName)
-        {
-            // Show status panel so details can be displayed there
-            if (statusPanel != null && !statusPanel.activeSelf)
-                ShowStatusPanel(true);
-        }
-
-        void OnDestroy()
-        {
-            if (scenarioUI != null)
-                scenarioUI.OnScenarioSelected -= HandleScenarioSelected;
         }
     }
 }

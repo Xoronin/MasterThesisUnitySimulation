@@ -33,19 +33,13 @@ namespace RFSimulation.Propagation.PathLoss
             {
                 // Very short range: Free space or Two-ray appropriate
                 // Reference: Rappaport, Chapter 4.3
-                return frequency > 1000f ? PropagationModel.FreeSpace : PropagationModel.TwoRaySimple;
+                return PropagationModel.FreeSpace;
             }
 
             // CRITERIA 2: Hata Model applicability ranges (ITU-R P.370)
             if (IsWithinHataRange(distance, frequency))
             {
                 return SelectHataVariant(frequency);
-            }
-
-            // CRITERIA 3: Two-Ray model for specific scenarios
-            if (IsTwoRayApplicable(distance, frequency))
-            {
-                return PropagationModel.TwoRayGroundReflection;
             }
 
             // CRITERIA 4: Log-distance for general cases
@@ -85,7 +79,7 @@ namespace RFSimulation.Propagation.PathLoss
             {
                 // COST-231 Hata extension
                 // Reference: COST 231 Final Report, valid 1500-2000 MHz
-                return PropagationModel.COST231Hata;
+                return PropagationModel.COST231;
             }
             else
             {
@@ -206,10 +200,8 @@ namespace RFSimulation.Propagation.PathLoss
             return selectedModel switch
             {
                 PropagationModel.FreeSpace => "Short range with line-of-sight assumption",
-                PropagationModel.TwoRaySimple => "Short range with simple ground reflection",
-                PropagationModel.TwoRayGroundReflection => "Long range beyond empirical model validity",
                 PropagationModel.Hata => "Within original Hata validated range (150-1500MHz, 1-20km, urban)",
-                PropagationModel.COST231Hata => "COST-231 extension for higher frequencies (1500-2000MHz)",
+                PropagationModel.COST231 => "COST-231 extension for higher frequencies (1500-2000MHz)",
                 PropagationModel.LogDistance => "General case - outside empirical model ranges",
                 _ => "Default selection"
             };
@@ -230,16 +222,6 @@ namespace RFSimulation.Propagation.PathLoss
         public PropagationModel RecommendedModel;
         public string SelectionReason;
 
-        public void LogDebugInfo()
-        {
-            Debug.Log("=== MODEL APPLICABILITY ANALYSIS ===");
-            Debug.Log($"Free Space: {FreeSpace.IsValid} - {FreeSpace.Reason}");
-            Debug.Log($"Two-Ray: {TwoRay.IsValid} - {TwoRay.Reason}");
-            Debug.Log($"Hata: {Hata.IsValid} - {Hata.Reason}");
-            Debug.Log($"COST-231: {COST231.IsValid} - {COST231.Reason}");
-            Debug.Log($"Log-Distance: {LogDistance.IsValid} - {LogDistance.Reason}");
-            Debug.Log($"RECOMMENDED: {RecommendedModel} - {SelectionReason}");
-        }
     }
 
     public struct ModelValidityStatus

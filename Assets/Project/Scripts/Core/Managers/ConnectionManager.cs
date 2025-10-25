@@ -96,11 +96,6 @@ namespace RFSimulation.Core.Managers
             currentStrategyType = strategyType;
             strategy = strategies[strategyType];
 
-            if (settings.enableDebugLogs)
-            {
-                Debug.Log($"[ConnectionManager] Strategy changed to: {strategy.StrategyName}");
-            }
-
             OnStrategyChanged?.Invoke(strategy.StrategyName);
 
             // Force immediate update with new strategy
@@ -152,24 +147,16 @@ namespace RFSimulation.Core.Managers
         public void UpdateMinimumSignalThreshold(float threshold)
         {
             settings.minimumSignalThreshold = threshold;
-            if (settings.enableDebugLogs)
-            {
-                Debug.Log($"[ConnectionManager] Signal threshold updated to {threshold:F1}dBm");
-            }
         }
 
         public void UpdateHandoverMargin(float margin)
         {
             settings.handoverMargin = margin;
-            if (settings.enableDebugLogs)
-            {
-                Debug.Log($"[ConnectionManager] Handover margin updated to {margin:F1}dB");
-            }
         }
 
-        public void ToggleDebugLogs(bool enable)
+        public void ApplySettings(ConnectionSettings newSettings)
         {
-            settings.enableDebugLogs = enable;
+            settings = newSettings;
         }
 
         // Statistics for UI

@@ -93,5 +93,29 @@ namespace RFSimulation.Utils
 
             return angle;
         }
+
+        /// Raycast to terrain and return the ground Y at (x,z). Returns true if found.
+        public static bool TryGetGroundY(Vector3 worldPos, LayerMask groundMask, out float groundY)
+        {
+            const float span = 20000f;
+
+            // Cast from far above, down
+            var origin = worldPos + Vector3.up * span * 0.5f;
+            if (Physics.Raycast(origin, Vector3.down, out var hit, span, groundMask, QueryTriggerInteraction.Ignore))
+            {
+                groundY = hit.point.y;
+                return true;
+            }
+            groundY = worldPos.y;
+            return false;
+        }
+
+        public static float GetHeightAboveGround(Vector3 worldPos)
+        {
+            var groundMask = LayerMask.GetMask("Terrain");
+
+            TryGetGroundY(worldPos, groundMask, out var gy);
+            return Mathf.Max(0f, worldPos.y - gy);
+        }
     }
 }

@@ -67,8 +67,6 @@ namespace RFSimulation.Core.Managers
             {
                 connectionManager.enabled = true;
             }
-
-            Debug.Log("✅ SimulationManager initialized");
         }
 
         #region Simulation Control
@@ -77,26 +75,22 @@ namespace RFSimulation.Core.Managers
         {
             isSimulationRunning = true;
             OnSimulationStarted?.Invoke();
-            Debug.Log("▶️ Simulation started");
         }
 
         public void StopSimulation()
         {
             isSimulationRunning = false;
             OnSimulationStopped?.Invoke();
-            Debug.Log("⏹️ Simulation stopped");
         }
 
         public void PauseSimulation()
         {
             isSimulationRunning = false;
-            Debug.Log("⏸️ Simulation paused");
         }
 
         public void ResumeSimulation()
         {
             isSimulationRunning = true;
-            Debug.Log("▶️ Simulation resumed");
         }
 
         public void RestartSimulation()
@@ -104,7 +98,6 @@ namespace RFSimulation.Core.Managers
             StopSimulation();
             ClearAllConnections();
             StartSimulation();
-            Debug.Log("🔄 Simulation restarted");
         }
 
         #endregion
@@ -257,15 +250,6 @@ namespace RFSimulation.Core.Managers
                     issues++;
                 }
             }
-
-            if (issues == 0)
-            {
-                Debug.Log("✅ Simulation validation passed");
-            }
-            else
-            {
-                Debug.Log($"⚠️ Simulation validation found {issues} issues");
-            }
         }
 
         public SimulationStatistics GetStatistics()
@@ -287,39 +271,6 @@ namespace RFSimulation.Core.Managers
             }
 
             return stats;
-        }
-
-        #endregion
-
-        #region Debug and Testing
-
-        [ContextMenu("Validate Simulation")]
-        public void ContextMenuValidateSimulation()
-        {
-            ValidateSimulation();
-        }
-
-        [ContextMenu("Print Statistics")]
-        public void ContextMenuPrintStatistics()
-        {
-            var stats = GetStatistics();
-            Debug.Log($"📊 Simulation Statistics:\n" +
-                     $"   Transmitters: {stats.transmitterCount}\n" +
-                     $"   Receivers: {stats.receiverCount}\n" +
-                     $"   Connected: {stats.connectedReceivers} ({stats.connectionPercentage:F1}%)\n" +
-                     $"   Avg Signal: {stats.averageSignalStrength:F1}dBm\n" +
-                     $"   Strategy: {stats.currentStrategy}\n" +
-                     $"   Status: {(stats.isRunning ? "Running" : "Stopped")}");
-        }
-
-        [ContextMenu("Force Update Connections")]
-        public void ContextMenuForceUpdateConnections()
-        {
-            if (connectionManager != null)
-            {
-                connectionManager.UpdateAllConnections();
-                Debug.Log("🔄 Forced connection update");
-            }
         }
 
         #endregion

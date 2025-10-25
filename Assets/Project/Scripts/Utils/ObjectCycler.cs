@@ -4,6 +4,9 @@ using RFSimulation.Core;
 using RFSimulation.Core.Components;
 using RFSimulation.Core.Managers;
 using RFSimulation.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
 
 namespace RFSimulation.Utils
 {
@@ -83,6 +86,7 @@ namespace RFSimulation.Utils
 
         void Update()
         {
+            if (UIInput.IsTyping()) return;
             HandleInput();
             UpdateCameraMovement();
             UpdateHighlightEffects();
@@ -254,8 +258,6 @@ namespace RFSimulation.Utils
             {
                 SetCameraTarget(obj.transform.position);
             }
-
-            Debug.Log($"Selected {objectType}: {obj.name} at {obj.transform.position}");
         }
 
 		private string GetTransmitterStatusText(Transmitter tx)
@@ -267,11 +269,11 @@ namespace RFSimulation.Utils
 				   $"Connections: {tx.GetConnectionCount()}";
 		}
 
-		#endregion
+        #endregion
 
-		#region Highlighting System
+        #region Highlighting System
 
-		private void ApplyHighlight(GameObject obj)
+        private void ApplyHighlight(GameObject obj)
         {
             var renderer = obj.GetComponent<Renderer>();
             if (renderer == null) return;

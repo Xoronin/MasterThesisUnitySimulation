@@ -74,7 +74,6 @@ namespace RFSimulation.Core.Managers
         {
             RefreshBuildingsList();
             initialized = true;
-            Debug.Log($"[GlobalBuildingManager] Initialized with {managedBuildings.Count} buildings");
         }
 
         // ---------- STATIC HELPERS (no lazy-creation calls!) ----------
@@ -110,7 +109,6 @@ namespace RFSimulation.Core.Managers
             buildingsEnabled = enabled;
             ApplyBuildingState();
             OnBuildingsToggled?.Invoke(buildingsEnabled);
-            Debug.Log($"[GlobalBuildingManager] Buildings {(buildingsEnabled ? "enabled" : "disabled")}");
         }
 
         private void ApplyBuildingState()
@@ -154,7 +152,6 @@ namespace RFSimulation.Core.Managers
             }
 
             ApplyBuildingState();
-            Debug.Log($"[GlobalBuildingManager] Refreshed building list: {managedBuildings.Count} buildings found");
         }
 
         private void AddBuildingToManagement(GameObject buildingObj)

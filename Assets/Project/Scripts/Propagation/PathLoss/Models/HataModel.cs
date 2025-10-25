@@ -12,8 +12,8 @@ namespace RFSimulation.Propagation.PathLoss.Models
         public float Calculate(PropagationContext context)
         {
 
-            float hte = context.TransmitterPosition.y;  // Base station height
-            float hre = context.ReceiverPosition.y;     // Mobile height  
+            float hte = context.TransmitterHeight;  // Base station height
+            float hre = context.ReceiverHeight;     // Mobile height  
             float fc = context.FrequencyMHz;            // Carrier frequency (MHz)
             float d = context.Distance / 1000f;         // Distance in km
 
@@ -78,16 +78,16 @@ namespace RFSimulation.Propagation.PathLoss.Models
             }
 
             // Base station height: 30 - 200 m (typical values)
-            if (context.TransmitterPosition.y < 30f || context.TransmitterPosition.y > 200f)
+            if (context.TransmitterHeight < 30f || context.TransmitterHeight > 200f)
             {
-                warnings += $"Base station height {context.TransmitterPosition.y}m outside typical range (30-200m). ";
+                warnings += $"Base station height {context.TransmitterHeight}m outside typical range (30-200m). ";
                 // Don't set isValid = false for this - just a warning
             }
 
             // Mobile station height: 1 - 10 m (from Hata specification)
-            if (context.ReceiverPosition.y < 1f || context.ReceiverPosition.y > 10f)
+            if (context.ReceiverHeight < 1f || context.ReceiverHeight > 10f)
             {
-                warnings += $"Mobile height {context.ReceiverPosition.y}m outside valid range (1-10m). ";
+                warnings += $"Mobile height {context.ReceiverHeight}m outside valid range (1-10m). ";
                 // Don't set isValid = false for this - just a warning
             }
 

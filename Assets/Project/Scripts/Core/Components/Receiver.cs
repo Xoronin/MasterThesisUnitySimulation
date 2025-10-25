@@ -2,11 +2,12 @@
 using RFSimulation.Propagation.Core;
 using RFSimulation.Propagation.SignalQuality;
 using RFSimulation.Core.Managers;
+using RFSimulation.Utils;
 
 namespace RFSimulation.Core.Components
 {
     /// <summary>
-    /// Simplified Receiver - combines all receiver functionality in one place
+    /// Simplified Receiver - constant visuals (mesh + sphere), no signal-based color changes.
     /// </summary>
     public class Receiver : MonoBehaviour
     {
@@ -14,9 +15,10 @@ namespace RFSimulation.Core.Components
         [Header("Receiver Properties")]
         public string uniqueID;
         public string technology = "5G";
-        public float sensitivity = -90f; // dBm
-        public float connectionMargin = 10f; // dB above sensitivity needed
-        public float minimumSINR = -6f; // dB
+        public float sensitivity = -90f;      // dBm
+        public float connectionMargin = 10f;  // dB above sensitivity needed
+        public float minimumSINR = -6f;       // dB
+        public float receiverHeight;   // meters
 
         [Header("Status")]
         public float currentSignalStrength = float.NegativeInfinity;
@@ -24,20 +26,22 @@ namespace RFSimulation.Core.Components
 
         [Header("Visualization")]
         public bool showSignalSphere = true;
+
+        [Tooltip("Constant base color of the receiver mesh (not tied to signal).")]
+        public Color receiverBaseColor = new Color(0.1176f, 0.6549f, 0.9921f); // #1EA7FD
+
+        [Header("Sphere Appearance (constant)")]
+        [Tooltip("Constant color of the signal sphere (not tied to signal).")]
+        public Color sphereColor = new Color(0.2f, 0.85f, 1f, 1f); // cyan-ish
+        [Range(0f, 1f)] public float sphereAlpha = 0.35f;
         #endregion
 
         #region Private Fields
         private Transmitter connectedTransmitter = null;
         private Renderer receiverRenderer;
         private GameObject signalSphereVisual;
+        private Material signalSphereMatInstance;
         private SignalQualityMetrics currentQuality;
-
-        // Signal quality colors
-        private readonly Color excellentColor = Color.green;
-        private readonly Color goodColor = Color.yellow;
-        private readonly Color fairColor = new Color(1f, 0.5f, 0f);
-        private readonly Color poorColor = Color.red;
-        private readonly Color noSignalColor = Color.gray;
         #endregion
 
         #region Unity Lifecycle
@@ -54,8 +58,9 @@ namespace RFSimulation.Core.Components
 
         void Update()
         {
-            UpdateSignalStatus();
-            UpdateVisualization();
+            UpdateSignalStatus();   // still compute signal, but visuals remain constant
+            // No dynamic visual updates needed, but keep sphere active state in sync:
+            if (signalSphereVisual != null) signalSphereVisual.SetActive(showSignalSphere);
         }
 
         void OnDestroy()
@@ -72,11 +77,9 @@ namespace RFSimulation.Core.Components
             currentSignalStrength = signalStrength;
             currentSINR = sinr;
 
-            // Update signal quality metrics
-            var technology = GetTechnologyType();
-            currentQuality = new SignalQualityMetrics(sinr, technology);
-
-            UpdateVisualFeedback();
+            // keep metrics available for UI/stats (visuals won't change)
+            var techType = GetTechnologyType();
+            currentQuality = new SignalQualityMetrics(sinr, techType);
         }
 
         public bool CanConnect()
@@ -95,25 +98,19 @@ namespace RFSimulation.Core.Components
             connectedTransmitter = null;
             currentSignalStrength = float.NegativeInfinity;
             currentSINR = float.NegativeInfinity;
-            UpdateVisualFeedback();
         }
 
         public bool IsConnected() => connectedTransmitter != null;
 
-        public void SetTechnology(string tech)
-        {
-            technology = tech;
-        }
+        public void SetTechnology(string tech) => technology = tech;
         #endregion
 
-        #region Signal Quality Assessment
+        #region Signal Helpers (still used by status/throughput, not visuals)
         private SignalQualityCategory GetSignalQualityCategory()
         {
             float margin = currentSignalStrength - sensitivity;
-
             if (margin < 0f) return SignalQualityCategory.NoService;
-            if (margin < 5f) return SignalQualityCategory.Poor;
-            if (margin < 10f) return SignalQualityCategory.Fair;
+            if (margin < 8f) return SignalQualityCategory.Poor;
             if (margin < 15f) return SignalQualityCategory.Good;
             return SignalQualityCategory.Excellent;
         }
@@ -127,105 +124,84 @@ namespace RFSimulation.Core.Components
                 _ => TechnologyType.LTE
             };
         }
-
-        private Color GetSignalQualityColor()
-        {
-            return GetSignalQualityCategory() switch
-            {
-                SignalQualityCategory.Excellent => excellentColor,
-                SignalQualityCategory.Good => goodColor,
-                SignalQualityCategory.Fair => fairColor,
-                SignalQualityCategory.Poor => poorColor,
-                _ => noSignalColor
-            };
-        }
         #endregion
 
-        #region Visualization - Integrated
+        #region Visualization (constant)
         private void SetupVisualization()
         {
-            receiverRenderer = GetComponent<Renderer>();
+            // Receiver mesh: constant color
+            receiverRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>(true);
+            if (receiverRenderer != null) SetRendererBaseColor(receiverRenderer, receiverBaseColor);
+
+            // Sphere: create once, constant color
             CreateSignalVisualization();
+            ApplySphereColor();
+            if (signalSphereVisual != null) signalSphereVisual.SetActive(showSignalSphere);
         }
 
         private void CreateSignalVisualization()
         {
-            // Create signal sphere
-            if (showSignalSphere)
-            {
-                signalSphereVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                signalSphereVisual.name = $"SignalSphere_{uniqueID}";
-                signalSphereVisual.transform.SetParent(transform);
-                signalSphereVisual.transform.localPosition = Vector3.zero;
-                signalSphereVisual.transform.localScale = Vector3.one * 0.5f;
+            if (!showSignalSphere) return;
 
-                // Make it semi-transparent
-                var renderer = signalSphereVisual.GetComponent<Renderer>();
-                var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            signalSphereVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            signalSphereVisual.name = $"SignalSphere_{uniqueID}";
+            signalSphereVisual.transform.SetParent(transform);
+            signalSphereVisual.transform.localPosition = Vector3.zero;
+            signalSphereVisual.transform.localScale = Vector3.one * 0.5f;
 
-                // Set up for transparency
-                material.SetFloat("_Surface", 1); // 0 = Opaque, 1 = Transparent
-                material.SetFloat("_Blend", 0);   // 0 = Alpha, 1 = Premultiply, 2 = Additive, 3 = Multiply
-                material.SetFloat("_AlphaClip", 0); // Disable alpha clipping
-                material.SetFloat("_ZWrite", 0);  // Disable depth writing for transparency
-                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                material.renderQueue = 3000; // Transparent queue
+            var col = signalSphereVisual.GetComponent<Collider>();
+            if (col) Destroy(col);
 
-                // Set the color with alpha
-                material.SetColor("_BaseColor", new Color(1, 1, 1, 0.3f));
+            // Transparent URP Lit material instance
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetFloat("_Surface", 1); // Transparent
+            mat.SetFloat("_Blend", 0);   // Alpha
+            mat.SetFloat("_ZWrite", 0);  // No depth write
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = 3000;
 
-                // Enable transparency keywords
-                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-            }
+            signalSphereMatInstance = mat;
+            var r = signalSphereVisual.GetComponent<Renderer>();
+            r.sharedMaterial = signalSphereMatInstance;
         }
 
-        private void UpdateSignalStatus()
+        private void ApplySphereColor()
         {
-            if (connectedTransmitter != null)
-            {
-                float signal = connectedTransmitter.CalculateSignalStrength(transform.position);
-                UpdateSignalStrength(signal, currentSINR);
-            }
+            if (signalSphereMatInstance == null) return;
+
+            var c = sphereColor;
+            c.a = sphereAlpha;
+
+            if (signalSphereMatInstance.HasProperty("_BaseColor"))
+                signalSphereMatInstance.SetColor("_BaseColor", c);
+            else signalSphereMatInstance.color = c;
         }
 
-        private void UpdateVisualization()
-        {
-            UpdateVisualFeedback();
-        }
-
-        private void UpdateVisualFeedback()
-        {
-            Color signalColor = GetSignalQualityColor();
-
-            // Update receiver color
-            if (receiverRenderer != null)
-            {
-                receiverRenderer.material.color = signalColor;
-            }
-
-            // Update signal sphere color
-            if (signalSphereVisual != null)
-            {
-                var renderer = signalSphereVisual.GetComponent<Renderer>();
-                var material = renderer.material;
-                material.color = new Color(signalColor.r, signalColor.g, signalColor.b, 0.3f);
-            }
-        }
-
-        public void ToggleVisualization(bool showBars, bool showSphere)
+        public void ToggleVisualization(bool /*showBars unused*/ _, bool showSphere)
         {
             showSignalSphere = showSphere;
-
-            if (signalSphereVisual != null)
-                signalSphereVisual.SetActive(showSphere);
+            if (signalSphereVisual != null) signalSphereVisual.SetActive(showSphere);
         }
 
         private void CleanupVisualization()
         {
             if (signalSphereVisual != null)
+            {
                 DestroyImmediate(signalSphereVisual);
+                signalSphereVisual = null;
+            }
+            signalSphereMatInstance = null;
+        }
+        #endregion
+
+        #region Runtime Signal Updates (no visual changes)
+        private void UpdateSignalStatus()
+        {
+            if (connectedTransmitter != null)
+            {
+                float signal = connectedTransmitter.CalculateSignalStrength(this); // <<<
+                UpdateSignalStrength(signal, currentSINR);
+            }
         }
         #endregion
 
@@ -233,14 +209,16 @@ namespace RFSimulation.Core.Components
         private void InitializeReceiver()
         {
             if (string.IsNullOrEmpty(uniqueID))
-                uniqueID = "RX_" + GetInstanceID();
+                uniqueID = "RX" + GetInstanceID();
 
-            // Ensure collider for interaction
+            // Ensure collider for interaction (drag/select)
             if (GetComponent<Collider>() == null)
             {
                 var collider = gameObject.AddComponent<SphereCollider>();
                 collider.radius = 0.5f;
             }
+
+            receiverHeight = GeometryHelper.GetHeightAboveGround(transform.position);
         }
 
         public string GetStatusText()
@@ -251,15 +229,10 @@ namespace RFSimulation.Core.Components
                            $"SINR: {currentSINR:F1} dB\n" +
                            $"Quality: {GetSignalQualityCategory()}\n" +
                            $"Connected: {(IsConnected() ? "Yes" : "No")}";
-
             if (connectedTransmitter != null)
-            {
                 status += $"\nTransmitter: {connectedTransmitter.uniqueID}";
-            }
-
             return status;
         }
-        #endregion
 
         public Transmitter GetConnectedTransmitter() => connectedTransmitter;
 
@@ -267,10 +240,10 @@ namespace RFSimulation.Core.Components
 
         public float GetExpectedThroughput()
         {
-            var qualityCategory = GetSignalQualityCategory();
-            return qualityCategory switch
+            var q = GetSignalQualityCategory();
+            return q switch
             {
-                SignalQualityCategory.Excellent => 100f, // Mbps
+                SignalQualityCategory.Excellent => 100f,
                 SignalQualityCategory.Good => 75f,
                 SignalQualityCategory.Fair => 50f,
                 SignalQualityCategory.Poor => 25f,
@@ -280,10 +253,10 @@ namespace RFSimulation.Core.Components
 
         public float GetConnectionReliability()
         {
-            var qualityCategory = GetSignalQualityCategory();
-            return qualityCategory switch
+            var q = GetSignalQualityCategory();
+            return q switch
             {
-                SignalQualityCategory.Excellent => 0.99f, // 99% reliability
+                SignalQualityCategory.Excellent => 0.99f,
                 SignalQualityCategory.Good => 0.95f,
                 SignalQualityCategory.Fair => 0.85f,
                 SignalQualityCategory.Poor => 0.70f,
@@ -294,20 +267,19 @@ namespace RFSimulation.Core.Components
         public void UpdateSINR(float sinr)
         {
             currentSINR = sinr;
-            // Update signal quality metrics
-            var technology = GetTechnologyType();
-            currentQuality = new SignalQualityMetrics(sinr, technology);
-            UpdateVisualFeedback();
+            var techType = GetTechnologyType();
+            currentQuality = new SignalQualityMetrics(sinr, techType);
+            // visuals remain constant
         }
 
-
-        #region Debug
-        [ContextMenu("Debug Receiver Status")]
-        public void DebugReceiverStatus()
+        private static void SetRendererBaseColor(Renderer r, Color c)
         {
-            Debug.Log($"=== {uniqueID} Debug ===");
-            Debug.Log(GetStatusText());
+            if (r == null) return;
+            var mat = r.material; // instance per receiver
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
+            else mat.color = c;
         }
         #endregion
+
     }
 }

@@ -22,12 +22,12 @@ namespace RFSimulation.Core.Managers
 
         [Header("Equipment")]
         public List<TransmitterConfig> transmitters;
-        public List<ReceiverConfig> receiverPositions; // UPDATED: More detailed receiver config
+        public List<ReceiverConfig> receiverPositions;
 
         [Header("Propagation")]
         public PropagationModel propagationModel;
 
-        [Header("Settings")] // NEW: Scenario-specific settings
+        [Header("Settings")] 
         public ScenarioSettings settings = new ScenarioSettings();
     }
 
@@ -37,38 +37,27 @@ namespace RFSimulation.Core.Managers
         public Vector3 position;
         public float powerDbm;
         public float antennaGain;
-        public float frequencyMHz;
+        public float frequency;
+        public float transmitterHeight;
 
         public PropagationModel propagationModel = PropagationModel.LogDistance;
     }
 
     [System.Serializable]
-    public class ReceiverConfig // UPDATED: Was just Vector3, now has more config
+    public class ReceiverConfig
     {
         public Vector3 position;
-        public string technology = "5G"; // NEW: Technology type
-        public float sensitivity = -105f; // NEW: Custom sensitivity
-
-        public ReceiverConfig(Vector3 pos)
-        {
-            position = pos;
-        }
-
-        public ReceiverConfig(Vector3 pos, string tech, float sens = -105f)
-        {
-            position = pos;
-            technology = tech;
-            sensitivity = sens;
-        }
+        public string technology;
+        public float sensitivity;
+        public float receiverHeight;
     }
 
     [System.Serializable]
-    public class ScenarioSettings // NEW: Scenario-specific settings
+    public class ScenarioSettings
     {
         public float minimumSignalThreshold = -110f;
         public float connectionMargin = 10f;
         public float handoverMargin = 3f;
-        public bool enableDebugLogs = false;
         public bool showConnections = true;
         public bool showCoverage = false;
     }
@@ -80,9 +69,6 @@ namespace RFSimulation.Core.Managers
         [Header("Scenario Settings")]
         public List<Scenario> scenarios = new List<Scenario>();
         public int currentScenarioIndex = 0;
-
-        [Header("Debug Settings")]
-        public bool enableDebugLogs = true;
 
         [Header("Prefab References")]
         public GameObject transmitterPrefab;
@@ -103,18 +89,15 @@ namespace RFSimulation.Core.Managers
             if (Instance == null)
             {
                 Instance = this;
-                DebugLog("ScenarioManager Instance created");
             }
             else
             {
-                DebugLog("Destroying duplicate ScenarioManager");
                 Destroy(gameObject);
             }
         }
 
         void Start()
         {
-            DebugLog("ScenarioManager Start() called");
 
             // Only load if auto-load is enabled
             if (autoLoadScenariosOnStart)
@@ -125,14 +108,7 @@ namespace RFSimulation.Core.Managers
                 {
                     RunScenario(currentScenarioIndex);
                 }
-                else
-                {
-                    DebugLog("Auto-run disabled or no scenarios found");
-                }
-            }
-            else
-            {
-                DebugLog("Auto-load scenarios disabled. Use LoadAllScenarios() manually.");
+
             }
         }
 
@@ -146,20 +122,17 @@ namespace RFSimulation.Core.Managers
             if (!Directory.Exists(scenarioPath))
             {
                 Directory.CreateDirectory(scenarioPath);
-                DebugLog("Created Scenarios directory at: " + scenarioPath);
                 return;
             }
 
             // Load all JSON files in the scenarios folder
             string[] files = Directory.GetFiles(scenarioPath, "*.json");
-            DebugLog($"Found {files.Length} JSON files in {scenarioPath}");
 
             foreach (string filePath in files)
             {
                 try
                 {
                     string json = File.ReadAllText(filePath);
-                    DebugLog($"Processing file: {Path.GetFileName(filePath)}");
 
                     // Try to load as new format first, fallback to old format
                     Scenario scenario = LoadScenarioFromJson(json, filePath);
@@ -167,24 +140,17 @@ namespace RFSimulation.Core.Managers
                     if (scenario != null && !string.IsNullOrEmpty(scenario.scenarioName))
                     {
                         scenarios.Add(scenario);
-                        DebugLog($"✅ Loaded scenario: '{scenario.scenarioName}' from {Path.GetFileName(filePath)}");
-                    }
-                    else
-                    {
-                        DebugLog($"❌ Failed to parse scenario from {filePath}");
                     }
                 }
                 catch (System.Exception e)
                 {
-                    DebugLog($"❌ Failed to load scenario from {filePath}: {e.Message}");
+                    Debug.LogWarning($"❌ Failed to load scenario from {filePath}: {e.Message}");
                 }
             }
 
             // Notify UI about loaded scenarios
             List<string> scenarioNames = scenarios.Select(s => s.scenarioName).ToList();
             OnScenariosLoaded?.Invoke(scenarioNames);
-
-            DebugLog($"📁 Final result: Loaded {scenarios.Count} scenarios");
         }
 
         private Scenario LoadScenarioFromJson(string json, string filePath)
@@ -202,7 +168,7 @@ namespace RFSimulation.Core.Managers
             }
             catch (System.Exception e)
             {
-                DebugLog($"JSON parsing error: {e.Message}");
+                Debug.LogWarning($"JSON parsing error: {e.Message}");
             }
 
             return null;
@@ -212,7 +178,6 @@ namespace RFSimulation.Core.Managers
         {
             if (index < 0 || index >= scenarios.Count)
             {
-                DebugLog($"❌ Invalid scenario index: {index}");
                 return;
             }
 
@@ -227,10 +192,6 @@ namespace RFSimulation.Core.Managers
             {
                 SelectScenario(index);
             }
-            else
-            {
-                DebugLog($"❌ Scenario not found: {scenarioName}");
-            }
         }
 
         public void RunScenario(int index)
@@ -241,7 +202,6 @@ namespace RFSimulation.Core.Managers
             ClearCurrentScenario();
 
             Scenario scenario = scenarios[index];
-            DebugLog($"▶ Running scenario: {scenario.scenarioName}");
 
             // NEW: Apply scenario settings to ConnectionManager
             ApplyScenarioSettings(scenario);
@@ -262,7 +222,6 @@ namespace RFSimulation.Core.Managers
             OnScenarioChanged?.Invoke(scenario.scenarioName);
             OnScenarioLoaded?.Invoke(scenario);
 
-            DebugLog($"✅ Scenario loaded: {scenario.transmitters.Count} transmitters, {scenario.receiverPositions.Count} receivers");
         }
 
         private void ApplyScenarioSettings(Scenario scenario)
@@ -278,14 +237,12 @@ namespace RFSimulation.Core.Managers
                 }
 
                 // Apply scenario settings
-                var settings = connectionManager.GetSettings();
-                settings.minimumSignalThreshold = scenario.settings.minimumSignalThreshold;
-                settings.connectionMargin = scenario.settings.connectionMargin;
-                settings.handoverMargin = scenario.settings.handoverMargin;
-                settings.enableDebugLogs = scenario.settings.enableDebugLogs;
+                var s = connectionManager.GetSettings();
+                s.minimumSignalThreshold = scenario.settings.minimumSignalThreshold;
+                s.connectionMargin = scenario.settings.connectionMargin;
+                s.handoverMargin = scenario.settings.handoverMargin;
+                connectionManager.ApplySettings(s); 
 
-                DebugLog($"Applied scenario settings: Strategy={scenario.strategyName}, " +
-                        $"Threshold={scenario.settings.minimumSignalThreshold:F1}dBm");
             }
         }
 
@@ -293,7 +250,6 @@ namespace RFSimulation.Core.Managers
         {
             if (transmitterPrefab == null)
             {
-                DebugLog("❌ Transmitter prefab not assigned!");
                 return;
             }
 
@@ -305,10 +261,12 @@ namespace RFSimulation.Core.Managers
                 // Apply configuration
                 transmitter.transmitterPower = config.powerDbm;
                 transmitter.antennaGain = config.antennaGain;
-                transmitter.frequency = config.frequencyMHz;
+                transmitter.frequency = config.frequency;
 
                 // NEW: Apply propagation settings
                 transmitter.propagationModel = config.propagationModel;
+
+                transmitter.SetTransmitterHeight(Mathf.Max(0f, config.transmitterHeight));
             }
         }
 
@@ -316,7 +274,6 @@ namespace RFSimulation.Core.Managers
         {
             if (receiverPrefab == null)
             {
-                DebugLog("❌ Receiver prefab not assigned!");
                 return;
             }
 
@@ -328,6 +285,7 @@ namespace RFSimulation.Core.Managers
                 // Apply configuration
                 receiver.SetTechnology(config.technology);
                 receiver.sensitivity = config.sensitivity;
+                receiver.receiverHeight = config.receiverHeight;
             }
         }
 
@@ -349,11 +307,10 @@ namespace RFSimulation.Core.Managers
                 scenarioName = scenarioName,
                 transmitters = new List<TransmitterConfig>(),
                 receiverPositions = new List<ReceiverConfig>(),
-                propagationModel = PropagationModel.LogDistance, // Default
+                propagationModel = PropagationModel.LogDistance, 
                 settings = new ScenarioSettings()
             };
 
-            // NEW: Save current connection strategy
             if (SimulationManager.Instance.connectionManager != null)
             {
                 newScenario.strategyName = SimulationManager.Instance.connectionManager.GetCurrentStrategyName();
@@ -362,7 +319,6 @@ namespace RFSimulation.Core.Managers
                 newScenario.settings.minimumSignalThreshold = currentSettings.minimumSignalThreshold;
                 newScenario.settings.connectionMargin = currentSettings.connectionMargin;
                 newScenario.settings.handoverMargin = currentSettings.handoverMargin;
-                newScenario.settings.enableDebugLogs = currentSettings.enableDebugLogs;
             }
 
             // Collect transmitter configurations
@@ -375,7 +331,8 @@ namespace RFSimulation.Core.Managers
                         position = transmitter.transform.position,
                         powerDbm = transmitter.transmitterPower,
                         antennaGain = transmitter.antennaGain,
-                        frequencyMHz = transmitter.frequency,
+                        frequency = transmitter.frequency,
+                        transmitterHeight = transmitter.transmitterHeight,
                         propagationModel = transmitter.propagationModel,
                     };
                     newScenario.transmitters.Add(config);
@@ -387,11 +344,13 @@ namespace RFSimulation.Core.Managers
             {
                 if (receiver != null)
                 {
-                    var config = new ReceiverConfig(
-                        receiver.transform.position,
-                        receiver.technology,
-                        receiver.sensitivity
-                    );
+                    var config = new ReceiverConfig
+                    {
+                        position = receiver.transform.position,
+                        technology = receiver.technology,
+                        sensitivity = receiver.sensitivity,
+                        receiverHeight = receiver.receiverHeight
+                    };
                     newScenario.receiverPositions.Add(config);
                 }
             }
@@ -410,15 +369,13 @@ namespace RFSimulation.Core.Managers
             {
                 string json = JsonUtility.ToJson(newScenario, true);
                 File.WriteAllText(filePath, json);
-                DebugLog($"✅ Scenario saved: {filePath}");
-                DebugLog($"Strategy: {newScenario.strategyName}, Equipment: {newScenario.transmitters.Count}TX + {newScenario.receiverPositions.Count}RX");
 
                 // Reload scenarios to include the new one
                 LoadAllScenarios();
             }
             catch (System.Exception e)
             {
-                DebugLog($"❌ Failed to save scenario: {e.Message}");
+                Debug.LogWarning($"❌ Failed to save scenario: {e.Message}");
             }
         }
 
@@ -446,13 +403,6 @@ namespace RFSimulation.Core.Managers
             return null;
         }
 
-        private void DebugLog(string message)
-        {
-            if (enableDebugLogs)
-            {
-                Debug.Log($"[ScenarioManager] {message}");
-            }
-        }
 
         public static Scenario LoadScenario(string fileName)
         {
@@ -475,23 +425,8 @@ namespace RFSimulation.Core.Managers
         {
             LoadAllScenarios();
         }
-
-        [ContextMenu("Print Current Scenario Info")]
-        public void PrintCurrentScenarioInfo()
-        {
-            var scenario = GetCurrentScenario();
-            if (scenario != null)
-            {
-                DebugLog($"Current Scenario: {scenario.scenarioName}");
-                DebugLog($"Strategy: {scenario.strategyName}");
-                DebugLog($"Equipment: {scenario.transmitters.Count} transmitters, {scenario.receiverPositions.Count} receivers");
-            }
-            else
-            {
-                DebugLog("No current scenario");
-            }
-        }
     }
+
 
     // Helper class for backward compatibility with old scenario format
     [System.Serializable]

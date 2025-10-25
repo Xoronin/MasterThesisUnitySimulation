@@ -15,11 +15,18 @@ namespace RFSimulation.Visualization
         public float lineWidth = 0.3f;
         public bool useWorldSpace = true;
 
-        [Header("Quality Colors (3 bands + none)")]
-        public Color excellentSignalColor = Color.green;
-        public Color goodSignalColor = Color.yellow;
-        public Color poorSignalColor = Color.red;
-        public Color noSignalColor = Color.gray;
+        [Header("Colors")]
+        public Color noSignalColor = Color.lightGray; // red
+        public Color lowSignalColor = Color.lightBlue; // orange
+        public Color mediumSignalColor = Color.cyan; // yellow
+        public Color highSignalColor = Color.royalBlue; // yellow-green
+        public Color excellentSignalColor = Color.purple; // green
+
+        [Header("Quality Thresholds (dB above sensitivity)")]
+        public float lowThresh = 0f;   // < 0 → no signal (below sensitivity)
+        public float mediumThresh = 5f;   // [0,5)
+        public float highThresh = 10f;  // [5,10)
+        public float excellentThresh = 15f;  // [10,15)
 
         [Header("Performance")]
         [Tooltip("Preallocated lines in the pool and soft cap for active lines.")]
@@ -210,17 +217,17 @@ namespace RFSimulation.Visualization
             // Width is managed by LOD and SetLineWidth; no need to reset here.
         }
 
-        // 3-band quality + none (matches your “only 3 colors” request)
         private Color GetSignalQualityColor(float signalStrength, float sensitivity)
         {
-            if (float.IsNegativeInfinity(signalStrength))
-                return noSignalColor;
+            if (float.IsNegativeInfinity(signalStrength)) return noSignalColor;
 
             float margin = signalStrength - sensitivity;
-            if (margin < 0f) return noSignalColor;     // none / below sensitivity
-            if (margin < 8f) return poorSignalColor;   // low
-            if (margin < 15f) return goodSignalColor;   // mid
-            return excellentSignalColor;                 // high
+
+            if (margin < lowThresh) return noSignalColor;        // below sensitivity
+            if (margin < mediumThresh) return lowSignalColor;   // very low
+            if (margin < highThresh) return mediumSignalColor;       // low
+            if (margin < excellentThresh) return highSignalColor;    // medium
+            return excellentSignalColor;                              // high / excellent
         }
 
         private void UpdateLevelOfDetail()

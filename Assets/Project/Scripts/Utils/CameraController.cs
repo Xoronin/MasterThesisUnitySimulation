@@ -1,4 +1,7 @@
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using TMPro;
 
 namespace RFSimulation.Utils
 {
@@ -30,6 +33,7 @@ namespace RFSimulation.Utils
 
         void Update()
         {
+            if (UIInput.IsTyping()) return;
             HandleMovement();
             HandleMouseLook();
         }
