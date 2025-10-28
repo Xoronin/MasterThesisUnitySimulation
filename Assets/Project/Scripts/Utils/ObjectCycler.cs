@@ -42,11 +42,6 @@ namespace RFSimulation.Utils
         public float highlightPulseSpeed = 2f;
         public bool showInfoPopup = true;
 
-        [Header("UI References")]
-        public GameObject infoPanel;
-        public UnityEngine.UI.Text infoText;
-        public UnityEngine.UI.Text cyclingHelpText;
-
         // Internal state
         private List<Transmitter> transmitters = new List<Transmitter>();
         private List<Receiver> receivers = new List<Receiver>();
@@ -75,7 +70,6 @@ namespace RFSimulation.Utils
         {
             InitializeSystem();
             RefreshObjectLists();
-            UpdateHelpText();
 
             // Auto-select first object if available
             if (GetTotalObjectCount() > 0)
@@ -100,9 +94,6 @@ namespace RFSimulation.Utils
 
             if (highlightMaterial == null)
                 CreateDefaultHighlightMaterial();
-
-            if (infoPanel != null)
-                infoPanel.SetActive(false);
         }
 
         private void CreateDefaultHighlightMaterial()
@@ -148,12 +139,6 @@ namespace RFSimulation.Utils
             if (Input.GetKeyDown(focusKey))
             {
                 FocusOnSelectedObject();
-            }
-
-            // Show/hide help with H key
-            if (Input.GetKeyDown(KeyCode.H))
-            {
-                ToggleHelpText();
             }
         }
 
@@ -226,7 +211,7 @@ namespace RFSimulation.Utils
             var transmitter = transmitters[index];
             statusUI?.ClearSelection();
             statusUI?.ShowTransmitter(transmitter);
-            SelectObject(transmitter.gameObject, "Transmitter", GetTransmitterStatusText(transmitter));
+            SelectObject(transmitter.gameObject, "Transmitter");
         }
 
         private void SelectReceiver(int index)
@@ -236,10 +221,10 @@ namespace RFSimulation.Utils
             var receiver = receivers[index];
             statusUI?.ClearSelection();
             statusUI?.ShowReceiver(receiver);
-            SelectObject(receiver.gameObject, "Receiver", receiver.GetStatusText());
+            SelectObject(receiver.gameObject, "Receiver");
         }
 
-        private void SelectObject(GameObject obj, string objectType, string statusText)
+        private void SelectObject(GameObject obj, string objectType)
         {
             // Clear previous selection
             ClearHighlight();
@@ -250,24 +235,12 @@ namespace RFSimulation.Utils
             // Apply highlight
             ApplyHighlight(obj);
 
-            // Update info display
-            UpdateInfoDisplay(obj, objectType, statusText);
-
             // Auto-focus if enabled
             if (smoothCameraTransition)
             {
                 SetCameraTarget(obj.transform.position);
             }
         }
-
-		private string GetTransmitterStatusText(Transmitter tx)
-		{
-			return $"Power: {tx.transmitterPower:F1} dBm\n" +
-				   $"Gain: {tx.antennaGain:F1} dBi\n" +
-				   $"Frequency: {tx.frequency:F0} MHz\n" +
-				   $"Model: {tx.propagationModel}\n" +
-				   $"Connections: {tx.GetConnectionCount()}";
-		}
 
         #endregion
 
@@ -380,59 +353,6 @@ namespace RFSimulation.Utils
 
         #endregion
 
-        #region UI and Info Display
-
-        private void UpdateInfoDisplay(GameObject obj, string objectType, string statusText)
-        {
-            if (!showInfoPopup) return;
-
-            if (infoPanel != null)
-            {
-                infoPanel.SetActive(true);
-            }
-
-            if (infoText != null)
-            {
-                string displayText = $"=== {objectType.ToUpper()} ===\n";
-                displayText += $"Name: {obj.name}\n";
-                displayText += $"Position: {obj.transform.position:F1}\n\n";
-                displayText += statusText;
-
-                // Add cycling info
-                displayText += $"\n\n--- Navigation ---\n";
-                displayText += $"Current: {currentAllIndex + 1} of {GetTotalObjectCount()}\n";
-                displayText += $"Transmitters: {transmitters.Count}\n";
-                displayText += $"Receivers: {receivers.Count}";
-
-                infoText.text = displayText;
-            }
-        }
-
-        private void UpdateHelpText()
-        {
-            if (cyclingHelpText == null) return;
-
-            string helpText = "OBJECT CYCLING CONTROLS:\n";
-            helpText += $"[{cycleAllKey}] - Cycle All Objects\n";
-            helpText += $"[Shift+{cycleAllKey}] - Cycle Backwards\n";
-            helpText += $"[{cycleTransmittersKey}] - Cycle Transmitters\n";
-            helpText += $"[{cycleReceiversKey}] - Cycle Receivers\n";
-            helpText += $"[{focusKey}] - Focus Camera\n";
-            helpText += "[H] - Toggle This Help";
-
-            cyclingHelpText.text = helpText;
-        }
-
-        private void ToggleHelpText()
-        {
-            if (cyclingHelpText != null)
-            {
-                cyclingHelpText.gameObject.SetActive(!cyclingHelpText.gameObject.activeSelf);
-            }
-        }
-
-        #endregion
-
         #region Object Management
 
         private void RefreshObjectLists()
@@ -518,15 +438,6 @@ namespace RFSimulation.Utils
         public void SetCameraTransitionSpeed(float speed)
         {
             cameraTransitionSpeed = speed;
-        }
-
-        public void ToggleInfoPopup(bool show)
-        {
-            showInfoPopup = show;
-            if (infoPanel != null)
-            {
-                infoPanel.SetActive(show && currentlySelected != null);
-            }
         }
 
         #endregion

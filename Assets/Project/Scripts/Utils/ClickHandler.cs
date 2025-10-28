@@ -16,9 +16,6 @@ namespace RFSimulation.Core.Managers
         [Tooltip("Layers that block or cancel clicks (e.g., Buildings)")]
         [SerializeField] private LayerMask forbiddenMask;
 
-        [Tooltip("Optional: own layer to ignore when raycasting")]
-        [SerializeField] private int _selfLayer = 0;
-
         [Header("UI / Managers")]
         [SerializeField] private StatusUI statusUI;
         [SerializeField] private ControlUI controlUI;
@@ -50,7 +47,7 @@ namespace RFSimulation.Core.Managers
 
             int mask = selectableMask & ~forbiddenMask;
 
-            if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, _selfLayer, out hit))
+            if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, out hit))
             {
                 if ((forbiddenMask.value & (1 << hit.collider.gameObject.layer)) != 0)
                     return false;
@@ -71,19 +68,19 @@ namespace RFSimulation.Core.Managers
             // Try select transmitter
             if (go.TryGetComponent(out Transmitter tx))
             {
-                statusUI?.ShowTransmitter(tx);
+                statusUI.ShowTransmitter(tx);
                 return;
             }
 
             // Try select receiver
             if (go.TryGetComponent(out Receiver rx))
             {
-                statusUI?.ShowReceiver(rx);
+                statusUI.ShowReceiver(rx);
                 return;
             }
 
             // Clicked on something non-selectable
-            statusUI?.ClearSelection();
+            statusUI.ClearSelection();
         }
     }
 }

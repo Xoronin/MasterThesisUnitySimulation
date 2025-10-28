@@ -8,6 +8,7 @@ using RFSimulation.Core.Managers;
 using RFSimulation.Core.Connections;
 using RFSimulation.Visualization;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Utils;
 
 namespace RFSimulation.UI
 {
@@ -87,9 +88,6 @@ namespace RFSimulation.UI
             SetupManagerReferences();
             CreateUI();
             InitializeUIFromPrefabs();
-
-            if (statusUI != null)
-                statusUI.gameObject.SetActive(true);
         }
 
         private void SetupManagerReferences()
@@ -498,6 +496,19 @@ namespace RFSimulation.UI
             UpdateStatusText("All objects removed");
         }
 
+        private bool TryGetGroundPosition(out Vector3 pos)
+        {
+            pos = default;
+            if (mainCamera == null) mainCamera = Camera.main;
+
+            if (RaycastUtil.RayToGround(mainCamera, Input.mousePosition, placementLayerMask, out var hit))
+            {
+                pos = hit.point;
+                return true;
+            }
+            return false;
+        }
+
         private void BeginPlacement(GameObject prefab, float heightOffset)
         {
             // clean up any old preview
@@ -562,12 +573,18 @@ namespace RFSimulation.UI
 
             if (RaycastSkippingBuildings(ray, out var hit))
             {
-                Vector3 pos = hit.point;
-                if (enableGridSnap) pos = SnapToGrid(pos);
-                pos.y += previewHeightOffset;
+                if (TryGetGroundPosition(out var pos))
+                {
+                    if (enableGridSnap) pos = SnapToGrid(pos);
 
-                previewInstance.transform.position = pos;
-                previewInstance.SetActive(true);
+                    pos.y = hit.point.y + previewHeightOffset; 
+                    previewInstance.transform.position = pos;
+                    previewInstance.SetActive(true);
+                }
+                else
+                {
+                    previewInstance.SetActive(false);
+                }
 
                 if (Input.GetKey(KeyCode.Q)) previewInstance.transform.Rotate(0f, -120f * Time.deltaTime, 0f, Space.World);
                 if (Input.GetKey(KeyCode.E)) previewInstance.transform.Rotate(0f, 120f * Time.deltaTime, 0f, Space.World);
@@ -642,11 +659,17 @@ namespace RFSimulation.UI
                 }
             }
 
-            // Instantiate the real object at the preview transform
-            Vector3 pos = previewInstance.transform.position;
-            Quaternion rot = previewInstance.transform.rotation;
+            if (TryGetGroundPosition(out var pos))
+            {
+                if (enableGridSnap) pos = SnapToGrid(pos);
 
-            var go = Instantiate(previewSourcePrefab, pos, rot);
+                if (isPlacingReceiver)
+                    pos.y = pos.y + receiverHeight;
+                else if (isPlacingTransmitter)
+                    pos.y = pos.y + transmitterHeight;
+            }
+
+            var go = Instantiate(previewSourcePrefab, pos, previewInstance.transform.rotation);
 
             // Initialize fields from UI (same as your existing PlaceTransmitter/Receiver)
             if (isPlacingTransmitter)
@@ -654,11 +677,6 @@ namespace RFSimulation.UI
                 var tx = go.GetComponent<Transmitter>();
                 if (tx != null)
                 {
-                    //Vector3 grounded = go.transform.position;
-                    //float groundY = SampleTerrainY(grounded);
-                    //grounded.y = groundY;
-                    //go.transform.position = grounded;
-
                     float desiredH = transmitterHeight;
                     if (transmitterHeightInput != null && float.TryParse(transmitterHeightInput.text, out float h))
                         desiredH = Mathf.Max(0f, h);
@@ -678,10 +696,15 @@ namespace RFSimulation.UI
                     if (showRaysToggle != null && showRaysToggle.isOn)
                     {
                         tx.EnableRayVisualization();
-                        RecomputeRaysFor(tx);   // draw rays immediately for this TX
+                        RecomputeRaysFor(tx);
                     }
 
                     tx.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
+
+                    if (statusUI != null)
+                    {
+                        statusUI.ShowTransmitter(tx);
+                    }
 
                     UpdateStatusText($"Transmitter placed: {tx.transmitterPower:F1} dBm, {tx.frequency:F0} MHz @ {pos}");
                     StartCoroutine(SelectTransmitterNextFrame(tx));
@@ -701,15 +724,26 @@ namespace RFSimulation.UI
                         rx.SetTechnology(tech);
                     }
 
+                    var txs = SimulationManager.Instance != null
+                        ? SimulationManager.Instance.transmitters.ToArray()
+                        : GameObject.FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
+
+                    foreach (var t in txs)
+                    {
+                        if (t == null) continue;
+                        if (t.CanConnectTo(rx))
+                            t.ConnectToReceiver(rx);
+                    }
+
+                    if (statusUI != null)
+                    {
+                        statusUI.ShowReceiver(rx);
+                    }
+
                     if (showRaysToggle != null && showRaysToggle.isOn)
                     {
-                        var txs = FindObjectsByType<Transmitter>(FindObjectsSortMode.InstanceID);
                         foreach (var t in txs)
-                        {
-                            if (t == null) continue;
-                            t.EnableRayVisualization();  // harmless if already enabled
-                            RecomputeRaysFor(t);         // draw rays to the new RX
-                        }
+                            RecomputeRaysFor(t);
                     }
 
                     UpdateStatusText($"Receiver placed: {rx.technology}, {rx.sensitivity:F1} dBm @ {pos}");

@@ -105,9 +105,9 @@ namespace RFSimulation.UI
 
             Vector3 probeStart = new Vector3(snappedX, raycastStartHeight, snappedZ);
             if (Physics.Raycast(new Ray(probeStart, Vector3.down), out RaycastHit hit, Mathf.Infinity, terrainMask, QueryTriggerInteraction.Ignore))
-                return hit.point + Vector3.up * heightOffset;
+                return hit.point;
 
-            return new Vector3(snappedX, worldPosition.y + heightOffset, snappedZ);
+            return new Vector3(snappedX, worldPosition.y + snappedZ);
         }
 
         // --- Building the grid ---

@@ -34,7 +34,6 @@ namespace RFSimulation.Utils
 		private bool _dragging;
 		private float _capturedOffset; // preserves original height offset
 		private Transform _t;
-		private int _selfLayer;
 		private float _yAtGrab; // used when ground has gaps
 		private Vector3 _grabLocalDelta; // optional: keep pointer-relative offset
 
@@ -44,7 +43,6 @@ namespace RFSimulation.Utils
 		{
 			_t = transform;
 			_cam = Camera.main;
-			_selfLayer = gameObject.layer;
 
 			if (groundGrid == null)
 				groundGrid = FindFirstObjectByType<RFSimulation.UI.GroundGrid>(FindObjectsInactive.Include);
@@ -129,7 +127,7 @@ namespace RFSimulation.Utils
 			// Combine masks: ground minus forbidden
 			int mask = groundMask & ~forbiddenMask;
 
-			if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, _selfLayer, out RaycastHit hit))
+			if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, out RaycastHit hit))
 			{
 				hitPoint = hit.point;
 				return true;

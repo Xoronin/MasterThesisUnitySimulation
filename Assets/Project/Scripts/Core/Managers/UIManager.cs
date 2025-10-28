@@ -24,10 +24,6 @@ namespace RFSimulation.UI
         public Button scenarioButton;
         public Button statusButton;
 
-        [Header("Behavior")]
-        [Tooltip("If enabled, showing one panel will hide the others.")]
-        public bool autoHideOthers = false;
-
         // Fired after any visibility change: (controlVisible, scenarioVisible, statusVisible)
         public System.Action<bool, bool, bool> OnPanelVisibilityChanged;
 
@@ -35,8 +31,6 @@ namespace RFSimulation.UI
         {
             InitializeComponents();
             WireButtons();
-
-            // Ensure initial highlights match current active states
             FireVisibilityEvent();
         }
 
@@ -71,29 +65,29 @@ namespace RFSimulation.UI
 
         // -------- Public toggle API --------
 
-        public void ToggleControlPanel() => TogglePanel(controlPanel, controlButton, hideOthers: autoHideOthers);
-        public void ToggleScenarioPanel() => TogglePanel(scenarioPanel, scenarioButton, hideOthers: autoHideOthers);
-        public void ToggleStatusPanel() => TogglePanel(statusPanel, statusButton, hideOthers: autoHideOthers);
+        public void ToggleControlPanel() => TogglePanel(controlPanel, controlButton);
+        public void ToggleScenarioPanel() => TogglePanel(scenarioPanel, scenarioButton);
+        public void ToggleStatusPanel() => TogglePanel(statusPanel, statusButton);
 
-        public void ShowControlPanel(bool show) => SetPanel(controlPanel, controlButton, show, autoHideOthers);
-        public void ShowScenarioPanel(bool show) => SetPanel(scenarioPanel, scenarioButton, show, autoHideOthers);
-        public void ShowStatusPanel(bool show) => SetPanel(statusPanel, statusButton, show, autoHideOthers);
+        public void ShowControlPanel(bool show) => SetPanel(controlPanel, controlButton, show);
+        public void ShowScenarioPanel(bool show) => SetPanel(scenarioPanel, scenarioButton, show);
+        public void ShowStatusPanel(bool show) => SetPanel(statusPanel, statusButton, show);
 
         // -------- Internals --------
 
-        private void TogglePanel(GameObject panel, Button button, bool hideOthers)
+        private void TogglePanel(GameObject panel, Button button)
         {
             if (panel == null) return;
 
             bool newState = !panel.activeSelf;
-            SetPanel(panel, button, newState, hideOthers);
+            SetPanel(panel, button, newState);
         }
 
-        private void SetPanel(GameObject targetPanel, Button targetButton, bool show, bool hideOthers)
+        private void SetPanel(GameObject targetPanel, Button targetButton, bool show)
         {
             if (targetPanel == null) return;
 
-            if (hideOthers && show)
+            if (show)
             {
                 // Hide others first
                 SetActiveSafe(controlPanel, false, except: targetPanel);
@@ -118,6 +112,8 @@ namespace RFSimulation.UI
             bool s = scenarioPanel != null && scenarioPanel.activeSelf;
             bool t = statusPanel != null && statusPanel.activeSelf;
             OnPanelVisibilityChanged?.Invoke(c, s, t);
+
+            Debug.Log(statusPanel.activeSelf);
         }
     }
 }

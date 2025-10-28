@@ -250,7 +250,7 @@ namespace RFSimulation.UI
                 using (var sw = new System.IO.StreamWriter(fileAbs, false, System.Text.Encoding.UTF8))
                 {
                     sw.WriteLine("scenario,timestamp,rx_id,rx_x,rx_y,rx_z,rx_height_m,rx_sensitivity_dbm,rx_power_dbm," +
-                                 "tx_id,tx_x,tx_y,tx_z,tx_height_m,tx_power_dbm,tx_frequency,distance_m");
+                                 "tx_id,tx_x,tx_y,tx_z,tx_height_m,tx_power_dbm,tx_frequency_mhz,distance_m");
 
                     string ts = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
 
