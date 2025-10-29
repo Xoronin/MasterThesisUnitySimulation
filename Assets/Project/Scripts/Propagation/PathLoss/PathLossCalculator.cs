@@ -49,24 +49,24 @@ namespace RFSimulation.Propagation.PathLoss
 
         public float CalculateReceivedPower(PropagationContext context)
         {
-            // Validate input
+            // Validate
             if (!context.IsValid(out string error))
             {
                 Debug.LogWarning($"[PathLoss] Invalid context: {error}");
                 return float.NegativeInfinity;
             }
 
-            // Check cache first
-            if (_cache.TryGetValue(context, out float cachedResult))
-                return cachedResult;
-
-            // Automatic model selection
+            // 1) MOVE AUTO-SELECTION BEFORE CACHE LOOKUP
             if (enableAutomaticModelSelection && context.Model == PropagationModel.Auto)
             {
                 context.Model = SelectOptimalModel(context);
             }
 
-            // Get appropriate model
+            // 2) NOW hit the cache with the final model baked into the key
+            if (_cache.TryGetValue(context, out float cachedResult))
+                return cachedResult;
+
+            // get model (fallback if needed)
             if (!_models.TryGetValue(context.Model, out IPathLossModel model))
             {
                 context.Model = SelectOptimalModel(context);
@@ -74,16 +74,11 @@ namespace RFSimulation.Propagation.PathLoss
             }
 
             float receivedPower;
-
             try
             {
-                // Calculate base received power
                 receivedPower = model.Calculate(context);
-
-                // Apply urban-specific corrections for urban environment
                 receivedPower = ApplyUrbanCorrections(receivedPower, context);
 
-                // Add obstacle losses if available
                 if (context.HasObstacles && _obstacleCalculator != null)
                 {
                     float obstacleLoss = _obstacleCalculator.CalculatePenetrationLoss(context);
@@ -93,23 +88,14 @@ namespace RFSimulation.Propagation.PathLoss
             catch (System.Exception e)
             {
                 Debug.LogError($"[PathLoss] Error with {model.ModelName}: {e.Message}");
-
-                if (fallbackToBasicModels)
-                {
-                    // Fallback to free space model
-                    var fallbackModel = new FreeSpaceModel();
-                    receivedPower = fallbackModel.Calculate(context);
-                }
-                else
-                {
-                    receivedPower = float.NegativeInfinity;
-                }
+                receivedPower = fallbackToBasicModels ? new FreeSpaceModel().Calculate(context)
+                                                      : float.NegativeInfinity;
             }
 
-            // Cache result
             _cache.Store(context, receivedPower);
             return receivedPower;
         }
+
 
         private PropagationModel SelectOptimalModel(PropagationContext context)
         {

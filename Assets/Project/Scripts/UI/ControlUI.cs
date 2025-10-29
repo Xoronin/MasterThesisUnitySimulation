@@ -57,13 +57,13 @@ namespace RFSimulation.UI
         public float maxTransmitterHeight = 30f;
 
         [Header("Placement Preview")]
-        public Material previewMaterial;     
+        public Material previewMaterial;
         [Range(0.05f, 1f)] public float previewAlpha = 0.5f;
         public LayerMask previewIgnoreLayers = 1 << 2;
 
         private GameObject previewInstance;
-        private GameObject previewSourcePrefab; 
-        private float previewHeightOffset;   
+        private GameObject previewSourcePrefab;
+        private float previewHeightOffset;
 
         [Header("Ground Settings")]
         public float groundLevel = 0f;
@@ -298,6 +298,8 @@ namespace RFSimulation.UI
                 BuildingManager.Instance.SetBuildingsEnabled(enabled);
 
             UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")}");
+            SimulationManager.Instance?.RecomputeAllSignalStrength();
+
         }
 
         private void OnBuildingsToggled(bool enabled)
@@ -306,6 +308,7 @@ namespace RFSimulation.UI
                 showBuildingsToggle.SetIsOnWithoutNotify(enabled);
 
             UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")} - RF calculations updated");
+            SimulationManager.Instance?.RecomputeAllSignalStrength();
         }
 
         private void ToggleHeatmap(bool enabled)
@@ -444,7 +447,7 @@ namespace RFSimulation.UI
                     tx.SetPropagationModel(_defaultTxModel);
                 }
 
-                if(transmitterHeightInput != null && float.TryParse(transmitterHeightInput.text, out float h))
+                if (transmitterHeightInput != null && float.TryParse(transmitterHeightInput.text, out float h))
                 {
                     tx.SetTransmitterHeight(Mathf.Max(0f, h));
                 }
@@ -452,7 +455,7 @@ namespace RFSimulation.UI
                 tx.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
 
                 UpdateStatusText($"Transmitter placed: {tx.transmitterPower:F1} dBm, {tx.frequency:F0} MHz @ {position}");
-                
+
                 statusUI?.ShowTransmitter(tx);
             }
         }
@@ -577,7 +580,7 @@ namespace RFSimulation.UI
                 {
                     if (enableGridSnap) pos = SnapToGrid(pos);
 
-                    pos.y = hit.point.y + previewHeightOffset; 
+                    pos.y = hit.point.y + previewHeightOffset;
                     previewInstance.transform.position = pos;
                     previewInstance.SetActive(true);
                 }
@@ -708,6 +711,7 @@ namespace RFSimulation.UI
 
                     UpdateStatusText($"Transmitter placed: {tx.transmitterPower:F1} dBm, {tx.frequency:F0} MHz @ {pos}");
                     StartCoroutine(SelectTransmitterNextFrame(tx));
+                    SimulationManager.Instance?.RecomputeAllSignalStrength();
                 }
             }
             else if (isPlacingReceiver)
@@ -748,6 +752,7 @@ namespace RFSimulation.UI
 
                     UpdateStatusText($"Receiver placed: {rx.technology}, {rx.sensitivity:F1} dBm @ {pos}");
                     StartCoroutine(SelectReceiverNextFrame(rx));
+                    SimulationManager.Instance?.RecomputeAllSignalStrength();
                 }
             }
 
@@ -796,7 +801,7 @@ namespace RFSimulation.UI
                 foreach (var tx in SimulationManager.Instance.transmitters)
                     if (tx != null) tx.ToggleConnectionLineVisualization(enabled);
             }
-                     
+
             UpdateStatusText($"Connections {(enabled ? "enabled" : "disabled")}");
         }
 

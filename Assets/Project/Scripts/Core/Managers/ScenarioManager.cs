@@ -7,6 +7,7 @@ using System.Linq;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Components;
 using RFSimulation.Core.Connections;
+using System;
 
 namespace RFSimulation.Core.Managers
 {
@@ -326,14 +327,22 @@ namespace RFSimulation.Core.Managers
             {
                 if (transmitter != null)
                 {
+                    var pos = transmitter.transform.position;
+
                     var config = new TransmitterConfig
                     {
-                        position = transmitter.transform.position,
-                        powerDbm = transmitter.transmitterPower,
-                        antennaGain = transmitter.antennaGain,
-                        frequency = transmitter.frequency,
-                        transmitterHeight = transmitter.transmitterHeight,
-                        propagationModel = transmitter.propagationModel,
+                        position = new Vector3(
+                            (float)Math.Round(pos.x, 2),
+                            (float)Math.Round(pos.y, 2),
+                            (float)Math.Round(pos.z, 2)
+                        ),
+
+                        powerDbm = (float)Math.Round(transmitter.transmitterPower, 2),
+                        antennaGain = (float)Math.Round(transmitter.antennaGain, 2),
+                        frequency = (float)Math.Round(transmitter.frequency, 2),
+                        transmitterHeight = (float)Math.Round(transmitter.transmitterHeight, 2),
+
+                        propagationModel = transmitter.propagationModel
                     };
                     newScenario.transmitters.Add(config);
                 }
@@ -344,12 +353,19 @@ namespace RFSimulation.Core.Managers
             {
                 if (receiver != null)
                 {
+                    var pos = receiver.transform.position;
+
                     var config = new ReceiverConfig
                     {
-                        position = receiver.transform.position,
+                        position = new Vector3(
+                            (float)Math.Round(pos.x, 2),
+                            (float)Math.Round(pos.y, 2),
+                            (float)Math.Round(pos.z, 2)
+                        ),
+
                         technology = receiver.technology,
-                        sensitivity = receiver.sensitivity,
-                        receiverHeight = receiver.receiverHeight
+                        sensitivity = (float)Math.Round(receiver.sensitivity, 2),
+                        receiverHeight = (float)Math.Round(receiver.receiverHeight, 2)
                     };
                     newScenario.receiverPositions.Add(config);
                 }

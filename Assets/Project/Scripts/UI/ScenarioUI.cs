@@ -52,6 +52,7 @@ namespace RFSimulation.UI
         public System.Action<string> OnScenarioSelected;
         public System.Action<Scenario> OnScenarioValidated;
 
+        private ControlUI controlUI;
         private ScenarioManager scenarioManager;
         private ConnectionManager connectionManager;
         private List<Scenario> availableScenarios = new List<Scenario>();
@@ -70,6 +71,7 @@ namespace RFSimulation.UI
             {
                 connectionManager = SimulationManager.Instance.connectionManager;
             }
+            controlUI = FindAnyObjectByType<ControlUI>();
         }
 
         private void SetupEventListeners()
@@ -244,13 +246,13 @@ namespace RFSimulation.UI
                 foreach (char c in System.IO.Path.GetInvalidFileNameChars())
                     fileName = fileName.Replace(c, '_');
 
-                string fileAbs = System.IO.Path.Combine(folderAbs, fileName + System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ") + ".csv");
+                string fileAbs = System.IO.Path.Combine(folderAbs, fileName + "_" + System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ") + ".csv");
 
                 // --- Write CSV ---
                 using (var sw = new System.IO.StreamWriter(fileAbs, false, System.Text.Encoding.UTF8))
                 {
-                    sw.WriteLine("scenario,timestamp,rx_id,rx_x,rx_y,rx_z,rx_height_m,rx_sensitivity_dbm,rx_power_dbm," +
-                                 "tx_id,tx_x,tx_y,tx_z,tx_height_m,tx_power_dbm,tx_frequency_mhz,distance_m");
+                    sw.WriteLine("scenario,timestamp,propagation_model,rx_id,rx_x,rx_y,rx_z,rx_height_m,rx_sensitivity_dbm,rx_signal_strength_dbm," +
+                                 "tx_id,tx_x,tx_y,tx_z,tx_height_m,tx_power_dbm,tx_frequency_mhz,distance_m,buildings_on");
 
                     string ts = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
 
@@ -276,6 +278,7 @@ namespace RFSimulation.UI
                         sw.WriteLine(string.Join(",", new string[] {
                     Esc(CurrentScenarioNameOrFallback()), // scenario
                     ts,                                    // timestamp
+                    Esc(scenarioManager != null ? tx.propagationModel.ToString() : "Unknown"), // propagation_model
                     Esc(SafeString(rx, nameof(rx.uniqueID), rx.name)),
                     rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
                     FormatFloat(rxHeight, "F3"),
@@ -286,7 +289,8 @@ namespace RFSimulation.UI
                     FormatFloat(txHeight, "F3"),
                     FormatFloat(txPower, "F1"),
                     FormatFloat(txFreq, "F0"),
-                    dist.ToString("F3")
+                    dist.ToString("F3"),
+                    Esc(controlUI != null ? controlUI.showBuildingsToggle.IsActive().ToString() : "Unknown")
                 }));
                     }
                 }

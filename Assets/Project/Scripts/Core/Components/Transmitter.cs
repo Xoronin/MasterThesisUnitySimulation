@@ -362,6 +362,8 @@ namespace RFSimulation.Core.Components
             {
                 transmitterPower = newPowerDbm;
                 RefreshConnections();
+                TryConnectEligibleReceivers();
+                SimulationManager.Instance?.RecomputeForTransmitter(this);
                 return true;
             }
             Debug.LogWarning($"Invalid power value: {newPowerDbm} dBm. Must be 0–80 dBm.");
@@ -374,6 +376,8 @@ namespace RFSimulation.Core.Components
             {
                 frequency = newFrequencyMHz;
                 RefreshConnections();
+                TryConnectEligibleReceivers();
+                SimulationManager.Instance?.RecomputeForTransmitter(this);
                 return true;
             }
             Debug.LogWarning($"Invalid frequency: {newFrequencyMHz} MHz. Must be > 0.");
@@ -386,10 +390,21 @@ namespace RFSimulation.Core.Components
             {
                 antennaGain = newGainDbi;
                 RefreshConnections();
+                TryConnectEligibleReceivers();
+                SimulationManager.Instance?.RecomputeForTransmitter(this);
                 return true;
             }
             Debug.LogWarning($"Invalid gain: {newGainDbi} dBi. Must be 0–50 dBi.");
             return false;
+        }
+
+        public void UpdateTransmitterHeight(float newHeightM)
+        {
+            transmitterHeight = newHeightM;
+            SetAntennaOrigin(transmitterHeight);
+            RefreshConnections();              
+            TryConnectEligibleReceivers();     
+            SimulationManager.Instance?.RecomputeForTransmitter(this);
         }
 
         private void UpdatePropagationModel()
@@ -397,6 +412,8 @@ namespace RFSimulation.Core.Components
             _lastAppliedModel = propagationModel;
             RefreshConnections();
             TryConnectEligibleReceivers();
+            pathLossCalculator.ClearCache(); 
+            SimulationManager.Instance?.RecomputeForTransmitter(this);
         }
         #endregion
 
@@ -689,6 +706,11 @@ namespace RFSimulation.Core.Components
         {
             propagationModel = model;
             UpdatePropagationModel();
+            Debug.Log($"[TX] {uniqueID} propagation model set to {propagationModel}");
+        }
+        public void ClearPathLossCache()
+        {
+            pathLossCalculator?.ClearCache();  
         }
         #endregion
     }

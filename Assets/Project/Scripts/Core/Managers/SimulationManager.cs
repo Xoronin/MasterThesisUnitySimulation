@@ -216,6 +216,77 @@ namespace RFSimulation.Core.Managers
             }
         }
 
+        // SimulationManager.cs
+        public void RecomputeAllSignalStrength()
+        {
+            var txs = transmitters?.ToArray();
+            var rxs = receivers?.ToArray();
+            if (txs == null || rxs == null) return;
+
+            foreach (var tx in txs)
+            {
+                if (tx == null) continue;
+                foreach (var rx in rxs)
+                {
+                    if (rx == null) continue;
+                    // compute & WRITE BACK
+                    float rssi = tx.CalculateSignalStrength(rx);
+                    rx.UpdateSignalStrength(rssi);
+
+                    // keep connection truth in sync for this pair
+                    if (tx.CanConnectTo(rx))
+                        tx.ConnectToReceiver(rx);
+                    else if (tx.IsConnectedTo(rx))
+                        tx.DisconnectFromReceiver(rx);
+                }
+            }
+
+            // let strategies re-evaluate best connections after parameter/model changes
+            if (connectionManager != null)
+                connectionManager.UpdateAllConnections();
+        }
+
+        public void RecomputeForTransmitter(Transmitter tx)
+        {
+            if (tx == null || receivers == null) return;
+
+            foreach (var rx in receivers)
+            {
+                if (rx == null) continue;
+                float rssi = tx.CalculateSignalStrength(rx);
+                rx.UpdateSignalStrength(rssi);
+
+                if (tx.CanConnectTo(rx))
+                    tx.ConnectToReceiver(rx);
+                else if (tx.IsConnectedTo(rx))
+                    tx.DisconnectFromReceiver(rx);
+            }
+
+            if (connectionManager != null)
+                connectionManager.UpdateAllConnections();
+        }
+
+        public void RecomputeForReceiver(Receiver rx)
+        {
+            if (rx == null || transmitters == null) return;
+
+            foreach (var tx in transmitters)
+            {
+                if (tx == null) continue;
+                float rssi = tx.CalculateSignalStrength(rx);
+                rx.UpdateSignalStrength(rssi);
+
+                if (tx.CanConnectTo(rx))
+                    tx.ConnectToReceiver(rx);
+                else if (tx.IsConnectedTo(rx))
+                    tx.DisconnectFromReceiver(rx);
+            }
+
+            if (connectionManager != null)
+                connectionManager.UpdateAllConnections();
+        }
+
+
         #endregion
 
         #region Validation and Statistics

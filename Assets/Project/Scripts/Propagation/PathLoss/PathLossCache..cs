@@ -60,17 +60,19 @@ namespace RFSimulation.Propagation.PathLoss
 			return (_cache.Count, hitRate);
 		}
 
-		private string GenerateKey(PropagationContext context)
-		{
-			// Round positions to reduce cache misses from tiny movements
-			Vector3 roundedTx = RoundVector(context.TransmitterPosition, 0.1f);
-			Vector3 roundedRx = RoundVector(context.ReceiverPosition, 0.1f);
+        private string GenerateKey(PropagationContext context)
+        {
+            // Consider slightly finer rounding if small height edits should matter immediately
+            Vector3 roundedTx = RoundVector(context.TransmitterPosition, 0.1f);
+            Vector3 roundedRx = RoundVector(context.ReceiverPosition, 0.1f);
 
-			return $"{roundedTx}_{roundedRx}_{context.TransmitterPowerDbm:F1}_" +
-				   $"{context.AntennaGainDbi:F1}_{context.FrequencyMHz:F0}_";
-		}
+            // NEW: bake in model + obstacle flag
+            return $"{roundedTx}_{roundedRx}_{context.TransmitterPowerDbm:F1}_" +
+                   $"{context.AntennaGainDbi:F1}_{context.FrequencyMHz:F0}_" +
+                   $"{context.Model}_{(context.HasObstacles ? 1 : 0)}";
+        }
 
-		private Vector3 RoundVector(Vector3 vector, float precision)
+        private Vector3 RoundVector(Vector3 vector, float precision)
 		{
 			float factor = 1f / precision;
 			return new Vector3(

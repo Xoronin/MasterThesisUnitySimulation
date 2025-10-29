@@ -5827,16 +5827,16 @@ MonoBehaviour:
   defaultLineMaterial: {fileID: 2100000, guid: 1f4330c7a9c1d3049988e7e6d6b4ffd6, type: 2}
   lineWidth: 0.3
   useWorldSpace: 1
-  noSignalColor: {r: 0.8274511, g: 0.8274511, b: 0.8274511, a: 1}
-  lowSignalColor: {r: 0.6784314, g: 0.8470589, b: 0.9019608, a: 1}
-  mediumSignalColor: {r: 0, g: 1, b: 1, a: 1}
-  highSignalColor: {r: 0.254902, g: 0.4117647, b: 0.882353, a: 1}
-  excellentSignalColor: {r: 0.627451, g: 0.1254902, b: 0.9411765, a: 1}
+  noSignalColor: {r: 1, g: 0, b: 0, a: 1}
+  lowSignalColor: {r: 1, g: 0.64705884, b: 0, a: 1}
+  mediumSignalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  highSignalColor: {r: 0.6039216, g: 0.8039216, b: 0.19607843, a: 1}
+  excellentSignalColor: {r: 0, g: 1, b: 0, a: 1}
   lowThresh: 0
   mediumThresh: 5
   highThresh: 10
   excellentThresh: 15
-  maxLines: 100
+  maxLines: 200
   enableLOD: 0
   lodDistance: 200
 --- !u!1 &410087039
