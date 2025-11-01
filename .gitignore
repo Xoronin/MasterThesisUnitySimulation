@@ -497,3 +497,5 @@ FodyWeavers.xsd
 /Assets/Settings/DefaultVolumeProfile.asset
 /ProjectSettings/TagManager.asset
 /Assets/Project/Scripts/Core/Transmitter.cs.meta
+/Assets/Project/Data/Exports
+/Assets/Project/Data/Plots

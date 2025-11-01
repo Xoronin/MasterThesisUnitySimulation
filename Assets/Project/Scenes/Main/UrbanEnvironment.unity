@@ -546,6 +546,7 @@ Transform:
   - {fileID: 27795018}
   - {fileID: 407613345}
   - {fileID: 297437041}
+  - {fileID: 819724601}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &33564077
@@ -5838,7 +5839,7 @@ MonoBehaviour:
   excellentThresh: 15
   maxLines: 200
   enableLOD: 0
-  lodDistance: 200
+  lodDistance: 1000
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -12077,6 +12078,54 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &819724600
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 819724601}
+  - component: {fileID: 819724602}
+  m_Layer: 0
+  m_Name: RayVisualization
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &819724601
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 819724600}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 29741517}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &819724602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 819724600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c09653a4a0585714e897b60f2a78c676, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RFSimulation.Visualization.RayVisualization
+  root: {fileID: 0}
+  lineMaterial: {fileID: 2100000, guid: 1f4330c7a9c1d3049988e7e6d6b4ffd6, type: 2}
+  lineWidth: 0.02
+  persistent: 0
 --- !u!1 &821486596
 GameObject:
   m_ObjectHideFlags: 0
@@ -19438,7 +19487,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   transmitterHeight: 8
-  receiverHeight: 1
+  receiverHeight: 1.5
   maxTransmitterHeight: 30
   previewMaterial: {fileID: 0}
   previewAlpha: 0.5

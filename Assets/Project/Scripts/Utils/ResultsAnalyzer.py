@@ -40,7 +40,7 @@ def load_and_prepare(csv_path: Path) -> pd.DataFrame:
 
     # Minimal casts/renames
     df["model"]     = df["propagation_model"].astype(str)
-    df["buildings"]       = df["buildings_on"].map(lambda v: "ON" if str(v).lower() in ("true","1","on","yes") else "OFF")
+    df["buildings"] = df["buildings_on"].map(lambda v: "ON" if str(v).lower() in ("true","1","on","yes") else "OFF")
     df["dist_m"]    = df["distance_m"].astype(float)
     df["freq_mhz"]  = df["tx_frequency_mhz"].astype(float)
     df["tx_p_dbm"]  = df["tx_power_dbm"].astype(float)

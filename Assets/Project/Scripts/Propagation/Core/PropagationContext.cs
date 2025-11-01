@@ -88,7 +88,7 @@ namespace RFSimulation.Propagation.Core
         }
     }
 
-    // Enums (consolidated)
+    // Enums
     public enum PropagationModel
     {
         Auto,
@@ -102,8 +102,7 @@ namespace RFSimulation.Propagation.Core
     public enum TechnologyType
     {
         LTE,
-        FiveG,
-        IoT,
-        Emergency
+        FiveGmmWave,
+        FiveGSub6
     }
 }

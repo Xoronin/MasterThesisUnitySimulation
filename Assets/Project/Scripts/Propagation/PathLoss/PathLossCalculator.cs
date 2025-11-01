@@ -4,6 +4,7 @@ using RFSimulation.Interfaces;
 using RFSimulation.Propagation.PathLoss.Models;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Propagation.SignalQuality;
+using RFSimulation.Visualization;
 
 namespace RFSimulation.Propagation.PathLoss
 {
@@ -21,12 +22,14 @@ namespace RFSimulation.Propagation.PathLoss
         public bool preferRayTracing = true;
         public bool fallbackToBasicModels = true;
         public float maxDistance = 2000f; // Beyond this, use empirical models
-        public LayerMask mapboxBuildingLayer = 1 << 8;
+        public LayerMask mapboxBuildingLayer = 8;
 
         // Model dictionary with all available models
         private readonly Dictionary<PropagationModel, IPathLossModel> _models;
         private readonly PathLossCache _cache;
         private readonly IObstacleCalculator _obstacleCalculator;
+
+        public RayVisualization RayViz { get; set; }
 
         public PathLossCalculator(IObstacleCalculator obstacleCalculator = null)
         {
@@ -43,8 +46,30 @@ namespace RFSimulation.Propagation.PathLoss
                 { PropagationModel.COST231, new COST231HataModel() },
                 
                 // Ray tracing model
-                { PropagationModel.RayTracing, new UrbanRayTracingModel() },
+                { PropagationModel.RayTracing, new RayTracingModel() },
             };
+
+            ConfigureRayTracingModel();
+
+        }
+
+        private void ConfigureRayTracingModel()
+        {
+            var rt = GetRayTracingModel();
+            if (rt == null) return;
+
+            // Propagate common settings
+            rt.maxDistance = maxDistance;
+            rt.mapboxBuildingLayer = mapboxBuildingLayer;
+
+            // Enable viz and hook the shared visualizer
+            rt.enableRayVisualization = true;
+            rt.showDirectRays = true;
+            rt.showReflectionRays = true;
+            rt.showDiffractionRays = true;
+
+            // Prefer an explicitly assigned visualizer; otherwise find one in the scene
+            rt.Visualizer = RayViz ?? UnityEngine.Object.FindAnyObjectByType<RayVisualization>();
         }
 
         public float CalculateReceivedPower(PropagationContext context)
@@ -73,27 +98,49 @@ namespace RFSimulation.Propagation.PathLoss
                 model = _models[context.Model];
             }
 
-            float receivedPower;
+            float receivedPowerDbm;
             try
             {
-                receivedPower = model.Calculate(context);
-                receivedPower = ApplyUrbanCorrections(receivedPower, context);
+                // IMPORTANT:
+                // - RayTracingModel.Calculate(context) returns PATH LOSS in dB
+                // - The other models return RECEIVED POWER in dBm (legacy)
+                float modelOut = model.Calculate(context);
 
+                if (model is RayTracingModel)
+                {
+                    // Convert loss -> received power
+                    // Use the same TX power property you use elsewhere in this class
+                    float txDbm = context.TransmitterPowerDbm;
+                    receivedPowerDbm = txDbm - modelOut;
+                }
+                else
+                {
+                    // Already dBm from legacy models
+                    receivedPowerDbm = modelOut;
+                }
+
+                // Apply urban corrections as EXTRA loss (subtract from dBm)
+                receivedPowerDbm -= CalculateBuildingDensityLoss(context);
+                receivedPowerDbm -= CalculateUrbanFrequencyFactor(context.FrequencyMHz);
+
+                // Obstacles (walls, etc.) as extra loss
                 if (context.HasObstacles && _obstacleCalculator != null)
                 {
                     float obstacleLoss = _obstacleCalculator.CalculatePenetrationLoss(context);
-                    receivedPower -= obstacleLoss;
+                    receivedPowerDbm -= obstacleLoss;
                 }
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"[PathLoss] Error with {model.ModelName}: {e.Message}");
-                receivedPower = fallbackToBasicModels ? new FreeSpaceModel().Calculate(context)
-                                                      : float.NegativeInfinity;
+                // Fallback: FreeSpace model (returns dBm in your legacy setup)
+                receivedPowerDbm = fallbackToBasicModels
+                    ? new FreeSpaceModel().Calculate(context)
+                    : float.NegativeInfinity;
             }
 
-            _cache.Store(context, receivedPower);
-            return receivedPower;
+            _cache.Store(context, receivedPowerDbm);
+            return receivedPowerDbm;
         }
 
 
@@ -308,11 +355,11 @@ namespace RFSimulation.Propagation.PathLoss
             return 20f * Mathf.Log10(distanceKm) + 20f * Mathf.Log10(frequencyMHz) + 32.45f;
         }
 
-        public UrbanRayTracingModel GetRayTracingModel()
+        public RayTracingModel GetRayTracingModel()
         {
             if (_models.TryGetValue(PropagationModel.RayTracing, out IPathLossModel model))
             {
-                return model as UrbanRayTracingModel;
+                return model as RayTracingModel;
             }
             return null;
         }

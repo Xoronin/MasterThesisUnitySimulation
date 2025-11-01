@@ -216,7 +216,6 @@ namespace RFSimulation.Core.Managers
             }
         }
 
-        // SimulationManager.cs
         public void RecomputeAllSignalStrength()
         {
             var txs = transmitters?.ToArray();

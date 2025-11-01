@@ -184,6 +184,7 @@ namespace RFSimulation.UI
                 case 2: return PropagationModel.LogDistance;
                 case 3: return PropagationModel.Hata;          // adjust if your enum is OkumuraHata
                 case 4: return PropagationModel.COST231;   // adjust to your exact enum name
+                case 5: return PropagationModel.RayTracing;
                 default: return PropagationModel.Auto;
             }
         }
@@ -197,7 +198,7 @@ namespace RFSimulation.UI
                 case PropagationModel.LogDistance: return 2;
                 case PropagationModel.Hata: return 3;  // adjust if needed
                 case PropagationModel.COST231: return 4;  // adjust if needed
-                case PropagationModel.RayTracing:
+                case PropagationModel.RayTracing: return 5;
                 default: return 0;
             }
         }
@@ -208,7 +209,7 @@ namespace RFSimulation.UI
 
             transmitterPropagationModelDropdown.ClearOptions();
             transmitterPropagationModelDropdown.AddOptions(new List<string>(ModelNames));
-            transmitterPropagationModelDropdown.value = IndexFromModel(_defaultTxModel); // was 5 (out of range)
+            transmitterPropagationModelDropdown.value = IndexFromModel(_defaultTxModel);
             transmitterPropagationModelDropdown.onValueChanged.AddListener(i =>
             {
                 _defaultTxModel = ModelFromIndex(i);
@@ -433,6 +434,8 @@ namespace RFSimulation.UI
             }
 
             var go = Instantiate(transmitterPrefab, position, Quaternion.identity);
+            PlaceObjectsHelper.Organize(go);
+
             var tx = go.GetComponent<Transmitter>();
             if (tx != null)
             {
@@ -444,7 +447,11 @@ namespace RFSimulation.UI
 
                 if (transmitterPropagationModelDropdown != null)
                 {
-                    tx.SetPropagationModel(_defaultTxModel);
+                    var chosenModel = (transmitterPropagationModelDropdown != null)
+                        ? ModelFromIndex(transmitterPropagationModelDropdown.value)
+                        : _defaultTxModel; 
+
+                    tx.SetPropagationModel(chosenModel);
                 }
 
                 if (transmitterHeightInput != null && float.TryParse(transmitterHeightInput.text, out float h))
@@ -465,6 +472,7 @@ namespace RFSimulation.UI
             position.y += receiverHeight;
 
             var go = Instantiate(receiverPrefab, position, Quaternion.identity);
+            PlaceObjectsHelper.Organize(go);
             var rx = go.GetComponent<Receiver>();
             if (rx != null)
             {
@@ -668,11 +676,10 @@ namespace RFSimulation.UI
 
                 if (isPlacingReceiver)
                     pos.y = pos.y + receiverHeight;
-                else if (isPlacingTransmitter)
-                    pos.y = pos.y + transmitterHeight;
             }
 
             var go = Instantiate(previewSourcePrefab, pos, previewInstance.transform.rotation);
+            PlaceObjectsHelper.Organize(go);
 
             // Initialize fields from UI (same as your existing PlaceTransmitter/Receiver)
             if (isPlacingTransmitter)
@@ -694,7 +701,13 @@ namespace RFSimulation.UI
                         tx.frequency = f;
 
                     if (transmitterPropagationModelDropdown != null)
-                        tx.SetPropagationModel(_defaultTxModel);
+                    {
+                        var chosenModel = (transmitterPropagationModelDropdown != null)
+                            ? ModelFromIndex(transmitterPropagationModelDropdown.value)
+                            : _defaultTxModel;
+
+                        tx.SetPropagationModel(chosenModel);
+                    }
 
                     if (showRaysToggle != null && showRaysToggle.isOn)
                     {
