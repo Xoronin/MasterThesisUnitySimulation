@@ -5,19 +5,15 @@ using RFSimulation.Propagation.Core;
 
 namespace RFSimulation.Propagation.PathLoss.Models
 {
-    public class LogDistanceModel : IPathLossModel
+    public class LogDistanceShadowingModel : IPathLossModel
     {
-        public string ModelName => "Log-Distance Path Loss";
+        public string ModelName => "Log-Distance Shadowing Path Loss";
 
         public float CalculatePathLoss(PropagationContext context)
         {
             float distance = context.Distance;
             float referenceDistance = RFConstants.REFERENCE_DISTANCE;
             float pathLossExponent = context.IsLOS ? RFConstants.PATH_LOSS_EXPONENT_URBAN : RFConstants.PATH_LOSS_EXPONENT_URBAN_SHADOWED;
-
-            // Skip calculation if not LOS
-            if (!context.IsLOS)
-                return float.NegativeInfinity;
 
             // Ensure minimum distance
             distance = Mathf.Max(distance, RFConstants.MIN_DISTANCE);
@@ -28,11 +24,16 @@ namespace RFSimulation.Propagation.PathLoss.Models
                                                Vector3.forward * referenceDistance;
 
             var freeSpaceModel = new FreeSpaceModel();
-            float referenceLoss = freeSpaceModel.CalculatePathLoss(referenceContext);
+            float referenceLoss = context.TransmitterPowerDbm + context.AntennaGainDbi -
+                                freeSpaceModel.CalculatePathLoss(referenceContext);
 
             // Log-distance path loss
             float distanceRatio = distance / referenceDistance;
             float pathLoss = referenceLoss + 10f * pathLossExponent * Mathf.Log10(distanceRatio);
+
+            // Add log-normal shadowing (optional) - THIS IS THE LIKELY CULPRIT
+            float shadowing = SampleGaussianSafe(0f, 4f);
+            pathLoss += shadowing;
 
             // Validate result
             if (float.IsInfinity(pathLoss) || float.IsNaN(pathLoss))
@@ -43,5 +44,24 @@ namespace RFSimulation.Propagation.PathLoss.Models
             return pathLoss;
         }
 
+        // Gaussian sampling
+        private float SampleGaussianSafe(float mean, float stdDev)
+        {
+            // Clamp random values to avoid log(0)
+            const float MIN_RANDOM = 0.0001f; // Avoid exactly 0
+            const float MAX_RANDOM = 0.9999f; // Avoid exactly 1
+
+            float u1 = Mathf.Clamp(Random.Range(0f, 1f), MIN_RANDOM, MAX_RANDOM);
+            float u2 = Mathf.Clamp(Random.Range(0f, 1f), MIN_RANDOM, MAX_RANDOM);
+
+            // Box-Muller transform
+            float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) *
+                                 Mathf.Sin(2.0f * Mathf.PI * u2);
+
+            float result = mean + stdDev * randStdNormal;
+
+            // Clamp the final result to reasonable bounds
+            return Mathf.Clamp(result, -15f, 15f); 
+        }
     }
 }

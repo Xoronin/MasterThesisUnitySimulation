@@ -173,7 +173,7 @@ namespace RFSimulation.UI
             if (txModelDropdown == null) return;
             txModelDropdown.ClearOptions();
             txModelDropdown.AddOptions(new System.Collections.Generic.List<string>(
-                new[] { "Auto", "Free Space", "Log Distance", "Hata", "COST 231", "Ray Tracing" }
+                new[] { "Free Space", "Log Distance", "Hata", "COST 231", "Ray Tracing" }
             ));
             txModelDropdown.onValueChanged.AddListener(OnTxModelChanged);
         }
@@ -420,19 +420,18 @@ namespace RFSimulation.UI
         }
 
         private static readonly string[] ModelNames =
-            { "Auto", "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
+            { "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
 
         private static PropagationModel ModelFromIndex(int i)
         {
             switch (i)
             {
-                case 0: return PropagationModel.Auto;
-                case 1: return PropagationModel.FreeSpace;
-                case 2: return PropagationModel.LogDistance;
-                case 3: return PropagationModel.Hata;
-                case 4: return PropagationModel.COST231;
-                case 5: return PropagationModel.RayTracing;
-                default: return PropagationModel.Auto;
+                case 0: return PropagationModel.FreeSpace;
+                case 1: return PropagationModel.LogDistance;
+                case 2: return PropagationModel.Hata;
+                case 3: return PropagationModel.COST231;
+                case 4: return PropagationModel.RayTracing;
+                default: return PropagationModel.RayTracing;
             }
         }
 
@@ -440,13 +439,12 @@ namespace RFSimulation.UI
         {
             switch (m)
             {
-                case PropagationModel.Auto: return 0;
-                case PropagationModel.FreeSpace: return 1;
-                case PropagationModel.LogDistance: return 2;
-                case PropagationModel.Hata: return 3;
-                case PropagationModel.COST231: return 4;
-                case PropagationModel.RayTracing: return 5;
-                default: return 0;
+                case PropagationModel.FreeSpace: return 0;
+                case PropagationModel.LogDistance: return 1;
+                case PropagationModel.Hata: return 2;
+                case PropagationModel.COST231: return 3;
+                case PropagationModel.RayTracing: return 4;
+                default: return 4;
             }
         }
 

@@ -1,3 +1,4 @@
+using RFSimulation.Core.Managers;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -113,8 +114,9 @@ namespace RFSimulation.Utils
 		{
 			if (!_dragging) return;
 			_dragging = false;
+			SimulationManager.Instance?.RecomputeAllSignalStrength();
 
-			BroadcastMessage("OnWorldDragged", SendMessageOptions.DontRequireReceiver);
+            BroadcastMessage("OnWorldDragged", SendMessageOptions.DontRequireReceiver);
 		}
 
 		private bool TryGetMouseGround(out Vector3 hitPoint)

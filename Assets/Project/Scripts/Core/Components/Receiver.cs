@@ -1,54 +1,28 @@
 ﻿using UnityEngine;
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Propagation.SignalQuality;
 using RFSimulation.Core.Managers;
 using RFSimulation.Utils;
+using RFSimulation.Core;
 
 namespace RFSimulation.Core.Components
 {
-    /// <summary>
-    /// Receiver with constant visuals; computes signal and SINR for status/metrics.
-    /// </summary>
     public class Receiver : MonoBehaviour
     {
-        #region Data Contracts
-        /// <summary>
-        /// Immutable snapshot of a receiver's state and derived metrics.
-        /// </summary>
-        public sealed class ReceiverInfo
-        {
-            public string UniqueID { get; set; }
-            public string Technology { get; set; }
-            public TechnologyType TechnologyType { get; set; }
-            public float Sensitivity { get; set; }
-            public float ConnectionMargin { get; set; }
-            public float MinimumSINR { get; set; }
-            public float ReceiverHeight { get; set; }
-
-            public float CurrentSignalStrength { get; set; }
-            public float CurrentSINR { get; set; }
-            public SignalQualityCategory Quality { get; set; }
-            public float ExpectedThroughput { get; set; }
-            public float ConnectionReliability { get; set; }
-
-            public bool IsConnected { get; set; }
-            public string ConnectedTransmitterID { get; set; }
-
-            public Vector3 WorldPosition { get; set; }
-        }
-        #endregion
-
         #region Inspector Fields
         [Header("Receiver Properties")]
         public string uniqueID;
-        public string technology = "5GSUB6";
-        public float sensitivity = -90f;
+
+        [Tooltip("Technology type: LTE, 5GmmWave, 5GSub6")]
+        public string technology = "5GSub6";
+
+        [Header("Auto-configured from Technology (can override)")]
+        public float sensitivity = -100f;
         public float connectionMargin = 6f;
-        public float minimumSINR = -5f;
-        public float receiverHeight;
+        public float minimumSINR = -3f;
+        public float receiverHeight = 1.5f;
+        public float receiverGainDbi = 0f;
 
         [Header("Status")]
         public float currentSignalStrength = float.NegativeInfinity;
@@ -58,6 +32,7 @@ namespace RFSimulation.Core.Components
         public Color receiverBaseColor = new Color(0.1176f, 0.6549f, 0.9921f);
         public Color sphereColor = new Color(0.2f, 0.85f, 1f, 1f);
         [Range(0f, 1f)] public float sphereAlpha = 0.35f;
+
         #endregion
 
         #region Private Fields
@@ -66,6 +41,7 @@ namespace RFSimulation.Core.Components
         private GameObject signalSphereVisual;
         private Material signalSphereMatInstance;
         private SignalQualityMetrics currentQuality;
+        private TechnologySpec techSpec;
         #endregion
 
         #region Unity Lifecycle
@@ -77,6 +53,8 @@ namespace RFSimulation.Core.Components
 
         void Start()
         {
+            ApplyTechnologySpec();
+
             SetupVisualization();
         }
 
@@ -93,41 +71,88 @@ namespace RFSimulation.Core.Components
         }
         #endregion
 
-        #region Public API
+        #region Technology Configuration
         /// <summary>
-        /// Returns a single object containing all receiver parameters and derived values.
+        /// Apply technology specifications to receiver parameters.
+        /// Call this after changing technology string.
         /// </summary>
-        public ReceiverInfo GetInfo()
+        public void ApplyTechnologySpec()
         {
-            var techType = GetTechnologyType();
-            var quality = GetSignalQualityCategory();
+            techSpec = TechnologySpecifications.GetSpec(technology);
 
-            return new ReceiverInfo
-            {
-                UniqueID = uniqueID,
-                Technology = technology,
-                TechnologyType = techType,
-                Sensitivity = sensitivity,
-                ConnectionMargin = connectionMargin,
-                MinimumSINR = minimumSINR,
-                ReceiverHeight = receiverHeight,
+            sensitivity = techSpec.SensitivityDbm;
+            connectionMargin = techSpec.ConnectionMarginDb;
+            minimumSINR = techSpec.MinimumSINRDb;
 
-                CurrentSignalStrength = currentSignalStrength,
-                CurrentSINR = currentSINR,
-                Quality = quality,
-                ExpectedThroughput = GetExpectedThroughputInternal(quality),
-                ConnectionReliability = GetConnectionReliabilityInternal(quality),
-
-                IsConnected = IsConnected(),
-                ConnectedTransmitterID = connectedTransmitter != null ? connectedTransmitter.uniqueID : null,
-
-                WorldPosition = transform.position,
-            };
+            Debug.Log($"[Receiver {uniqueID}] Configured for {techSpec.Name}: " +
+                     $"Sensitivity={sensitivity:F1}dBm, Margin={connectionMargin:F1}dB, " +
+                     $"MinSINR={minimumSINR:F1}dB");
         }
 
         /// <summary>
-        /// Updates measured signal strength and SINR.
+        /// Change technology and auto-reconfigure.
         /// </summary>
+        public void SetTechnology(string tech)
+        {
+            technology = tech;
+            ApplyTechnologySpec();
+        }
+
+        /// <summary>
+        /// Get the parsed technology type.
+        /// </summary>
+        public TechnologyType GetTechnologyType()
+        {
+            return TechnologySpecifications.ParseTechnologyString(technology);
+        }
+
+        /// <summary>
+        /// Get current technology specification.
+        /// </summary>
+        public TechnologySpec GetTechnologySpec()
+        {
+            if (techSpec == null)
+            {
+                techSpec = TechnologySpecifications.GetSpec(technology);
+            }
+            return techSpec;
+        }
+        #endregion
+
+        #region Signal Quality (Technology-Aware)
+        /// <summary>
+        /// Get signal quality using technology-specific thresholds.
+        /// </summary>
+        private SignalQualityCategory GetSignalQualityCategory()
+        {
+            float margin = currentSignalStrength - sensitivity;
+
+            // No service if below sensitivity
+            if (margin < 0f) return SignalQualityCategory.NoService;
+
+            // Use technology-specific thresholds
+            var spec = GetTechnologySpec();
+
+            if (margin < spec.PoorThresholdDb)
+                return SignalQualityCategory.Poor;
+
+            if (margin < spec.FairThresholdDb)
+                return SignalQualityCategory.Fair;
+
+            if (margin < spec.GoodThresholdDb)
+                return SignalQualityCategory.Good;
+
+            return SignalQualityCategory.Excellent;
+        }
+        #endregion
+
+        #region Public API
+        public bool CanConnect()
+        {
+            return currentSignalStrength >= (sensitivity + connectionMargin) &&
+                   currentSINR >= minimumSINR;
+        }
+
         public void UpdateSignalStrength(float signalStrength, float sinr = 0f)
         {
             currentSignalStrength = signalStrength;
@@ -135,35 +160,17 @@ namespace RFSimulation.Core.Components
             currentQuality = new SignalQualityMetrics(sinr, GetTechnologyType());
         }
 
-        /// <summary>
-        /// Updates SINR and derived quality metrics.
-        /// </summary>
         public void UpdateSINR(float sinr)
         {
             currentSINR = sinr;
             currentQuality = new SignalQualityMetrics(sinr, GetTechnologyType());
         }
 
-        /// <summary>
-        /// Returns whether receiver meets connection thresholds.
-        /// </summary>
-        public bool CanConnect()
-        {
-            return currentSignalStrength >= (sensitivity + connectionMargin) &&
-                   currentSINR >= minimumSINR;
-        }
-
-        /// <summary>
-        /// Sets the currently connected transmitter.
-        /// </summary>
         public void SetConnectedTransmitter(Transmitter transmitter)
         {
             connectedTransmitter = transmitter;
         }
 
-        /// <summary>
-        /// Clears connection and resets metrics.
-        /// </summary>
         public void ClearConnection()
         {
             connectedTransmitter = null;
@@ -172,33 +179,11 @@ namespace RFSimulation.Core.Components
         }
 
         public bool IsConnected() => connectedTransmitter != null;
-
-        public void SetTechnology(string tech) => technology = tech;
-
         public Transmitter GetConnectedTransmitter() => connectedTransmitter;
-
         public SignalQualityCategory GetSignalQuality() => GetSignalQualityCategory();
         #endregion
 
-        #region Metrics & Classification
-        private SignalQualityCategory GetSignalQualityCategory()
-        {
-            float margin = currentSignalStrength - sensitivity;
-            if (margin < 0f) return SignalQualityCategory.NoService;
-            if (margin < 8f) return SignalQualityCategory.Poor;
-            if (margin < 15f) return SignalQualityCategory.Good;
-            return SignalQualityCategory.Excellent;
-        }
-
-        private TechnologyType GetTechnologyType()
-        {
-            var t = (technology ?? string.Empty).ToUpperInvariant().Replace("-", " ").Replace("_", " ").Trim();
-            if (t.Contains("5GMMWAVE") || t.Contains("MM WAVE")) return TechnologyType.FiveGmmWave;
-            if (t.Contains("5GSUB6") || t.Contains("SUB6") || t.Contains("SUB 6") || t.Contains("SUB-6")) return TechnologyType.FiveGSub6;
-            if (t.Contains("LTE")) return TechnologyType.LTE;
-            return TechnologyType.FiveGSub6;
-        }
-
+        #region Metrics
         private float GetExpectedThroughputInternal(SignalQualityCategory q)
         {
             return q switch

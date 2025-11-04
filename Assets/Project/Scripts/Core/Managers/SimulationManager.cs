@@ -4,6 +4,7 @@ using RFSimulation.Core;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Components;
 using RFSimulation.Core.Connections;
+using RFSimulation.Visualization;
 
 namespace RFSimulation.Core.Managers
 {
@@ -24,6 +25,7 @@ namespace RFSimulation.Core.Managers
 
         [Header("Managers")]
         public ConnectionManager connectionManager;
+        public SignalHeatmap signalHeatmap;
 
         // Events for UI and other systems
         public System.Action OnSimulationStarted;
@@ -66,6 +68,11 @@ namespace RFSimulation.Core.Managers
             if (connectionManager != null && !connectionManager.enabled)
             {
                 connectionManager.enabled = true;
+            }
+
+            if (signalHeatmap == null)
+            {
+                signalHeatmap = GetComponent<SignalHeatmap>();
             }
         }
 
@@ -243,6 +250,10 @@ namespace RFSimulation.Core.Managers
             // let strategies re-evaluate best connections after parameter/model changes
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
+
+            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            if (heatmap != null && heatmap.enabledByUI)
+                heatmap.UpdateHeatmap();
         }
 
         public void RecomputeForTransmitter(Transmitter tx)
@@ -263,6 +274,10 @@ namespace RFSimulation.Core.Managers
 
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
+
+            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            if (heatmap != null && heatmap.enabledByUI)
+                heatmap.UpdateHeatmap();
         }
 
         public void RecomputeForReceiver(Receiver rx)
@@ -283,6 +298,10 @@ namespace RFSimulation.Core.Managers
 
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
+
+            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            if (heatmap != null && heatmap.enabledByUI)
+                heatmap.UpdateHeatmap();
         }
 
 

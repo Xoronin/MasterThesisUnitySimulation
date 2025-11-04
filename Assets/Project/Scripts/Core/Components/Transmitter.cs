@@ -21,12 +21,12 @@ namespace RFSimulation.Core.Components
 
         [Header("Performance")]
         public bool usePerformanceOptimizations = true;
-        public int maxReflections = 2;
-        public int maxDiffractions = 2;
+        public int maxReflections = 1;
+        public int maxDiffractions = 1;
         public float maxCalculationDistance = 3000f;
 
         [Header("Mapbox Integration")]
-        public LayerMask mapboxBuildingLayer = 1 << 8;
+        public LayerMask mapboxBuildingLayer = 8;
         public LayerMask terrainLayer = 6;
         public bool enableBuildingMaterialDetection = true;
     }
@@ -125,7 +125,6 @@ namespace RFSimulation.Core.Components
             if (pathLossCalculator == null) InitializeCalculators();
             panelMountHeightFromBaseTop = transmitterHeight;
             CreateTransmitterModel();
-            SetAntennaOrigin(transmitterHeight);
         }
 
         void Update()
@@ -135,6 +134,7 @@ namespace RFSimulation.Core.Components
             if (!showConnections || connectionRenderer == null) return;
 
             panelMountHeightFromBaseTop = transmitterHeight;
+            UpdateMastHeight(transmitterHeight);
             SetAntennaOrigin(transmitterHeight);
 
             foreach (var kv in connectionLines)
@@ -262,6 +262,11 @@ namespace RFSimulation.Core.Components
         {
             var txPos = GetAntennaWorldPos();
             var receiverHeight = GeometryHelper.GetHeightAboveGround(receiverPosition);
+            var isLOS = RaycastUtil.IsLineOfSight(
+                txPos,
+                receiverPosition,
+                settings.mapboxBuildingLayer
+            );
 
             var context = PropagationContext.Create(
                 txPos,
@@ -272,8 +277,10 @@ namespace RFSimulation.Core.Components
                 receiverHeight
             );
 
+            context.IsLOS = isLOS;
             context.Model = propagationModel;
             context.AntennaGainDbi = antennaGain;
+            context.ReceiverGainDbi = 0f;
             context.ReceiverSensitivityDbm = receiverSensitivityDbm ?? defaultReceiverSensitivityDbm;
             context.BuildingLayers = settings.mapboxBuildingLayer;
             return context;
@@ -533,7 +540,7 @@ namespace RFSimulation.Core.Components
             var mast = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             mast.name = "Mast";
             mast.transform.SetParent(transform, false);
-            mast.transform.localScale = new Vector3(mastRadius * 2f, mastHalfHeight, mastRadius * 2f);
+            mast.transform.localScale = new Vector3(mastRadius * 2f, mastHalfHeight * 2f, mastRadius * 2f);
             mast.transform.localPosition = new Vector3(0f, GetBaseTopLocalY() + mastHalfHeight, 0f);
 
             var mastMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -607,6 +614,18 @@ namespace RFSimulation.Core.Components
         private Vector3 GetAntennaOrigin()
         {
             return antennaOrigin != null ? antennaOrigin.position : transform.position;
+        }
+
+        public void UpdateMastHeight(float additionalHeight)
+        {
+            additionalHeight = Mathf.Max(0f, additionalHeight + 2f);
+            float half = additionalHeight * 0.5f;
+            var mast = transform.Find("Mast");
+            if (mast != null)
+            {
+                mast.transform.localScale = new Vector3(mastRadius * 2f, half, mastRadius * 2f);
+                mast.transform.localPosition = new Vector3(0f, GetBaseTopLocalY() + half, 0f);
+            }
         }
 
         /// <summary>
@@ -766,6 +785,13 @@ namespace RFSimulation.Core.Components
             panelMountHeightFromBaseTop = newHeight;
             MoveSectorBracketsTo(newHeight);
             SetAntennaOrigin(newHeight);
+        }
+
+        private void RefreshHeatmap()
+        {
+            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            if (heatmap != null && heatmap.enabled)
+                heatmap.UpdateHeatmap();
         }
         #endregion
     }

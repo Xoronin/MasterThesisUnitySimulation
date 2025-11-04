@@ -9,17 +9,14 @@ namespace RFSimulation.Propagation.PathLoss.Models
     {
         public string ModelName => "Free Space Path Loss";
 
-        public float Calculate(PropagationContext context)
+        public float CalculatePathLoss(PropagationContext context)
         {
             float distance = context.Distance;
             float frequency = context.FrequencyMHz;
 
-            // Validate inputs
-            if (frequency <= 0f)
-            {
-                Debug.LogError($"Invalid frequency: {frequency}MHz");
+            // Skip calculation if not LOS
+            if (!context.IsLOS)
                 return float.NegativeInfinity;
-            }
 
             // Ensure minimum distance
             distance = Mathf.Max(distance, RFConstants.MIN_DISTANCE);
@@ -42,16 +39,15 @@ namespace RFSimulation.Propagation.PathLoss.Models
             float pathLossDb = 10f * Mathf.Log10(pathLossLinear);
 
             // Calculate received power
-            float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - pathLossDb;
+            //float receivedPower = context.TransmitterPowerDbm + context.AntennaGainDbi - pathLossDb;
 
-            // Validate final result
-            if (float.IsInfinity(receivedPower) || float.IsNaN(receivedPower))
+            // Validate result
+            if (float.IsInfinity(pathLossDb) || float.IsNaN(pathLossDb))
             {
-                Debug.LogError($"Invalid received power: {receivedPower}dBm");
                 return float.NegativeInfinity;
             }
 
-            return receivedPower;
+            return pathLossDb;
         }
     }
 }

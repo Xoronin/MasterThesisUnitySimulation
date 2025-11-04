@@ -9,7 +9,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
     {
         public string ModelName => "Two-Ray Simple";
 
-        public float Calculate(PropagationContext context)
+        public float CalculatePathLoss(PropagationContext context)
         {
             // Get horizontal distance between transmitter and receiver
             Vector2 txPos = new Vector2(context.TransmitterPosition.x, context.TransmitterPosition.z);

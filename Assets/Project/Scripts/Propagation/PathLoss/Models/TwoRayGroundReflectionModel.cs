@@ -10,7 +10,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
 	{
 		public string ModelName => "Two-Ray Ground Reflection";
 
-		public float Calculate(PropagationContext context)
+		public float CalculatePathLoss(PropagationContext context)
 		{
 			Vector3 txPos = context.TransmitterPosition;
 			Vector3 rxPos = context.ReceiverPosition;

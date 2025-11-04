@@ -21,7 +21,7 @@ namespace RFSimulation.UI
         [Tooltip("Upward start height for the downwards terrain probe.")]
         public float raycastStartHeight = 1000f;
         [Tooltip("Which layers count as terrain for the grid to sit on.")]
-        public LayerMask terrainMask = ~0;
+        public LayerMask terrainMask = 6;
         [Tooltip("Segments per grid line (higher = smoother following of terrain).")]
         public int segments = 80;
 

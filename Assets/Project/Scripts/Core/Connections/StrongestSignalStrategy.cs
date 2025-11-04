@@ -12,7 +12,7 @@ namespace RFSimulation.Core.Connections
     public class StrongestSignalStrategy : IConnectionStrategy
     {
         public string StrategyName => "Strongest Signal";
-        public string Description => "Connects to transmitter with highest signal strength (no interference calculation)";
+        public string Description => "Connects to transmitter with highest signal strength";
         public StrategyType StrategyType => StrategyType.StrongestSignal;
 
         public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)

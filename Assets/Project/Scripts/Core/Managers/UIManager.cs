@@ -87,14 +87,6 @@ namespace RFSimulation.UI
         {
             if (targetPanel == null) return;
 
-            if (show)
-            {
-                // Hide others first
-                SetActiveSafe(controlPanel, false, except: targetPanel);
-                SetActiveSafe(scenarioPanel, false, except: targetPanel);
-                SetActiveSafe(statusPanel, false, except: targetPanel);
-            }
-
             targetPanel.SetActive(show);
 
             FireVisibilityEvent();
@@ -112,8 +104,6 @@ namespace RFSimulation.UI
             bool s = scenarioPanel != null && scenarioPanel.activeSelf;
             bool t = statusPanel != null && statusPanel.activeSelf;
             OnPanelVisibilityChanged?.Invoke(c, s, t);
-
-            Debug.Log(statusPanel.activeSelf);
         }
     }
 }

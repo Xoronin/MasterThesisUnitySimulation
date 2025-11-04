@@ -28,6 +28,13 @@ namespace RFSimulation.Visualization
         public float highThresh = 10f;  // [5,10)
         public float excellentThresh = 15f;  // [10,15)
 
+        [Header("Absolute band cutoffs (dBm)")]
+        public float excellentCutoffDbm = -70f;  // >= this → excellent
+        public float goodCutoffDbm = -85f;  // >= this → good/usable
+        public float poorCutoffDbm = -100f; // >= this → poor
+        public float veryPoorCutoffDbm = -110f; // >= this → very poor; below → no signal
+
+
         [Header("Performance")]
         [Tooltip("Preallocated lines in the pool and soft cap for active lines.")]
         public int maxLines = 100;
@@ -217,17 +224,35 @@ namespace RFSimulation.Visualization
             // Width is managed by LOD and SetLineWidth; no need to reset here.
         }
 
-        private Color GetSignalQualityColor(float signalStrength, float sensitivity)
+        //private Color GetSignalQualityColor(float signalStrength, float sensitivity)
+        //{
+        //    if (float.IsNegativeInfinity(signalStrength)) return noSignalColor;
+
+        //    float margin = signalStrength - sensitivity;
+
+        //    if (margin < lowThresh) return noSignalColor;        // below sensitivity
+        //    if (margin < mediumThresh) return lowSignalColor;   // very low
+        //    if (margin < highThresh) return mediumSignalColor;       // low
+        //    if (margin < excellentThresh) return highSignalColor;    // medium
+        //    return excellentSignalColor;                              // high / excellent
+        //}
+
+        private Color GetSignalQualityColor(float signalStrengthDbm, float sensitivityDbm)
         {
-            if (float.IsNegativeInfinity(signalStrength)) return noSignalColor;
+            // invalid / no computed signal
+            if (float.IsNaN(signalStrengthDbm) || float.IsInfinity(signalStrengthDbm))
+                return noSignalColor;
 
-            float margin = signalStrength - sensitivity;
+            // below receiver sensitivity → treat as no signal
+            if (signalStrengthDbm < sensitivityDbm)
+                return noSignalColor;
 
-            if (margin < lowThresh) return noSignalColor;        // below sensitivity
-            if (margin < mediumThresh) return lowSignalColor;   // very low
-            if (margin < highThresh) return mediumSignalColor;       // low
-            if (margin < excellentThresh) return highSignalColor;    // medium
-            return excellentSignalColor;                              // high / excellent
+            // absolute dBm bands
+            if (signalStrengthDbm >= excellentCutoffDbm) return excellentSignalColor; // -50..-70+
+            if (signalStrengthDbm >= goodCutoffDbm) return highSignalColor;      // -70..-85
+            if (signalStrengthDbm >= poorCutoffDbm) return mediumSignalColor;    // -85..-100
+            if (signalStrengthDbm >= veryPoorCutoffDbm) return lowSignalColor;       // -100..-110
+            return noSignalColor;                                                     // <= -110
         }
 
         private void UpdateLevelOfDetail()

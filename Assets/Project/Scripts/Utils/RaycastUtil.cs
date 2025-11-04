@@ -12,5 +12,13 @@ namespace RFSimulation.Utils
             int mask = groundMask;
             return Physics.Raycast(ray, out hit, 10000f, mask, QueryTriggerInteraction.Ignore);
         }
+
+        public static bool IsLineOfSight(Vector3 txPos, Vector3 rxPos, LayerMask buildingMask)
+        {
+            Vector3 dir = rxPos - txPos;
+            float dist = dir.magnitude;
+            int mask = buildingMask;
+            return !Physics.Raycast(txPos, dir.normalized, dist, mask, QueryTriggerInteraction.Ignore);
+        }
     }
 }

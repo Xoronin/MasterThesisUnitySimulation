@@ -11,9 +11,9 @@ namespace RFSimulation.Visualization
     public class MapboxHeatmapIntegration : MonoBehaviour
     {
         [Header("Mapbox References")]
-        [SerializeField] private Transform mapboxRoot; // The main Mapbox map object
-        [SerializeField] private GameObject terrainObject; // Reference to terrain/ground object
-        [SerializeField] private LayerMask mapboxTerrainLayers = -1; // All layers by default
+        [SerializeField] private Transform mapboxRoot; 
+        [SerializeField] private GameObject terrainObject; 
+        [SerializeField] private LayerMask mapboxTerrainLayers = 6; 
 
         [Header("Heatmap Settings")]
         [SerializeField] private SignalHeatmap heatmapComponent;
@@ -157,7 +157,7 @@ namespace RFSimulation.Visualization
             if (useMapboxCoordinates && mapboxRoot != null)
             {
                 // Use Mapbox coordinate system
-                targetPosition = mapboxRoot.position + mapboxOffset;
+                targetPosition = mapboxBounds.center + mapboxOffset;
             }
             else
             {
@@ -179,7 +179,7 @@ namespace RFSimulation.Visualization
                 // Adjust sample radius based on Mapbox bounds
                 if (mapboxBounds.size.magnitude > 0)
                 {
-                    float recommendedRadius = Mathf.Min(mapboxBounds.size.x, mapboxBounds.size.z) * 0.25f;
+                    float recommendedRadius = 0.5f * Mathf.Min(mapboxBounds.size.x, mapboxBounds.size.z) * 0.95f;
                     settings.sampleRadius = Mathf.Clamp(recommendedRadius, 500f, 5000f);
                 }
             }

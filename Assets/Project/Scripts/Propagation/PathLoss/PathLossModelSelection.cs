@@ -88,23 +88,6 @@ namespace RFSimulation.Propagation.PathLoss
             }
         }
 
-        /// <summary>
-        /// Determine if Two-Ray model is most appropriate
-        /// Reference: Rappaport Chapter 4.5, ITU-R P.526
-        /// </summary>
-        private static bool IsTwoRayApplicable(float distance, float frequency)
-        {
-            // Two-ray is optimal when:
-            // 1. Long distance where ground reflection dominates
-            // 2. Relatively flat terrain (approximated by free space environment)
-            // 3. Beyond Hata's validated range
-            // Reference: Rappaport, Section 4.5.1
-
-            bool isLongDistance = distance > 20000f; // Beyond Hata range
-            bool isReasonableFrequency = frequency >= 30f && frequency <= 3000f; // VHF to UHF range
-
-            return isLongDistance && isReasonableFrequency;
-        }
 
         /// <summary>
         /// Get model applicability information for debugging/validation
@@ -115,13 +98,11 @@ namespace RFSimulation.Propagation.PathLoss
 
             // Check each model's applicability
             info.FreeSpace = CheckFreeSpaceApplicability(context);
-            info.TwoRay = CheckTwoRayApplicability(context);
             info.Hata = CheckHataApplicability(context);
             info.COST231 = CheckCOST231Applicability(context);
             info.LogDistance = CheckLogDistanceApplicability(context);
 
             info.RecommendedModel = SelectOptimalModel(context);
-            info.SelectionReason = GetSelectionReason(context, info.RecommendedModel);
 
             return info;
         }
@@ -136,21 +117,6 @@ namespace RFSimulation.Propagation.PathLoss
                 return new ModelValidityStatus(false, "Distance too large for free space assumption");
             else
                 return new ModelValidityStatus(true, "Suitable for LOS scenarios");
-        }
-
-        private static ModelValidityStatus CheckTwoRayApplicability(PropagationContext context)
-        {
-            // Two-ray: Ground reflection dominant
-            // Reference: Rappaport Section 4.5
-            bool distanceOk = context.Distance > 100f && context.Distance < 50000f;
-            bool frequencyOk = context.FrequencyMHz >= 30f && context.FrequencyMHz <= 3000f;
-
-            if (!distanceOk)
-                return new ModelValidityStatus(false, $"Distance {context.Distance}m outside optimal range (100m-50km)");
-            if (!frequencyOk)
-                return new ModelValidityStatus(false, $"Frequency {context.FrequencyMHz}MHz outside validated range (30-3000MHz)");
-
-            return new ModelValidityStatus(true, "Good for scenarios with dominant ground reflection");
         }
 
         private static ModelValidityStatus CheckHataApplicability(PropagationContext context)
@@ -214,13 +180,11 @@ namespace RFSimulation.Propagation.PathLoss
     public class ModelApplicabilityInfo
     {
         public ModelValidityStatus FreeSpace;
-        public ModelValidityStatus TwoRay;
         public ModelValidityStatus Hata;
         public ModelValidityStatus COST231;
         public ModelValidityStatus LogDistance;
 
         public PropagationModel RecommendedModel;
-        public string SelectionReason;
 
     }
 

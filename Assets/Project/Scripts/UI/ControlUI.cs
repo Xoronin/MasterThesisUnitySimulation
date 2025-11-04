@@ -77,7 +77,7 @@ namespace RFSimulation.UI
         private bool isPlacingTransmitter = false;
         private bool isPlacingReceiver = false;
 
-        private PropagationModel _defaultTxModel = PropagationModel.Auto;
+        private PropagationModel _defaultTxModel = PropagationModel.RayTracing;
 
         // Managers we actually need here (no ScenarioManager here)
         private ConnectionManager connectionManager;
@@ -165,27 +165,26 @@ namespace RFSimulation.UI
         {
             if (receiverTechnologyDropdown != null)
             {
-                var technologies = new List<string> { "5G", "LTE" };
+                var technologies = new List<string> { "5GSub6", "5GmmWave", "LTE" };
                 receiverTechnologyDropdown.ClearOptions();
                 receiverTechnologyDropdown.AddOptions(technologies);
-                receiverTechnologyDropdown.value = 0; // Default 5G
+                receiverTechnologyDropdown.value = 0; 
             }
         }
 
         private static readonly string[] ModelNames =
-            { "Auto", "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
+            { "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
 
         private static PropagationModel ModelFromIndex(int i)
         {
             switch (i)
             {
-                case 0: return PropagationModel.Auto;
-                case 1: return PropagationModel.FreeSpace;
-                case 2: return PropagationModel.LogDistance;
-                case 3: return PropagationModel.Hata;          // adjust if your enum is OkumuraHata
-                case 4: return PropagationModel.COST231;   // adjust to your exact enum name
-                case 5: return PropagationModel.RayTracing;
-                default: return PropagationModel.Auto;
+                case 0: return PropagationModel.FreeSpace;
+                case 1: return PropagationModel.LogDistance;
+                case 2: return PropagationModel.Hata;    
+                case 3: return PropagationModel.COST231;   
+                case 4: return PropagationModel.RayTracing;
+                default: return PropagationModel.RayTracing;
             }
         }
 
@@ -193,13 +192,12 @@ namespace RFSimulation.UI
         {
             switch (m)
             {
-                case PropagationModel.Auto: return 0;
-                case PropagationModel.FreeSpace: return 1;
-                case PropagationModel.LogDistance: return 2;
-                case PropagationModel.Hata: return 3;  // adjust if needed
-                case PropagationModel.COST231: return 4;  // adjust if needed
-                case PropagationModel.RayTracing: return 5;
-                default: return 0;
+                case PropagationModel.FreeSpace: return 0;
+                case PropagationModel.LogDistance: return 1;
+                case PropagationModel.Hata: return 2; 
+                case PropagationModel.COST231: return 3;  
+                case PropagationModel.RayTracing: return 4;
+                default: return 4;
             }
         }
 
@@ -300,7 +298,6 @@ namespace RFSimulation.UI
 
             UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")}");
             SimulationManager.Instance?.RecomputeAllSignalStrength();
-
         }
 
         private void OnBuildingsToggled(bool enabled)
@@ -314,9 +311,8 @@ namespace RFSimulation.UI
 
         private void ToggleHeatmap(bool enabled)
         {
-            var heatmaps = FindObjectsByType<SignalHeatmap>(FindObjectsSortMode.None);
-            foreach (var hm in heatmaps)
-                hm?.SetUIEnabled(enabled);
+            var heatmap = FindAnyObjectByType<SignalHeatmap>();
+            heatmap.SetUIEnabled(enabled);
 
             UpdateStatusText($"Heatmap {(enabled ? "enabled" : "disabled")}");
         }
@@ -874,8 +870,9 @@ namespace RFSimulation.UI
         }
 
         private void RecomputeRaysFor(Transmitter tx)
-        {
+        {         
             if (tx == null) return;
+            if (tx.propagationModel != PropagationModel.RayTracing) return;
             var rxs = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
             for (int i = 0; i < rxs.Length; i++)
             {

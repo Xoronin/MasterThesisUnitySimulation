@@ -15,10 +15,12 @@ namespace RFSimulation.Propagation.Core
 
         // Optional parameters with defaults
         public float AntennaGainDbi { get; set; }
+        public float ReceiverGainDbi { get; set; }
         public float ReceiverSensitivityDbm { get; set; }
         public PropagationModel Model { get; set; }
         public LayerMask? BuildingLayers { get; set; }
         public TechnologyType Technology { get; set; }
+        public bool IsLOS { get; set; }
 
         // Computed properties
         public float Distance => Vector3.Distance(TransmitterPosition, ReceiverPosition);
@@ -80,10 +82,12 @@ namespace RFSimulation.Propagation.Core
                 TransmitterPowerDbm = TransmitterPowerDbm,
                 FrequencyMHz = FrequencyMHz,
                 AntennaGainDbi = AntennaGainDbi,
+                ReceiverGainDbi = ReceiverGainDbi,
                 ReceiverSensitivityDbm = ReceiverSensitivityDbm,
                 Model = Model,
                 BuildingLayers = BuildingLayers,
-                Technology = Technology
+                Technology = Technology,
+                IsLOS = IsLOS
             };
         }
     }
@@ -91,7 +95,6 @@ namespace RFSimulation.Propagation.Core
     // Enums
     public enum PropagationModel
     {
-        Auto,
         FreeSpace,
         LogDistance,
         Hata,                    
