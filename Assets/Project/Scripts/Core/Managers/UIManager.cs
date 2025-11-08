@@ -3,9 +3,7 @@ using UnityEngine.UI;
 
 namespace RFSimulation.UI
 {
-    /// <summary>
-    /// Simple panel toggle manager: each button toggles its corresponding panel.
-    /// </summary>
+
     public class UIManager : MonoBehaviour
     {
         [Header("UI Components (Optional)")]
@@ -24,7 +22,6 @@ namespace RFSimulation.UI
         public Button scenarioButton;
         public Button statusButton;
 
-        // Fired after any visibility change: (controlVisible, scenarioVisible, statusVisible)
         public System.Action<bool, bool, bool> OnPanelVisibilityChanged;
 
         void Start()
@@ -90,12 +87,6 @@ namespace RFSimulation.UI
             targetPanel.SetActive(show);
 
             FireVisibilityEvent();
-        }
-
-        private void SetActiveSafe(GameObject panel, bool active, GameObject except = null)
-        {
-            if (panel == null || panel == except) return;
-            panel.SetActive(active);
         }
 
         private void FireVisibilityEvent()

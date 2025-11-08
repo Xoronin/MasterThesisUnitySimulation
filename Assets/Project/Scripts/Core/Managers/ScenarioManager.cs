@@ -7,6 +7,7 @@ using System.Linq;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Components;
 using System;
+using RFSimulation.Utils;
 
 namespace RFSimulation.Core.Managers
 {
@@ -18,13 +19,10 @@ namespace RFSimulation.Core.Managers
 
         [Header("Equipment")]
         public List<TransmitterConfig> transmitters;
-        public List<ReceiverConfig> receiverPositions;
+        public List<ReceiverConfig> receivers;
 
         [Header("Propagation")]
         public PropagationModel propagationModel;
-
-        [Header("Settings")] 
-        public ScenarioSettings settings = new ScenarioSettings();
     }
 
     [System.Serializable]
@@ -48,12 +46,6 @@ namespace RFSimulation.Core.Managers
         public float receiverHeight;
     }
 
-    [System.Serializable]
-    public class ScenarioSettings
-    {
-        public bool showConnections = true;
-    }
-
     public class ScenarioManager : MonoBehaviour
     {
         public static ScenarioManager Instance { get; private set; }
@@ -66,9 +58,7 @@ namespace RFSimulation.Core.Managers
         public GameObject transmitterPrefab;
         public GameObject receiverPrefab;
 
-        [Header("Auto-Load Control")]
-        public bool autoLoadScenariosOnStart = false;
-        public bool autoRunFirstScenario = false;
+        public string scenariosfolder = "Project/Data/Scenarios";
 
 
         // Events for UI updates
@@ -90,25 +80,14 @@ namespace RFSimulation.Core.Managers
 
         void Start()
         {
-
-            // Only load if auto-load is enabled
-            if (autoLoadScenariosOnStart)
-            {
-                LoadAllScenarios();
-
-                if (autoRunFirstScenario && scenarios.Count > 0)
-                {
-                    RunScenario(currentScenarioIndex);
-                }
-
-            }
+            LoadAllScenarios();
         }
 
         public void LoadAllScenarios()
         {
             scenarios.Clear();
 
-            string scenarioPath = Application.dataPath + "/Project/Data/Scenarios/";
+            string scenarioPath = System.IO.Path.Combine(Application.dataPath, scenariosfolder);
 
             // Create directory if it doesn't exist
             if (!Directory.Exists(scenarioPath))
@@ -126,7 +105,6 @@ namespace RFSimulation.Core.Managers
                 {
                     string json = File.ReadAllText(filePath);
 
-                    // Try to load as new format first, fallback to old format
                     Scenario scenario = LoadScenarioFromJson(json, filePath);
 
                     if (scenario != null && !string.IsNullOrEmpty(scenario.scenarioName))
@@ -140,7 +118,6 @@ namespace RFSimulation.Core.Managers
                 }
             }
 
-            // Notify UI about loaded scenarios
             List<string> scenarioNames = scenarios.Select(s => s.scenarioName).ToList();
             OnScenariosLoaded?.Invoke(scenarioNames);
         }
@@ -149,11 +126,9 @@ namespace RFSimulation.Core.Managers
         {
             try
             {
-                // Try new format first
                 Scenario scenario = JsonUtility.FromJson<Scenario>(json);
 
-                // Check if we got a valid new format scenario
-                if (scenario != null && scenario.transmitters != null && scenario.receiverPositions != null)
+                if (scenario != null && scenario.transmitters != null && scenario.receivers != null)
                 {
                     return scenario;
                 }
@@ -177,107 +152,20 @@ namespace RFSimulation.Core.Managers
             RunScenario(currentScenarioIndex);
         }
 
-        public void SelectScenarioByName(string scenarioName)
+        public void DeleteScenario(string scenarioName)
         {
-            int index = scenarios.FindIndex(s => s.scenarioName == scenarioName);
-            if (index >= 0)
+            scenarioName = scenarioName + ".json";
+            string filePath = System.IO.Path.Combine(Application.dataPath, scenariosfolder, scenarioName); 
+            if (System.IO.File.Exists(filePath))
             {
-                SelectScenario(index);
-            }
-        }
-
-        public void RunScenario(int index)
-        {
-            if (index < 0 || index >= scenarios.Count) return;
-
-            // Clear existing objects
-            ClearCurrentScenario();
-
-            Scenario scenario = scenarios[index];
-
-            // NEW: Apply scenario settings to ConnectionManager
-            ApplyScenarioSettings(scenario);
-
-            // Create transmitters from scenario
-            foreach (var txConfig in scenario.transmitters)
-            {
-                CreateTransmitterFromConfig(txConfig);
-            }
-
-            // Create receivers from scenario (updated for new format)
-            foreach (var rxConfig in scenario.receiverPositions)
-            {
-                CreateReceiverFromConfig(rxConfig);
-            }
-
-            // Notify UI about scenario change
-            OnScenarioChanged?.Invoke(scenario.scenarioName);
-            OnScenarioLoaded?.Invoke(scenario);
-
-        }
-
-        private void ApplyScenarioSettings(Scenario scenario)
-        {
-            if (SimulationManager.Instance?.connectionManager != null)
-            {
-                var connectionManager = SimulationManager.Instance.connectionManager;
-
-                // Apply scenario settings
-                var s = connectionManager.GetSettings();
-                connectionManager.ApplySettings(s); 
-
-            }
-        }
-
-        private void CreateTransmitterFromConfig(TransmitterConfig config)
-        {
-            if (transmitterPrefab == null)
-            {
-                return;
-            }
-
-            GameObject txObj = Instantiate(transmitterPrefab, config.position, Quaternion.identity);
-            Transmitter transmitter = txObj.GetComponent<Transmitter>();
-
-            if (transmitter != null)
-            {
-                // Apply configuration
-                transmitter.transmitterPower = config.powerDbm;
-                transmitter.antennaGain = config.antennaGain;
-                transmitter.frequency = config.frequency;
-
-                // NEW: Apply propagation settings
-                transmitter.propagationModel = config.propagationModel;
-
-                transmitter.SetTransmitterHeight(Mathf.Max(0f, config.transmitterHeight));
-            }
-        }
-
-        private void CreateReceiverFromConfig(ReceiverConfig config)
-        {
-            if (receiverPrefab == null)
-            {
-                return;
-            }
-
-            GameObject rxObj = Instantiate(receiverPrefab, config.position, Quaternion.identity);
-            Receiver receiver = rxObj.GetComponent<Receiver>();
-
-            if (receiver != null)
-            {
-                // Apply configuration
-                receiver.SetTechnology(config.technology);
-                receiver.sensitivity = config.sensitivity;
-                receiver.receiverHeight = config.receiverHeight;
-            }
-        }
-
-        private void ClearCurrentScenario()
-        {
-            // Clear all existing transmitters and receivers
-            if (SimulationManager.Instance != null)
-            {
-                SimulationManager.Instance.ClearAllEquipment();
+                try
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
         }
 
@@ -289,9 +177,8 @@ namespace RFSimulation.Core.Managers
             {
                 scenarioName = scenarioName,
                 transmitters = new List<TransmitterConfig>(),
-                receiverPositions = new List<ReceiverConfig>(),
-                propagationModel = PropagationModel.RayTracing, 
-                settings = new ScenarioSettings()
+                receivers = new List<ReceiverConfig>(),
+                propagationModel = PropagationModel.RayTracing,
             };
 
             if (SimulationManager.Instance.connectionManager != null)
@@ -344,7 +231,7 @@ namespace RFSimulation.Core.Managers
                         sensitivity = (float)Math.Round(receiver.sensitivity, 2),
                         receiverHeight = (float)Math.Round(receiver.receiverHeight, 2)
                     };
-                    newScenario.receiverPositions.Add(config);
+                    newScenario.receivers.Add(config);
                 }
             }
 
@@ -355,8 +242,9 @@ namespace RFSimulation.Core.Managers
             }
 
             // Save to file
-            string scenarioPath = Application.dataPath + "/Project/Data/Scenarios/";
-            string filePath = scenarioPath + scenarioName + ".json";
+            string scenarioPath = System.IO.Path.Combine(Application.dataPath, scenariosfolder);
+            scenarioName = scenarioName + ".json";
+            string filePath = System.IO.Path.Combine(scenarioPath, scenarioName);
 
             try
             {
@@ -372,19 +260,90 @@ namespace RFSimulation.Core.Managers
             }
         }
 
-        // Helper methods
-        public List<string> GetScenarioNames()
+        public void RunScenario(int index)
         {
-            return scenarios.Select(s => s.scenarioName).ToList();
+            if (index < 0 || index >= scenarios.Count) return;
+
+            ClearCurrentScenario();
+
+            Scenario scenario = scenarios[index];
+
+            ApplyScenarioSettings(scenario);
+
+            foreach (var txConfig in scenario.transmitters)
+            {
+                CreateTransmitterFromConfig(txConfig);
+            }
+
+            foreach (var rxConfig in scenario.receivers)
+            {
+                CreateReceiverFromConfig(rxConfig);
+            }
+
+            OnScenarioChanged?.Invoke(scenario.scenarioName);
+            OnScenarioLoaded?.Invoke(scenario);
+
         }
 
-        public string GetCurrentScenarioName()
+        private void ApplyScenarioSettings(Scenario scenario)
         {
-            if (currentScenarioIndex >= 0 && currentScenarioIndex < scenarios.Count)
+            if (SimulationManager.Instance?.connectionManager != null)
             {
-                return scenarios[currentScenarioIndex].scenarioName;
+                var connectionManager = SimulationManager.Instance.connectionManager;
+
+                var s = connectionManager.GetSettings();
+                connectionManager.ApplySettings(s); 
             }
-            return "None";
+        }
+
+        private void CreateTransmitterFromConfig(TransmitterConfig config)
+        {
+            if (transmitterPrefab == null)
+            {
+                return;
+            }
+
+            GameObject txObj = Instantiate(transmitterPrefab, config.position, Quaternion.identity);
+            PlaceObjectsHelper.Organize(txObj);
+            Transmitter transmitter = txObj.GetComponent<Transmitter>();
+
+            if (transmitter != null)
+            {
+                transmitter.transmitterPower = config.powerDbm;
+                transmitter.antennaGain = config.antennaGain;
+                transmitter.frequency = config.frequency;
+                transmitter.SetPropagationModel(config.propagationModel);
+                transmitter.SetTransmitterHeight(Mathf.Max(0f, config.transmitterHeight));
+            }
+        }
+
+        private void CreateReceiverFromConfig(ReceiverConfig config)
+        {
+            if (receiverPrefab == null)
+            {
+                return;
+            }
+
+            GameObject rxObj = Instantiate(receiverPrefab, config.position, Quaternion.identity);
+            PlaceObjectsHelper.Organize(rxObj);
+            Receiver receiver = rxObj.GetComponent<Receiver>();
+
+            if (receiver != null)
+            {
+                // Apply configuration
+                receiver.SetTechnology(config.technology);
+                receiver.sensitivity = config.sensitivity;
+                receiver.receiverHeight = config.receiverHeight;
+            }
+        }
+
+        public void ClearCurrentScenario()
+        {
+            // Clear all existing transmitters and receivers
+            if (SimulationManager.Instance != null)
+            {
+                SimulationManager.Instance.ClearAllEquipment();
+            }
         }
 
         public Scenario GetCurrentScenario()
@@ -396,38 +355,5 @@ namespace RFSimulation.Core.Managers
             return null;
         }
 
-
-        public static Scenario LoadScenario(string fileName)
-        {
-            string path = Application.dataPath + "/Project/Data/Scenarios/" + fileName + ".json";
-            if (File.Exists(path))
-            {
-                string json = File.ReadAllText(path);
-                return JsonUtility.FromJson<Scenario>(json);
-            }
-            else
-            {
-                Debug.LogError($"❌ Scenario file not found: {path}");
-                return null;
-            }
-        }
-
-        // Context menu methods for testing
-        [ContextMenu("Test Load Scenarios")]
-        public void TestLoadScenarios()
-        {
-            LoadAllScenarios();
-        }
-    }
-
-
-    // Helper class for backward compatibility with old scenario format
-    [System.Serializable]
-    internal class OldScenarioFormat
-    {
-        public string scenarioName;
-        public List<TransmitterConfig> transmitters;
-        public List<Vector3> receiverPositions; 
-        public PropagationModel propagationModel;
     }
 }

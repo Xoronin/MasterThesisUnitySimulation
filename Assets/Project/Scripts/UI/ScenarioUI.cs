@@ -8,6 +8,7 @@ using RFSimulation.Core.Managers;
 using RFSimulation.Propagation;
 using RFSimulation.Core.Components;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Utils;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -53,8 +54,6 @@ namespace RFSimulation.UI
 
         private ControlUI controlUI;
         private ScenarioManager scenarioManager;
-        private ConnectionManager connectionManager;
-        private List<Scenario> availableScenarios = new List<Scenario>();
 
         void Start()
         {
@@ -66,10 +65,6 @@ namespace RFSimulation.UI
         private void Initialize()
         {
             scenarioManager = ScenarioManager.Instance;
-            if (SimulationManager.Instance != null)
-            {
-                connectionManager = SimulationManager.Instance.connectionManager;
-            }
             controlUI = FindAnyObjectByType<ControlUI>();
         }
 
@@ -92,6 +87,7 @@ namespace RFSimulation.UI
             if (newScenarioButton != null)
                 newScenarioButton.onClick.AddListener(CreateNewScenario);
 
+            // Data export
             if (exportButton != null)
                 exportButton.onClick.AddListener(ExportCurrentScenario);
 
@@ -107,6 +103,17 @@ namespace RFSimulation.UI
             }
         }
 
+        void OnDestroy()
+        {
+            // Unsubscribe from events
+            if (scenarioManager != null)
+            {
+                scenarioManager.OnScenariosLoaded -= OnScenariosLoaded;
+                scenarioManager.OnScenarioChanged -= OnScenarioChanged;
+                scenarioManager.OnScenarioLoaded -= OnScenarioLoaded;
+            }
+        }
+
         #region Scenario Management
 
         public void RefreshScenarioList()
@@ -116,6 +123,117 @@ namespace RFSimulation.UI
                 scenarioManager.LoadAllScenarios();
             }
         }
+
+        private void LoadSelectedScenario()
+        {
+            if (scenarioDropdown == null || scenarioManager == null) return;
+
+            int selectedIndex = scenarioDropdown.value;
+            if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
+            {
+                scenarioManager.SelectScenario(selectedIndex);
+                OnScenarioSelected?.Invoke(scenarioManager.scenarios[selectedIndex].scenarioName);
+            }
+        }
+
+        private void DeleteSelectedScenario()
+        {
+            if (scenarioDropdown == null || scenarioManager == null) return;
+
+            try
+            {
+                Scenario selectedScenario = GetSelectedScenario();
+                string scenarioName = selectedScenario.scenarioName;
+                scenarioManager.DeleteScenario(scenarioName);
+                SetStatusText($"✅ Deleted: { scenarioName}", Color.green);RefreshScenarioList();
+                scenarioManager.ClearCurrentScenario();
+            }
+            catch (Exception ex)
+            {
+                SetStatusText($"❌ Deletion failed: {ex.Message}", Color.red);
+                return;
+            }
+
+        }
+
+        private void SaveCurrentScenario()
+        {
+            if (newScenarioNameInput == null || scenarioManager == null) return;
+
+            string scenarioName = newScenarioNameInput.text.Trim();
+            if (string.IsNullOrEmpty(scenarioName))
+            {
+                SetStatusText("❌ Please enter a scenario name", Color.red);
+                return;
+            }
+
+            if (ValidateScenario())
+            {
+                scenarioManager.SaveCurrentScenario(scenarioName);
+                SetStatusText($"✅ Saved: {scenarioName}", Color.green);
+                RefreshScenarioList();
+                return;
+            }
+            else
+            {
+                SetStatusText("❌ Scenario validation failed", Color.red);
+                return;
+            }
+
+        }
+
+        private void CreateNewScenario()
+        {
+            scenarioManager.ClearCurrentScenario();
+
+            if (newScenarioNameInput != null)
+            {
+                newScenarioNameInput.text = "New Scenario";
+            }
+
+            SetStatusText("Ready to create new scenario", Color.blue);
+        }
+
+        private Scenario GetSelectedScenario()
+        {
+            if (scenarioDropdown == null || scenarioManager == null) return null;
+
+            int selectedIndex = scenarioDropdown.value;
+            if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
+            {
+                return scenarioManager.scenarios[selectedIndex];
+            }
+            return null;
+        }
+
+        private bool ValidateScenario()
+        {
+            bool isValid = true;
+
+            int txCount = SimulationManager.Instance.transmitters.Count;
+            int rxCount = SimulationManager.Instance.receivers.Count;
+
+            if (txCount == 0)
+            {
+                SetStatusText("No transmitters", Color.red);
+                isValid = false;
+                return isValid;
+            }
+
+            if (rxCount == 0)
+            {
+                SetStatusText("No receivers", Color.red);
+                isValid = false;
+                return isValid;
+            }
+
+            return isValid;
+        }
+
+
+        #endregion
+
+        #region Events
 
         private void OnScenariosLoaded(List<string> scenarioNames)
         {
@@ -135,78 +253,12 @@ namespace RFSimulation.UI
                 scenarioDropdown.interactable = true;
                 SetButtonsInteractable(true);
             }
-
-            SetStatusText("Scenarios loaded", Color.green);
-
         }
 
         private void OnScenarioDropdownChanged(int index)
         {
             var s = GetSelectedScenario();
             if (s != null) SetStatusText($"Selected: {s.scenarioName}", Color.cyan);
-        }
-
-        private void LoadSelectedScenario()
-        {
-            if (scenarioDropdown == null || scenarioManager == null) return;
-
-            int selectedIndex = scenarioDropdown.value;
-            if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
-            {
-                scenarioManager.SelectScenario(selectedIndex);
-                OnScenarioSelected?.Invoke(scenarioManager.scenarios[selectedIndex].scenarioName);
-            }
-        }
-
-        private void DeleteSelectedScenario()
-        {
-            if (scenarioDropdown == null || scenarioManager == null) return;
-
-            int selectedIndex = scenarioDropdown.value;
-            if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
-            {
-                string scenarioName = scenarioManager.scenarios[selectedIndex].scenarioName;
-
-                // Show confirmation dialog (simplified)
-                if (ConfirmDeletion(scenarioName))
-                {
-                    DeleteScenarioFile(scenarioName);
-                    RefreshScenarioList();
-                }
-            }
-        }
-
-        private void SaveCurrentScenario()
-        {
-            if (newScenarioNameInput == null || scenarioManager == null) return;
-
-            string scenarioName = newScenarioNameInput.text.Trim();
-            if (string.IsNullOrEmpty(scenarioName))
-            {
-                SetStatusText("❌ Please enter a scenario name", Color.red);
-                return;
-            }
-
-            ValidateScenario(scenarioManager.GetCurrentScenario());
-            scenarioManager.SaveCurrentScenario(scenarioName);
-            SetStatusText($"✅ Saved: {scenarioName}", Color.green);
-            RefreshScenarioList();
-        }
-
-        private void CreateNewScenario()
-        {
-            // Clear current scenario
-            if (SimulationManager.Instance != null)
-            {
-                SimulationManager.Instance.ClearAllEquipment();
-            }
-
-            if (newScenarioNameInput != null)
-            {
-                newScenarioNameInput.text = "New Scenario";
-            }
-
-            SetStatusText("Ready to create new scenario", Color.blue);
         }
 
         public void OnScreenshotButtonClicked()
@@ -260,9 +312,9 @@ namespace RFSimulation.UI
                         if (!rx.HasValidSignal()) continue;
 
                         Vector3 rxPos = rx.transform.position;
-                        float rxHeight = SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
-                        float rxPower = SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);
-                        float rxSens = SafeFloat(rx, nameof(rx.sensitivity), float.NaN);
+                        float rxHeight = FormatHelper.SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
+                        float rxPower = FormatHelper.SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);
+                        float rxSens = FormatHelper.SafeFloat(rx, nameof(rx.sensitivity), float.NaN);
 
                         Transmitter tx = null;
                         try { tx = rx.GetConnectedTransmitter(); } catch { }
@@ -270,28 +322,28 @@ namespace RFSimulation.UI
                             tx = transmitters.OrderBy(t => Vector3.Distance(rx.transform.position, t.transform.position)).First();
 
                         Vector3 txPos = tx.transform.position;
-                        float txHeight = SafeFloat(tx, nameof(tx.transmitterHeight), float.NaN);
-                        float txPower = SafeFloat(tx, nameof(tx.transmitterPower), float.NaN);
-                        float txFreq = SafeFloat(tx, nameof(tx.frequency), float.NaN);
+                        float txHeight = FormatHelper.SafeFloat(tx, nameof(tx.transmitterHeight), float.NaN);
+                        float txPower = FormatHelper.SafeFloat(tx, nameof(tx.transmitterPower), float.NaN);
+                        float txFreq = FormatHelper.SafeFloat(tx, nameof(tx.frequency), float.NaN);
 
                         float dist = Vector3.Distance(rxPos, txPos);
 
                         sw.WriteLine(string.Join(",", new string[] {
-                    Esc(CurrentScenarioNameOrFallback()), // scenario
-                    ts,                                    // timestamp
-                    Esc(scenarioManager != null ? tx.propagationModel.ToString() : "Unknown"), // propagation_model
-                    Esc(SafeString(rx, nameof(rx.uniqueID), rx.name)),
+                    FormatHelper.Esc(GetSelectedScenario().scenarioName),
+                    ts,                                    
+                    FormatHelper.Esc(scenarioManager != null ? tx.propagationModel.ToString() : "Unknown"), 
+                    FormatHelper.Esc(FormatHelper.SafeString(rx, nameof(rx.uniqueID), rx.name)),
                     rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
-                    FormatFloat(rxHeight, "F3"),
-                    FormatFloat(rxSens, "F1"),
-                    (float.IsNegativeInfinity(rxPower) ? "" : FormatFloat(rxPower, "F1")),
-                    Esc(SafeString(tx, nameof(tx.uniqueID), tx.name)),
+                    FormatHelper.FormatFloat(rxHeight, "F3"),
+                    FormatHelper.FormatFloat(rxSens, "F1"),
+                    (float.IsNegativeInfinity(rxPower) ? "" : FormatHelper.FormatFloat(rxPower, "F1")),
+                    FormatHelper.Esc(FormatHelper.SafeString(tx, nameof(tx.uniqueID), tx.name)),
                     txPos.x.ToString("F3"), txPos.y.ToString("F3"), txPos.z.ToString("F3"),
-                    FormatFloat(txHeight, "F3"),
-                    FormatFloat(txPower, "F1"),
-                    FormatFloat(txFreq, "F0"),
+                    FormatHelper.FormatFloat(txHeight, "F3"),
+                    FormatHelper.FormatFloat(txPower, "F1"),
+                    FormatHelper.FormatFloat(txFreq, "F0"),
                     dist.ToString("F3"),
-                    Esc(controlUI != null ? controlUI.showBuildingsToggle.IsActive().ToString() : "Unknown")
+                    FormatHelper.Esc(controlUI != null ? controlUI.showBuildingsToggle.IsActive().ToString() : "Unknown")
                 }));
                     }
                 }
@@ -401,168 +453,5 @@ namespace RFSimulation.UI
 
         #endregion
 
-        #region Helper Methods
-
-        private Scenario GetSelectedScenario()
-        {
-            if (scenarioDropdown == null || scenarioManager == null) return null;
-
-            int selectedIndex = scenarioDropdown.value;
-            if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
-            {
-                return scenarioManager.scenarios[selectedIndex];
-            }
-            return null;
-        }
-
-        private bool ConfirmDeletion(string scenarioName)
-        {
-            return true; 
-        }
-
-        private void DeleteScenarioFile(string scenarioName)
-        {
-            string filePath = Application.dataPath + "/Project/Data/Scenarios/" + scenarioName + ".json";
-            if (System.IO.File.Exists(filePath))
-            {
-                try
-                {
-                    System.IO.File.Delete(filePath);
-                    SetStatusText($"✅ Deleted: {scenarioName}", Color.green);
-                }
-                catch (System.Exception e)
-                {
-                    SetStatusText($"❌ Failed to delete: {e.Message}", Color.red);
-                }
-            }
-        }
-
-        private void CreateScenarioCopy(Scenario original, string newName)
-        {
-            // This would create a copy of the scenario
-            // Implementation would depend on your specific needs
-            SetStatusText($"📋 Scenario copied to: {newName}", Color.blue);
-        }
-
-        private void ValidateCurrentScenario()
-        {
-            var scenario = GetSelectedScenario();
-            if (scenario == null)
-            {
-                SetStatusText("❌ No scenario selected", Color.red);
-                return;
-            }
-
-            // Validate scenario
-            var issues = ValidateScenario(scenario);
-            if (issues.Count == 0)
-            {
-                SetStatusText("✅ Scenario is valid", Color.green);
-            }
-            else
-            {
-                string issueText = string.Join(", ", issues);
-                SetStatusText($"⚠️ Issues: {issueText}", Color.yellow);
-            }
-
-            OnScenarioValidated?.Invoke(scenario);
-        }
-
-        private List<string> ValidateScenario(Scenario scenario)
-        {
-            var issues = new List<string>();
-
-            if (string.IsNullOrEmpty(scenario.scenarioName))
-                issues.Add("No name");
-
-            if (scenario.transmitters == null || scenario.transmitters.Count == 0)
-                issues.Add("No transmitters");
-
-            if (scenario.receiverPositions == null || scenario.receiverPositions.Count == 0)
-                issues.Add("No receivers");
-
-            // Check for realistic values
-            foreach (var tx in scenario.transmitters)
-            {
-                if (tx.powerDbm <= 0 || tx.powerDbm > 80)
-                    issues.Add($"Invalid TX power: {tx.powerDbm}dBm");
-
-                if (tx.frequency <= 0)
-                    issues.Add($"Invalid frequency: {tx.frequency}MHz");
-            }
-
-            return issues;
-        }
-
-        private string CurrentScenarioNameOrFallback()
-        {
-            var s = GetSelectedScenario();
-            if (s != null && !string.IsNullOrEmpty(s.scenarioName)) return s.scenarioName;
-            return "current_scene";
-        }
-
-        private static string SafeString(object obj, string fieldOrProp, string fallback)
-        {
-            if (obj == null) return fallback;
-            var t = obj.GetType();
-            var p = t.GetProperty(fieldOrProp);
-            if (p != null && p.PropertyType == typeof(string)) return (string)p.GetValue(obj);
-            var f = t.GetField(fieldOrProp);
-            if (f != null && f.FieldType == typeof(string)) return (string)f.GetValue(obj);
-            return fallback;
-        }
-
-        private static float SafeFloat(object obj, string fieldOrProp, float fallback)
-        {
-            if (obj == null) return fallback;
-            var t = obj.GetType();
-            var p = t.GetProperty(fieldOrProp);
-            if (p != null && (p.PropertyType == typeof(float) || p.PropertyType == typeof(double)))
-                return Convert.ToSingle(p.GetValue(obj));
-            var f = t.GetField(fieldOrProp);
-            if (f != null && (f.FieldType == typeof(float) || f.FieldType == typeof(double)))
-                return Convert.ToSingle(f.GetValue(obj));
-            return fallback;
-        }
-
-        private static string Esc(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return "";
-            return (s.Contains(",") || s.Contains("\"")) ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
-        }
-
-        private static string FormatFloat(float v, string fmt) => float.IsNaN(v) ? "" : v.ToString(fmt);
-
-        private static bool IsTypingInUI()
-        {
-            var es = EventSystem.current;
-            if (es == null) return false;
-
-            var go = es.currentSelectedGameObject;
-            if (go == null) return false;
-
-            // Legacy InputField
-            var lf = go.GetComponent<InputField>();
-            if (lf != null && lf.isFocused) return true;
-
-            // TextMeshPro input
-            var tmp = go.GetComponent<TMP_InputField>();
-            if (tmp != null && tmp.isFocused) return true;
-
-            return false;
-        }
-
-        #endregion
-
-        void OnDestroy()
-        {
-            // Unsubscribe from events
-            if (scenarioManager != null)
-            {
-                scenarioManager.OnScenariosLoaded -= OnScenariosLoaded;
-                scenarioManager.OnScenarioChanged -= OnScenarioChanged;
-                scenarioManager.OnScenarioLoaded -= OnScenarioLoaded;
-            }
-        }
     }
 }

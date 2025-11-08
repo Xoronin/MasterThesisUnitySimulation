@@ -9,14 +9,14 @@ namespace RFSimulation.Core.Managers
     public class ConnectionSettings
     {
         [UnityEngine.Header("Signal Thresholds")]
-        public float minimumSignalThreshold = -90f; // dBm
-        public float connectionMargin = 10f; // dB above sensitivity
-        public float handoverMargin = 3f; // dB to prevent ping-ponging
+        public float minimumSignalThreshold = -90f;         // dBm
+        public float connectionMargin = 10f;                // dB above sensitivity
+        public float handoverMargin = 3f;                   // dB to prevent ping-ponging
 
         [UnityEngine.Header("Quality Requirements")]
-        public float minimumSINR = -6f; // dB
-        public float excellentSignalThreshold = 15f; // dB above sensitivity
-        public float goodSignalThreshold = 10f; // dB above sensitivity
+        public float minimumSINR = -6f;                     // dB
+        public float excellentSignalThreshold = 15f;        // dB above sensitivity
+        public float goodSignalThreshold = 10f;             // dB above sensitivity
 
     }
 

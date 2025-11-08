@@ -1,7 +1,4 @@
-﻿using RFSimulation.Core;
-using RFSimulation.Core.Components;
-using RFSimulation.Propagation.Core;
-using RFSimulation.Propagation.PathLoss;
+﻿using RFSimulation.Core.Components;
 using RFSimulation.UI;
 using RFSimulation.Visualization;
 using System.Collections.Generic;
@@ -57,10 +54,7 @@ namespace RFSimulation.Core.Managers
             if (connectionManager == null)
             {
                 connectionManager = GetComponent<ConnectionManager>();
-                if (connectionManager == null)
-                {
-                    connectionManager = gameObject.AddComponent<ConnectionManager>();
-                }
+
             }
 
             if (connectionManager != null && !connectionManager.enabled)
@@ -71,28 +65,18 @@ namespace RFSimulation.Core.Managers
             if (buildingManager == null)
             {
                 buildingManager = GetComponent<BuildingManager>();
-                if (buildingManager == null)
-                {
-                    buildingManager = gameObject.AddComponent<BuildingManager>();
-                }
+
             }
 
             if (scenarioManager == null)
             {
                 scenarioManager = GetComponent<ScenarioManager>();
-                if (scenarioManager == null)
-                {
-                    scenarioManager = gameObject.AddComponent<ScenarioManager>();
-                }
+
             }
 
             if (uiManager == null)
             {
                 uiManager = GetComponent<UIManager>();
-                if (uiManager == null)
-                {
-                    uiManager = gameObject.AddComponent<UIManager>();
-                }
             }
 
 
