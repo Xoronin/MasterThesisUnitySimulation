@@ -1,11 +1,31 @@
 using System.Collections.Generic;
 using UnityEngine;
 using RFSimulation.Core;
-using RFSimulation.Core.Connections;
 using RFSimulation.Core.Components;
 
 namespace RFSimulation.Core.Managers
 {
+    [System.Serializable]
+    public class ConnectionSettings
+    {
+        [UnityEngine.Header("Signal Thresholds")]
+        public float minimumSignalThreshold = -90f; // dBm
+        public float connectionMargin = 10f; // dB above sensitivity
+        public float handoverMargin = 3f; // dB to prevent ping-ponging
+
+        [UnityEngine.Header("Quality Requirements")]
+        public float minimumSINR = -6f; // dB
+        public float excellentSignalThreshold = 15f; // dB above sensitivity
+        public float goodSignalThreshold = 10f; // dB above sensitivity
+
+        [UnityEngine.Header("Multi-Connection Settings")]
+        public int maxSimultaneousConnections = 3;
+        public bool allowLoadBalancing = true;
+
+        [UnityEngine.Header("Debug")]
+        public bool enableDebugLogs = false;
+    }
+
     /// <summary>
     /// Manages all connection strategies and switching between them
     /// </summary>
@@ -18,30 +38,11 @@ namespace RFSimulation.Core.Managers
         public float updateInterval = 1f;
         private float lastUpdateTime = 0f;
 
-        [Header("Strategy Selection")]
-        public StrategyType currentStrategyType = StrategyType.StrongestSignal;
-
         // Events for UI updates
         public System.Action<int, int> OnConnectionsUpdated; // (totalConnections, totalReceivers)
-        public System.Action<string> OnStrategyChanged;
-
-        private Dictionary<StrategyType, IConnectionStrategy> strategies;
-        public IConnectionStrategy strategy;
-
-        private void InitializeStrategies()
-        {
-            strategies = new Dictionary<StrategyType, IConnectionStrategy>
-            {
-                { StrategyType.StrongestSignal, new StrongestSignalStrategy() },
-                { StrategyType.BestServerWithInterference, new BestServerWithInterferenceStrategy() }
-            };
-        }
 
         void Start()
         {
-            InitializeStrategies();
-            strategy = strategies[currentStrategyType];
-
             if (SimulationManager.Instance != null && !SimulationManager.Instance.isSimulationRunning)
             {
                 SimulationManager.Instance.StartSimulation();
@@ -61,7 +62,7 @@ namespace RFSimulation.Core.Managers
 
         public void UpdateAllConnections()
         {
-            if (strategy == null || SimulationManager.Instance == null) return;
+            if (SimulationManager.Instance == null) return;
 
             var transmitters = SimulationManager.Instance.transmitters;
             var receivers = SimulationManager.Instance.receivers;
@@ -69,11 +70,66 @@ namespace RFSimulation.Core.Managers
             if (transmitters.Count == 0 || receivers.Count == 0) return;
 
             // Apply the current strategy
-            strategy.UpdateConnections(transmitters, receivers, settings);
+            UpdateConnections(transmitters, receivers, settings);
 
             // Notify UI of connection statistics
             int totalConnections = CountTotalConnections(receivers);
             OnConnectionsUpdated?.Invoke(totalConnections, receivers.Count);
+        }
+
+
+        public void UpdateConnections(List<Transmitter> transmitters, List<Receiver> receivers, ConnectionSettings settings)
+        {
+            foreach (var receiver in receivers)
+            {
+                if (receiver == null) continue;
+
+                Transmitter bestTx = null;
+                float bestSignal = float.NegativeInfinity;
+
+                foreach (var transmitter in transmitters)
+                {
+                    if (transmitter == null) continue;
+
+                    float signal = transmitter.CalculateSignalStrength(receiver.transform.position);
+
+                    // Apply handover margin to current serving cell
+                    float effectiveSignal = signal;
+                    if (receiver.GetConnectedTransmitter() == transmitter)
+                    {
+                        effectiveSignal += settings.handoverMargin;
+                    }
+
+                    if (effectiveSignal > bestSignal && signal > settings.minimumSignalThreshold)
+                    {
+                        bestSignal = signal;
+                        bestTx = transmitter;
+                    }
+                }
+
+                // Update receiver connection
+                receiver.UpdateSignalStrength(bestSignal);
+                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 20f : float.NegativeInfinity); // Assume good SINR
+
+                // Clear connections to other transmitters
+                foreach (var transmitter in transmitters)
+                {
+                    if (transmitter != bestTx)
+                    {
+                        transmitter.DisconnectFromReceiver(receiver);
+                    }
+                }
+
+                // Establish new connection if we found a suitable transmitter
+                if (bestTx != null)
+                {
+                    bestTx.ConnectToReceiver(receiver);
+                }
+                else
+                {
+                    receiver.SetConnectedTransmitter(null);
+                }
+            }
         }
 
         private int CountTotalConnections(List<Receiver> receivers)
@@ -89,54 +145,9 @@ namespace RFSimulation.Core.Managers
             return count;
         }
 
-        public void SetConnectionStrategy(StrategyType strategyType)
-        {
-            if (strategies == null) InitializeStrategies();
-
-            currentStrategyType = strategyType;
-            strategy = strategies[strategyType];
-
-            OnStrategyChanged?.Invoke(strategy.StrategyName);
-
-            // Force immediate update with new strategy
-            UpdateAllConnections();
-        }
-
-        public List<string> GetAvailableStrategies()
-        {
-            var strategyNames = new List<string>();
-            foreach (var kvp in strategies)
-            {
-                strategyNames.Add(kvp.Value.StrategyName);
-            }
-            return strategyNames;
-        }
-
-        public void SetStrategy(int strategyIndex)
-        {
-            if (strategyIndex >= 0 && strategyIndex < System.Enum.GetValues(typeof(StrategyType)).Length)
-            {
-                SetConnectionStrategy((StrategyType)strategyIndex);
-            }
-        }
 
 
         // Public getters for UI
-
-        public string GetCurrentStrategyDescription()
-        {
-            return strategy?.Description ?? "No strategy selected";
-        }
-
-        public StrategyType GetCurrentStrategy()
-        {
-            return currentStrategyType;
-        }
-
-        public string GetCurrentStrategyName()
-        {
-            return strategy?.StrategyName ?? "None";
-        }
 
         public ConnectionSettings GetSettings()
         {

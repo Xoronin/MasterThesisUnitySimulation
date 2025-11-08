@@ -33,19 +33,6 @@ namespace RFSimulation.Environment
             }
         }
 
-        public float CalculateSignalAttenuation(float frequency, Vector3 entryPoint, Vector3 exitPoint)
-        {
-            if (!blockSignals) return 0f;
-
-            // Calculate path length through building
-            float pathLength = Vector3.Distance(entryPoint, exitPoint);
-
-            // Calculate penetration loss
-            float penetrationLoss = material.CalculatePenetrationLoss(frequency, pathLength);
-
-            return penetrationLoss;
-        }
-
         public bool IsPositionInside(Vector3 position)
         {
             Bounds bounds = GetComponent<Collider>().bounds;

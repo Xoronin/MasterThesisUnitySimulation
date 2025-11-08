@@ -16,7 +16,6 @@ public class RFBuildingModifier : GameObjectModifier
     public BuildingMaterial concrete;
     public BuildingMaterial metal;
     public BuildingMaterial glass;
-    public BuildingMaterial wood;
 
     [Header("RF Simulation Configuration")]
     [Tooltip("Layer for RF ray tracing (default: 8 = Buildings)")]
@@ -44,16 +43,9 @@ public class RFBuildingModifier : GameObjectModifier
     public override void Run(VectorEntity ve, UnityTile tile)
     {
         var go = ve.GameObject;
-
         // Must have a mesh to be usable
         var mf = go.GetComponent<MeshFilter>();
         var mesh = mf ? mf.sharedMesh : null;
-        if (!IsUsableMesh(mesh))
-        {
-            // Skip collider & material assignment for broken/degenerate features
-            // (you can still keep visual mesh, or early-return to skip everything)
-            return;
-        }
 
         if (enableRFSimulation)
         {
@@ -107,9 +99,7 @@ public class RFBuildingModifier : GameObjectModifier
         }
         catch (UnityException)
         {
-            // Tag doesn't exist - log warning but continue
-            if (enableDebugLogs)
-                Debug.LogWarning($"[RFBuildingModifier] Tag '{rfBuildingTag}' doesn't exist. " +
+            Debug.LogWarning($"[RFBuildingModifier] Tag '{rfBuildingTag}' doesn't exist. " +
                                "Create it in Project Settings > Tags and Layers");
         }
 
@@ -134,18 +124,12 @@ public class RFBuildingModifier : GameObjectModifier
                 mc.isTrigger = false; // Important for RF simulation
                 mc.cookingOptions = MeshColliderCookingOptions.EnableMeshCleaning |
                                    MeshColliderCookingOptions.CookForFasterSimulation;
-
-                if (enableDebugLogs)
-                    Debug.Log($"[RFBuildingModifier] Added MeshCollider to {go.name}");
             }
             else
             {
                 // BoxCollider fallback (faster but less accurate)
                 var bc = go.AddComponent<BoxCollider>();
                 bc.isTrigger = false;
-
-                if (enableDebugLogs)
-                    Debug.Log($"[RFBuildingModifier] Added BoxCollider to {go.name}");
             }
         }
         else
@@ -154,34 +138,10 @@ public class RFBuildingModifier : GameObjectModifier
             if (existingCollider.isTrigger)
             {
                 existingCollider.isTrigger = false;
-                if (enableDebugLogs)
-                    Debug.Log($"[RFBuildingModifier] Disabled trigger on existing collider for {go.name}");
             }
         }
     }
 
-    // ---------- SAFETY HELPERS ----------
-
-    private static bool IsUsableMesh(Mesh mesh)
-    {
-        if (mesh == null) return false;
-        if (mesh.vertexCount < 3) return false;
-
-        // Check for non-finite vertices
-        var v = mesh.vertices;
-        for (int i = 0; i < v.Length; i++)
-        {
-            if (!float.IsFinite(v[i].x) || !float.IsFinite(v[i].y) || !float.IsFinite(v[i].z))
-                return false;
-        }
-
-        // Optionally skip extremely tiny/zero-area meshes
-        var b = mesh.bounds;
-        if (!IsFinite(b.center) || !IsFinite(b.extents)) return false;
-        if (b.extents.sqrMagnitude < 1e-6f) return false;
-
-        return true;
-    }
 
     private static bool IsFinite(Vector3 p) =>
         float.IsFinite(p.x) && float.IsFinite(p.y) && float.IsFinite(p.z);
@@ -209,9 +169,8 @@ public class RFBuildingModifier : GameObjectModifier
                 case "house":
                 case "apartments":
                     return WeightedPick(rnd, new (BuildingMaterial mat, float w)[] {
-                        (brick ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),     0.55f),
-                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.35f),
-                        (wood ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Wood),       0.10f),
+                        (brick ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),     0.60f),
+                        (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.40f),
                     });
 
                 case "commercial":
@@ -259,9 +218,8 @@ public class RFBuildingModifier : GameObjectModifier
 
         // Low-rise default
         return WeightedPick(rnd, new[] {
-            (brick    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),    0.60f),
-            (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.30f),
-            (wood     ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Wood),     0.10f),
+            (brick    ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Brick),    0.65f),
+            (concrete ?? BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete), 0.35f),
         });
     }
 
@@ -290,7 +248,6 @@ public class RFBuildingModifier : GameObjectModifier
                 case "concrete": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Concrete); break;
                 case "metal": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Metal); break;
                 case "glass": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Glass); break;
-                case "wood": mat = BuildingMaterial.GetDefaultMaterial(MaterialType.Wood); break;
             }
         }
         return mat != null;
@@ -322,7 +279,6 @@ public class RFBuildingModifier : GameObjectModifier
 
     private static int StableHash(int worldSeed, string s)
     {
-        // FNV-1a 32-bit with worldSeed mixed in → deterministic across runs/platforms
         unchecked
         {
             uint hash = 2166136261u ^ (uint)worldSeed;

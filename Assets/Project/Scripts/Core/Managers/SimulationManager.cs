@@ -1,10 +1,10 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
-using RFSimulation.Core;
-using RFSimulation.Propagation.Core;
+﻿using RFSimulation.Core;
 using RFSimulation.Core.Components;
-using RFSimulation.Core.Connections;
+using RFSimulation.Propagation.Core;
+using RFSimulation.Propagation.PathLoss;
 using RFSimulation.Visualization;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace RFSimulation.Core.Managers
 {
@@ -16,7 +16,6 @@ namespace RFSimulation.Core.Managers
         public static SimulationManager Instance { get; private set; }
 
         [Header("Simulation Control")]
-        public bool autoStart = true;
         public bool isSimulationRunning = false;
 
         [Header("Equipment Lists")]
@@ -47,10 +46,7 @@ namespace RFSimulation.Core.Managers
 
         private void Start()
         {
-            if (autoStart)
-            {
-                StartSimulation();
-            }
+            StartSimulation();
         }
 
         private void InitializeSimulation()
@@ -196,13 +192,6 @@ namespace RFSimulation.Core.Managers
             }
         }
 
-        public void SetConnectionStrategy(StrategyType strategyType)
-        {
-            if (connectionManager != null)
-            {
-                connectionManager.SetConnectionStrategy(strategyType);
-            }
-        }
 
         public void UpdateConnectionSettings(ConnectionSettings settings)
         {
@@ -356,7 +345,6 @@ namespace RFSimulation.Core.Managers
                 stats.connectedReceivers = (int)connectionStats.GetValueOrDefault("connectedReceivers", 0);
                 stats.connectionPercentage = (float)connectionStats.GetValueOrDefault("connectionPercentage", 0f);
                 stats.averageSignalStrength = (float)connectionStats.GetValueOrDefault("averageSignalStrength", 0f);
-                stats.currentStrategy = (string)connectionStats.GetValueOrDefault("currentStrategy", "Unknown");
             }
 
             return stats;
@@ -376,7 +364,6 @@ namespace RFSimulation.Core.Managers
         public int connectedReceivers;
         public float connectionPercentage;
         public float averageSignalStrength;
-        public string currentStrategy;
         public bool isRunning;
     }
 }

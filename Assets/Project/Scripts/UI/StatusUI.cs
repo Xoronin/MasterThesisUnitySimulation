@@ -160,10 +160,14 @@ namespace RFSimulation.UI
         {
             if (rxTechDropdown == null) return;
             rxTechDropdown.ClearOptions();
-            rxTechDropdown.AddOptions(new System.Collections.Generic.List<Dropdown.OptionData> {
-                new Dropdown.OptionData("5G"),
-                new Dropdown.OptionData("LTE"),
+
+            // Match ControlUI technology list
+            rxTechDropdown.AddOptions(new System.Collections.Generic.List<string> {
+                "5GSub6",
+                "5GmmWave",
+                "LTE"
             });
+
             rxTechDropdown.value = 0;
             rxTechDropdown.RefreshShownValue();
         }
@@ -224,8 +228,13 @@ namespace RFSimulation.UI
         private void OnTxFreqEdited(string s)
         {
             if (_selectedTx == null) return;
-            if (TryParseFloat(s, out float v))
-                _selectedTx.UpdateFrequency((float)System.Math.Round(v, 2));
+
+            if (TryParseFloat(s, out float fGHz))
+            {
+                float fMHz = GHzToMHz(fGHz);
+                _selectedTx.UpdateFrequency((float)System.Math.Round(fMHz, 2));
+            }
+
             _selectedTx.ClearPathLossCache();
             RefreshTransmitterFields();
             RecomputeForTx();
@@ -254,9 +263,15 @@ namespace RFSimulation.UI
         private void OnRxTechChanged(int idx)
         {
             if (_selectedRx == null || rxTechDropdown == null) return;
+
             var tech = rxTechDropdown.options[idx].text;
             _selectedRx.SetTechnology(tech);
-            _selectedTx.ClearPathLossCache();
+
+            RefreshReceiverFields();
+
+            if (_selectedRx.GetConnectedTransmitter() != null)
+                _selectedRx.GetConnectedTransmitter().ClearPathLossCache();
+
             RecomputeForRx();
         }
 
@@ -353,7 +368,7 @@ namespace RFSimulation.UI
             if (_selectedTx == null) return;
             _isUpdatingUI = true;
             txPowerInput?.SetTextWithoutNotify(_selectedTx.transmitterPower.ToString("F2", Ci));
-            txFreqInput?.SetTextWithoutNotify(_selectedTx.frequency.ToString("F2", Ci));
+            txFreqInput?.SetTextWithoutNotify(MHzToGHz(_selectedTx.frequency).ToString("F2", Ci));
             txHeightInput?.SetTextWithoutNotify(_selectedTx.transmitterHeight.ToString("F2", Ci));
 
             if (txModelDropdown != null)
@@ -400,7 +415,8 @@ namespace RFSimulation.UI
                 {
                     rxConnectedTransmitter.text = tx.uniqueID;
                     distanceToTransmitter.text =
-                        Vector3.Distance(tx.transform.position, _selectedRx.transform.position).ToString("F2", Ci) + " m";
+                        Vector3.Distance(tx.transform.position, _selectedRx.transform.position)
+                            .ToString("F2", Ci) + " m";
                 }
                 else
                 {
@@ -483,5 +499,16 @@ namespace RFSimulation.UI
         private void RecomputeAll() => SimulationManager.Instance?.RecomputeAllSignalStrength();
         private void RecomputeForTx() { if (_selectedTx) SimulationManager.Instance?.RecomputeForTransmitter(_selectedTx); }
         private void RecomputeForRx() { if (_selectedRx) SimulationManager.Instance?.RecomputeForReceiver(_selectedRx); }
+
+
+        private float MHzToGHz(float mhz)
+        {
+            return mhz / 1000f;
+        }
+
+        private float GHzToMHz(float ghz)
+        {
+            return ghz * 1000f;
+        }
     }
 }

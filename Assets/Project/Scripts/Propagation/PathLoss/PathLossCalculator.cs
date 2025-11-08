@@ -14,12 +14,7 @@ namespace RFSimulation.Propagation.PathLoss
     /// </summary>
     public class PathLossCalculator
     {
-        [Header("Model Selection Settings")]
-        public bool enableAutomaticModelSelection = true;
-        public bool logModelSelectionReasons = false;
-
         [Header("Urban Settings")]
-        public bool preferRayTracing = true;
         public bool fallbackToBasicModels = true;
         public float maxDistance = 2000f; 
         public LayerMask mapboxBuildingLayer = 8;

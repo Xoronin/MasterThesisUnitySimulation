@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
 using RFSimulation.Propagation;
 using RFSimulation.Propagation.Core;
-using RFSimulation.Core.Connections;
 using RFSimulation.Core.Components;
+using RFSimulation.Core.Managers;
 
 namespace RFSimulation.Data
 {
@@ -183,18 +183,6 @@ namespace RFSimulation.Data
                 hasChanges = true;
                 Debug.LogWarning("Fixed minimum SINR");
             }
-
-            if (hasChanges)
-            {
-                Debug.Log("✅ Settings validation complete - some values were corrected");
-#if UNITY_EDITOR
-                UnityEditor.EditorUtility.SetDirty(this);
-#endif
-            }
-            else
-            {
-                Debug.Log("✅ Settings validation complete - all values are valid");
-            }
         }
 
         /// <summary>
@@ -267,8 +255,6 @@ namespace RFSimulation.Data
             enableConnectionCaching = true;
             enableBuildingPenetration = false; // Disable expensive calculations
 
-            Debug.Log("⚡ Settings optimized for performance");
-
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);
 #endif
@@ -288,8 +274,6 @@ namespace RFSimulation.Data
             maxConnectionLines = 200; // More lines
             enableLOD = false; // Disable LOD for consistent quality
             defaultLineWidth = 0.15f; // Thicker lines
-
-            Debug.Log("✨ Settings optimized for visual quality");
 
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);

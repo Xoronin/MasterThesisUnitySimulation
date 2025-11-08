@@ -15,8 +15,6 @@ namespace RFSimulation.Core.Components
     [System.Serializable]
     public class TransmitterSettings
     {
-        [Header("Ray Tracing")]
-        public bool enableRayTracing = true;
         public PropagationModel propagationModel;
 
         [Header("Performance")]
@@ -181,7 +179,6 @@ namespace RFSimulation.Core.Components
                 TransmitterHeightM = transmitterHeight,
 
                 PropagationModel = propagationModel,
-                RayTracingEnabled = settings.enableRayTracing,
                 MaxCalculationDistanceM = settings.maxCalculationDistance,
                 MaxReflections = settings.maxReflections,
                 MaxDiffractions = settings.maxDiffractions,
@@ -445,14 +442,6 @@ namespace RFSimulation.Core.Components
         #endregion
 
         #region Configuration
-        /// <summary>
-        /// Enables or disables ray tracing.
-        /// </summary>
-        public void SetRayTracingEnabled(bool enabled)
-        {
-            settings.enableRayTracing = enabled;
-            RefreshConnections();
-        }
 
         /// <summary>
         /// Sets the maximum calculation distance (m).
@@ -683,27 +672,58 @@ namespace RFSimulation.Core.Components
         public void EnableRayVisualization()
         {
             showRayPaths = true;
-            settings.enableRayTracing = true;
-            propagationModel = PropagationModel.RayTracing;
 
+            // Only switch to RayTracing if not already using it
+            if (propagationModel != PropagationModel.RayTracing)
+            {
+                propagationModel = PropagationModel.RayTracing;
+                // Force calculator reinit after model change
+                if (pathLossCalculator != null)
+                {
+                    pathLossCalculator = null;
+                    InitializeCalculators();
+                }
+            }
+
+            // Ensure calculator exists
+            if (pathLossCalculator == null)
+            {
+                InitializeCalculators();
+            }
+
+            // Ensure visualizer reference exists
+            if (rayVisualization == null)
+            {
+                rayVisualization = FindAnyObjectByType<RayVisualization>();
+            }
+
+            // Get the ray tracing model
             var model = pathLossCalculator?.GetRayTracingModel();
             if (model == null)
             {
-                var anyRx = FindFirstObjectByType<Receiver>();
-                if (anyRx != null) CalculateSignalStrength(anyRx.transform.position);
-                model = pathLossCalculator?.GetRayTracingModel();
-                model.enableRayVisualization = true;
-                model.Visualizer = rayVisualization;
-            }
-            if (model == null)
-            {
-                Debug.LogWarning("[TX] Ray tracing model not available. Check propagationModel and settings.enableRayTracing.");
+                Debug.LogWarning("[TX] Ray tracing model not available after initialization. Check propagation model.");
                 return;
             }
 
+            // Configure the model for visualization
+            model.enableRayVisualization = true;
+            model.Visualizer = rayVisualization;
+
+            // Force recalculation to draw rays immediately
             var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
-            for (int i = 0; i < receivers.Length; i++)
-                CalculateSignalStrength(receivers[i].transform.position);
+            if (receivers.Length == 0)
+            {
+                Debug.Log("[TX] No receivers found - rays will appear when receivers are added.");
+                return;
+            }
+
+            foreach (var receiver in receivers)
+            {
+                if (receiver != null)
+                {
+                    CalculateSignalStrength(receiver.transform.position);
+                }
+            }
         }
 
         /// <summary>
@@ -712,10 +732,16 @@ namespace RFSimulation.Core.Components
         public void DisableRayVisualization()
         {
             showRayPaths = false;
+
             var model = pathLossCalculator?.GetRayTracingModel();
             if (model != null)
             {
                 model.enableRayVisualization = false;
+            }
+
+            // Clear all rays from visualizer
+            if (rayVisualization != null)
+            {
                 rayVisualization.ClearAll();
             }
         }
@@ -741,7 +767,6 @@ namespace RFSimulation.Core.Components
             pathLossCalculator = new PathLossCalculator
             {
                 mapboxBuildingLayer = settings.mapboxBuildingLayer,
-                preferRayTracing = settings.enableRayTracing,
                 maxDistance = settings.maxCalculationDistance
             };
 

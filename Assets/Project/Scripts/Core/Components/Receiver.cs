@@ -83,10 +83,6 @@ namespace RFSimulation.Core.Components
             sensitivity = techSpec.SensitivityDbm;
             connectionMargin = techSpec.ConnectionMarginDb;
             minimumSINR = techSpec.MinimumSINRDb;
-
-            Debug.Log($"[Receiver {uniqueID}] Configured for {techSpec.Name}: " +
-                     $"Sensitivity={sensitivity:F1}dBm, Margin={connectionMargin:F1}dB, " +
-                     $"MinSINR={minimumSINR:F1}dB");
         }
 
         /// <summary>
@@ -153,11 +149,24 @@ namespace RFSimulation.Core.Components
                    currentSINR >= minimumSINR;
         }
 
+        public bool IsAboveSensitivity()
+        {
+            return currentSignalStrength >= sensitivity;
+        }
+
         public void UpdateSignalStrength(float signalStrength, float sinr = 0f)
         {
-            currentSignalStrength = signalStrength;
-            currentSINR = sinr;
-            currentQuality = new SignalQualityMetrics(sinr, GetTechnologyType());
+            if (signalStrength >= sensitivity)
+            {
+                currentSignalStrength = signalStrength;
+                currentSINR = sinr;
+                currentQuality = new SignalQualityMetrics(sinr, GetTechnologyType());
+            }
+            else
+            {
+                // Below sensitivity = no usable signal
+                ClearSignalMetrics();
+            }
         }
 
         public void UpdateSINR(float sinr)
@@ -174,13 +183,28 @@ namespace RFSimulation.Core.Components
         public void ClearConnection()
         {
             connectedTransmitter = null;
+            ClearSignalMetrics();
+        }
+
+        /// <summary>
+        /// Clear all signal metrics (used when no connection or below sensitivity).
+        /// </summary>
+        private void ClearSignalMetrics()
+        {
             currentSignalStrength = float.NegativeInfinity;
             currentSINR = float.NegativeInfinity;
+            currentQuality = null;
         }
 
         public bool IsConnected() => connectedTransmitter != null;
         public Transmitter GetConnectedTransmitter() => connectedTransmitter;
         public SignalQualityCategory GetSignalQuality() => GetSignalQualityCategory();
+
+        public bool HasValidSignal()
+        {
+            return !float.IsNegativeInfinity(currentSignalStrength) &&
+                   currentSignalStrength >= sensitivity;
+        }
         #endregion
 
         #region Metrics

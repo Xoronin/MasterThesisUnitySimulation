@@ -1,14 +1,13 @@
-﻿using TMPro;
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.EventSystems;
-using System.Collections.Generic;
-using RFSimulation.Core.Components;
+﻿using RFSimulation.Core.Components;
 using RFSimulation.Core.Managers;
-using RFSimulation.Core.Connections;
-using RFSimulation.Visualization;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Utils;
+using RFSimulation.Visualization;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace RFSimulation.UI
 {
@@ -168,8 +167,23 @@ namespace RFSimulation.UI
                 var technologies = new List<string> { "5GSub6", "5GmmWave", "LTE" };
                 receiverTechnologyDropdown.ClearOptions();
                 receiverTechnologyDropdown.AddOptions(technologies);
-                receiverTechnologyDropdown.value = 0; 
+                receiverTechnologyDropdown.value = 0;
+
+                receiverTechnologyDropdown.onValueChanged.AddListener(OnReceiverTechnologyChanged);
             }
+        }
+
+        private void OnReceiverTechnologyChanged(int index)
+        {
+            // When user changes dropdown, update all UI fields from spec
+            if (receiverTechnologyDropdown == null) return;
+
+            string tech = receiverTechnologyDropdown.options[index].text;
+            var spec = TechnologySpecifications.GetSpec(tech);
+
+            // Update receiver UI fields to match technology defaults
+            if (receiverSensitivityInput != null)
+                receiverSensitivityInput.text = spec.SensitivityDbm.ToString("F1");
         }
 
         private static readonly string[] ModelNames =
@@ -325,8 +339,9 @@ namespace RFSimulation.UI
                 if (tx == null) continue;
                 if (enabled)
                 {
-                    tx.EnableRayVisualization();   // ensures RT model + viz flags
-                    RecomputeRaysFor(tx);          // <— force draw NOW
+                    tx.showRayPaths = true;
+                    tx.EnableRayVisualization();
+                    RecomputeRaysFor(tx);          
                 }
                 else
                 {
@@ -438,8 +453,11 @@ namespace RFSimulation.UI
                 if (transmitterPowerInput != null && float.TryParse(transmitterPowerInput.text, out float p))
                     tx.transmitterPower = p;
 
-                if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float f))
-                    tx.frequency = f;
+                if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
+                {
+                    float fMHz = GHzToMHz(fGHz);
+                    tx.frequency = fMHz;
+                }
 
                 if (transmitterPropagationModelDropdown != null)
                 {
@@ -472,17 +490,19 @@ namespace RFSimulation.UI
             var rx = go.GetComponent<Receiver>();
             if (rx != null)
             {
-                if (receiverSensitivityInput != null && float.TryParse(receiverSensitivityInput.text, out float s))
-                    rx.sensitivity = s;
-
                 if (receiverTechnologyDropdown != null)
                 {
                     string tech = receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text;
-                    rx.SetTechnology(tech);
+                    rx.SetTechnology(tech); 
+                }
+
+                if (receiverSensitivityInput != null &&
+                    float.TryParse(receiverSensitivityInput.text, out float s))
+                {
+                    rx.sensitivity = s;
                 }
 
                 UpdateStatusText($"Receiver placed: {rx.technology}, {rx.sensitivity:F1} dBm @ {position}");
-
                 statusUI?.ShowReceiver(rx);
             }
         }
@@ -693,8 +713,11 @@ namespace RFSimulation.UI
                     if (transmitterPowerInput != null && float.TryParse(transmitterPowerInput.text, out float p))
                         tx.transmitterPower = p;
 
-                    if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float f))
-                        tx.frequency = f;
+                    if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
+                    {
+                        float fMHz = GHzToMHz(fGHz);
+                        tx.frequency = fMHz;
+                    }
 
                     if (transmitterPropagationModelDropdown != null)
                     {
@@ -728,13 +751,16 @@ namespace RFSimulation.UI
                 var rx = go.GetComponent<Receiver>();
                 if (rx != null)
                 {
-                    if (receiverSensitivityInput != null && float.TryParse(receiverSensitivityInput.text, out float s))
-                        rx.sensitivity = s;
-
                     if (receiverTechnologyDropdown != null)
                     {
                         string tech = receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text;
                         rx.SetTechnology(tech);
+                    }
+
+                    if (receiverSensitivityInput != null &&
+                        float.TryParse(receiverSensitivityInput.text, out float s))
+                    {
+                        rx.sensitivity = s;
                     }
 
                     var txs = SimulationManager.Instance != null
@@ -749,9 +775,7 @@ namespace RFSimulation.UI
                     }
 
                     if (statusUI != null)
-                    {
                         statusUI.ShowReceiver(rx);
-                    }
 
                     if (showRaysToggle != null && showRaysToggle.isOn)
                     {
@@ -840,7 +864,8 @@ namespace RFSimulation.UI
                 if (tx != null)
                 {
                     if (transmitterPowerInput != null) transmitterPowerInput.text = tx.transmitterPower.ToString();
-                    if (transmitterFrequencyInput != null) transmitterFrequencyInput.text = tx.frequency.ToString();
+                    if (transmitterFrequencyInput != null)
+                        transmitterFrequencyInput.text = MHzToGHz(tx.frequency).ToString("F2");
                 }
             }
 
@@ -890,6 +915,17 @@ namespace RFSimulation.UI
         {
             if (BuildingManager.Instance != null)
                 BuildingManager.Instance.OnBuildingsToggled -= OnBuildingsToggled;
+        }
+
+
+        private float MHzToGHz(float mhz)
+        {
+            return mhz / 1000f;
+        }
+
+        private float GHzToMHz(float ghz)
+        {
+            return ghz * 1000f;
         }
     }
 }

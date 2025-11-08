@@ -6,6 +6,7 @@ using RFSimulation.Propagation.Core;
 using RFSimulation.Visualization;
 using RFSimulation.Core;
 using RFSimulation.Interfaces;
+using RFSimulation.Environment;
 
 namespace RFSimulation.Propagation.PathLoss.Models
 {
@@ -32,16 +33,16 @@ namespace RFSimulation.Propagation.PathLoss.Models
         public float blockedLossDb = 200f;
 
         [Tooltip("Maximum number of reflections (currently 1 supported).")]
-        public int maxReflections = 1;
+        public int maxReflections = 2;
 
         [Tooltip("Maximum number of diffractions (currently 1 supported).")]
-        public int maxDiffractions = 1;
+        public int maxDiffractions = 2;
 
         [Header("Scattering")]
         public bool enableDiffuseScattering = true;
         [Range(0f, 1f)] public float defaultScatterAlbedo = 0.2f; // S
         [Range(0f, 8f)] public int scatterLobeExponent = 2;       // m
-        public float scatterBaseLossDb = 10f;                    // L_diff,0
+        public float scatterBaseLossDb = 20f;                    // L_diff,0
 
         public LayerMask mapboxBuildingLayer = 8;
         public LayerMask terrainLayer = 6;
@@ -90,9 +91,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
 
                 if (paths.Count > 0)
                 {
-                    float prxDbm = CombinePathsPhasor(paths, context.TransmitterPowerDbm, context.WavelengthMeters);
-                    bestLossDb = context.TransmitterPowerDbm - prxDbm;
-                    return bestLossDb;
+                    return CombinePathsToLoss(paths);
                 }
 
                 return float.IsPositiveInfinity(bestLossDb) ? blockedLossDb : bestLossDb;
@@ -165,30 +164,40 @@ namespace RFSimulation.Propagation.PathLoss.Models
                     if (!TrySpecularPoint(tx, rx, wall, out var p)) continue;
                     if (!PointInsideWallRect(p, wall.Bounds, wall.Normal)) continue;
 
-                    var d1 = Vector3.Distance(tx, p);
-                    var d2 = Vector3.Distance(p, rx);
-                    if (d1 < MIN_STEP || d2 < MIN_STEP || d1 + d2 > maxDistance) continue;
+                    var dirTx = (p - tx).normalized;
+                    if (!Physics.Raycast(tx, dirTx, out var hitTx, Mathf.Min(Vector3.Distance(tx, p) + 0.5f, maxDistance), combinedMask))
+                        continue;
+                    if (hitTx.collider != col) 
+                        continue;
 
-                    // LoS checks
-                    if (Physics.Raycast(tx, (p - tx).normalized, out var hit1, d1, combinedMask))
+                    p = hitTx.point;
+
+                    var pOffset = p + wall.Normal * 0.01f; 
+                    var dirRx = (rx - pOffset).normalized;
+                    var d2Test = Vector3.Distance(pOffset, rx);
+
+                    if (Physics.Raycast(pOffset, dirRx, out var hitRx, d2Test, combinedMask))
                     {
                         if (enableRayVisualization && showReflectionRays && showBlockedPaths && Visualizer != null)
-                            Visualizer.DrawPolyline(new[] { tx, hit1.point, rx }, blockedRayColor, "Reflection (TX->P blocked)");
+                            Visualizer.DrawPolyline(new[] { tx, p, hitRx.point }, blockedRayColor, "Reflection (P->RX blocked)");
                         continue;
                     }
-                    if (Physics.Raycast(rx, (p - rx).normalized, out var hit2, d2, combinedMask))
-                    {
-                        if (enableRayVisualization && showReflectionRays && showBlockedPaths && Visualizer != null)
-                            Visualizer.DrawPolyline(new[] { tx, p, hit2.point }, blockedRayColor, "Reflection (P->RX blocked)");
-                        continue;
-                    }
+
+
+                    var d1 = Vector3.Distance(tx, p);
+                    var d2 = Vector3.Distance(pOffset, rx);
+                    if (d1 < MIN_STEP || d2 < MIN_STEP || d1 + d2 > maxDistance) continue;
 
                     // Get building material from the collider (the one whose bounds produced this wall)
                     var bld = col.GetComponent<RFSimulation.Environment.Building>();
 
                     float gamma = 0f;
                     if (bld && bld.material)
-                        gamma = Mathf.Clamp01(bld.material.reflectionCoefficient);  // 0..1  (from your ScriptableObject)  :contentReference[oaicite:4]{index=4}
+                    {
+                        var material = bld.material;
+                        float reflCoefficient = BuildingMaterial.GetReflectionCoefficient(ctx.FrequencyMHz / 1000f, material);
+                        gamma = Mathf.Clamp01(reflCoefficient);
+                    }
 
                     // Incidence cosine using TX->P direction vs wall normal
                     var inDir = (p - tx).normalized;
@@ -247,10 +256,28 @@ namespace RFSimulation.Propagation.PathLoss.Models
                 if (!EdgeObstructsPath(tx, rx, p, e.start, e.end))
                     continue;
 
-                var d1 = Vector3.Distance(tx, p);
-                var d2 = Vector3.Distance(p, rx);
-                if (d1 < MIN_STEP || d2 < MIN_STEP || d1 + d2 > maxDistance)
+                //var d1 = Vector3.Distance(tx, p);
+                //var d2 = Vector3.Distance(p, rx);
+                //if (d1 < MIN_STEP || d2 < MIN_STEP || d1 + d2 > maxDistance)
+                //    continue;
+
+                // Snap p to the roof (cast downward to find the top face)
+                if (!SnapToColliderSurface(p + Vector3.up * 1.0f, Vector3.up, 5f, combinedMask, e.building, out var pRoof, out var nRoof))
                     continue;
+                p = pRoof;
+
+                // Allow the rays to start/leave just off the edge to avoid self-hit
+                var pOut = p + nRoof * 0.01f;
+
+                // TX->p must not be blocked by other colliders (hitting this same building is OK)
+                var d1 = Vector3.Distance(ctx.TransmitterPosition, pOut);
+                if (Physics.Raycast(ctx.TransmitterPosition, (pOut - ctx.TransmitterPosition).normalized, out var h1, d1, combinedMask)
+                    && h1.collider != e.building) continue;
+
+                // p->RX must also be clear (besides the edge itself)
+                var d2 = Vector3.Distance(pOut, ctx.ReceiverPosition);
+                if (Physics.Raycast(pOut, (ctx.ReceiverPosition - pOut).normalized, out var h2, d2, combinedMask)
+                    && h2.collider != e.building) continue;
 
                 // LoS checks (same as before)
                 if (Physics.Raycast(tx, (p - tx).normalized, out var hit1, d1, combinedMask))
@@ -284,7 +311,7 @@ namespace RFSimulation.Propagation.PathLoss.Models
                 });
 
                 if (enableRayVisualization && showDiffractionRays && Visualizer != null)
-                    Visualizer.DrawPolyline(new[] { tx, p, rx }, diffractionRayColor,
+                    Visualizer.DrawPolyline(new[] { tx, pOut, rx }, diffractionRayColor,
                         $"Diffraction (v={v:F2}, loss {loss:F1} dB)");
 
                 if (maxDiffractions <= 1) break;
@@ -327,41 +354,77 @@ namespace RFSimulation.Propagation.PathLoss.Models
 
                     foreach (var p0 in SampleAroundCenter(center, wall.Bounds, wall.Normal, 3, 0.2f))
                     {
-                        var p = p0 + wall.Normal * 0.01f;
+                        if (!SnapToColliderSurface(p0 + wall.Normal * 0.5f, wall.Normal, 2.0f, combinedMask, col, out var pHit, out var nHit))
+                            continue;
+
+                        var p = pHit;
+                        var n = nHit;
 
                         var d1 = Vector3.Distance(tx, p);
                         var d2 = Vector3.Distance(p, rx);
                         if (d1 < MIN_STEP || d2 < MIN_STEP || d1 + d2 > maxDistance) continue;
 
+                        // LoS checks — allow this same collider at p, but nothing else
                         if (Occluded(tx, p, combinedMask, col)) continue;
                         if (Occluded(p, rx, combinedMask, col)) continue;
+
+
+                        // LoS checks (same as before)
+                        if (Physics.Raycast(tx, (p - tx).normalized, out var hit1, d1, combinedMask))
+                        {
+                            if (enableRayVisualization && showBlockedPaths && Visualizer != null)
+                                Visualizer.DrawPolyline(new[] { tx, hit1.point, rx }, blockedRayColor, "Scattering (TX->edge blocked)");
+                            continue;
+                        }
+                        if (Physics.Raycast(rx, (p - rx).normalized, out var hit2, d2, combinedMask))
+                        {
+                            if (enableRayVisualization && showBlockedPaths && Visualizer != null)
+                                Visualizer.DrawPolyline(new[] { tx, p, hit2.point }, blockedRayColor, "Scattering (edge->RX blocked)");
+                            continue;
+                        }
 
                         // Material params
                         var bld = col.GetComponent<RFSimulation.Environment.Building>();
                         float S = bld && bld.material ? Mathf.Clamp01(bld.material.scatterAlbedo) : defaultScatterAlbedo;
-                        float rhoSmooth = bld && bld.material ? Mathf.Clamp01(bld.material.reflectionCoefficient) : 0.3f;
+                        var material = bld.material;
+                        float reflCoefficient = BuildingMaterial.GetReflectionCoefficient(ctx.FrequencyMHz / 1000f, material);
+                        float rhoSmooth = bld && bld.material ? Mathf.Clamp01(reflCoefficient) : 0.3f;
                         float sigma_h = bld && bld.material ? Mathf.Max(0f, bld.material.roughnessSigmaMeters) : 0f;
 
-                        // Roughness factor (Rayleigh criterion)
-                        float k0 = 2f * Mathf.PI / Mathf.Max(ctx.WavelengthMeters, EPS);
+                        // Use the *measured* surface normal for all angular terms
                         var dir1 = (p - tx).normalized;
-                        float sinPsi = Mathf.Sqrt(1f - Mathf.Pow(IncidenceCos(dir1, wall.Normal), 2f));
+                        var dir2 = (rx - p).normalized;
+
+                        float cos_i = Mathf.Clamp01(Vector3.Dot(-dir1, n));
+                        float cos_s = Mathf.Clamp01(Mathf.Abs(Vector3.Dot(n, dir2)));
+
+                        // Roughness with the actual incidence
+                        float k0 = 2f * Mathf.PI / Mathf.Max(ctx.WavelengthMeters, EPS);
+                        float sinPsi = Mathf.Sqrt(1f - Mathf.Pow(cos_i, 2f));
+
+                        // Roughness factor (Rayleigh criterion)
+                        //float k0 = 2f * Mathf.PI / Mathf.Max(ctx.WavelengthMeters, EPS);
+                        //var dir1 = (p - tx).normalized;
+                        //float sinPsi = Mathf.Sqrt(1f - Mathf.Pow(IncidenceCos(dir1, wall.Normal), 2f));
                         float rhoRough = rhoSmooth * Mathf.Exp(-2f * Mathf.Pow(k0 * sigma_h * sinPsi, 2f));
 
                         // Cosine lobe
-                        var dir2 = (rx - p).normalized;
-                        float cos_i = Mathf.Clamp01(Vector3.Dot(-dir1, wall.Normal));
-                        float cos_s = Mathf.Clamp01(Mathf.Abs(Vector3.Dot(wall.Normal, dir2)));
+                        //var dir2 = (rx - p).normalized;
+                        //float cos_i = Mathf.Clamp01(Vector3.Dot(-dir1, wall.Normal));
+                        //float cos_s = Mathf.Clamp01(Mathf.Abs(Vector3.Dot(wall.Normal, dir2)));
                         float lobe = cos_i * Mathf.Pow(cos_s, Mathf.Max(1, scatterLobeExponent));
                         if (lobe <= 0f || S <= 0f) continue;
 
                         float diffuseMag = S * (1f - rhoRough * rhoRough) * lobe;
 
-                        // FIXED: Use total distance for FSPL
                         var totalDist = d1 + d2;
-                        float loss = FSPL(ctx.FrequencyMHz, totalDist)
-                                   + scatterBaseLossDb
-                                   - 20f * Mathf.Log10(Mathf.Max(diffuseMag, 1e-6f));
+                        float fspl = FSPL(ctx.FrequencyMHz, totalDist);
+
+                        // Scattering loss = FSPL + spreading loss + material loss + directional loss
+                        float materialLoss = -10f * Mathf.Log10(Mathf.Max(S, 0.01f));           // ~7-14 dB
+                        float directionalLoss = -10f * Mathf.Log10(Mathf.Max(diffuseMag, 1e-4f)); // ~20-40 dB
+
+                        float loss = fspl + scatterBaseLossDb + materialLoss + directionalLoss;
 
                         bestLossDb = Mathf.Min(bestLossDb, loss);
                         paths.Add(new PathContribution
@@ -372,8 +435,8 @@ namespace RFSimulation.Propagation.PathLoss.Models
                         });
 
                         if (enableRayVisualization && showScatterRays && Visualizer != null)
-                            Visualizer.DrawPolyline(new[] { tx, p, rx }, scatterRayColor,
-                                $"Diffuse scatter via {col.name} (S≈{S:F2}, ρ_rough≈{rhoRough:F2}, loss {loss:F1} dB)");
+                            Visualizer.DrawPolyline(new[] { tx, p + n * 0.01f, rx }, scatterRayColor,
+                                    $"Diffuse via {col.name} (loss {loss:F1} dB)");
                     }
                 }
             }
@@ -710,19 +773,34 @@ namespace RFSimulation.Propagation.PathLoss.Models
             public float ExtraPhaseRad;     // 0=LOS, π=reflection, ~-π/4=diffraction
         }
 
-        private float CombinePathsPhasor(IList<PathContribution> paths, float txDbm, float wavelength)
+        /// <summary>
+        /// Combines multiple path contributions into a single effective path loss.
+        /// Uses power-domain addition with random phase assumption (incoherent combining).
+        /// </summary>
+        private float CombinePathsToLoss(IList<PathContribution> paths)
         {
-            if (paths.Count == 0) return float.NegativeInfinity;
+            if (paths.Count == 0) return float.PositiveInfinity;
 
-            double totalPower = 0.0;
+            // For a single path, just return its loss
+            if (paths.Count == 1) return paths[0].LossDb;
+
+            // For multiple paths: use incoherent power combining
+            // This assumes random phases (realistic for multipath in urban environments)
+            // Result is typically 3-6 dB better than worst path, but not as optimistic as coherent sum
+
+            double totalPowerFraction = 0.0;
+
             for (int i = 0; i < paths.Count; i++)
             {
                 var p = paths[i];
-                double p_lin = Math.Pow(10.0, (txDbm - p.LossDb) / 10.0);
-                totalPower += p_lin;
+                // Convert path loss to power fraction (0 dB loss = 1.0, higher loss = smaller fraction)
+                double powerFraction = Math.Pow(10.0, -p.LossDb / 10.0);
+                totalPowerFraction += powerFraction;
             }
-            return (float)(10.0 * Math.Log10(Math.Max(totalPower, 1e-30)));
 
+            // Convert back to dB
+            if (totalPowerFraction <= 0) return float.PositiveInfinity;
+            return (float)(-10.0 * Math.Log10(totalPowerFraction));
         }
 
 
@@ -791,6 +869,26 @@ namespace RFSimulation.Propagation.PathLoss.Models
         {
             // Metal → near π; lossy dielectrics → between π/2..π
             return Mathf.Lerp(0.5f * Mathf.PI, Mathf.PI, Mathf.Clamp01(gammaMag));
+        }
+
+        private static bool SnapToColliderSurface(Vector3 approxPoint, Vector3 castDir, float maxDist,
+                                          LayerMask mask, Collider mustBe, out Vector3 snapped, out Vector3 hitNormal)
+        {
+            // Start a little off the surface to avoid starting inside
+            var start = approxPoint + castDir.normalized * 0.25f;
+            if (Physics.Raycast(start, -castDir.normalized, out var hit, maxDist + 0.5f, mask))
+            {
+                if (mustBe != null && hit.collider != mustBe)
+                {
+                    snapped = default; hitNormal = default;
+                    return false;
+                }
+                snapped = hit.point;
+                hitNormal = hit.normal;
+                return true;
+            }
+            snapped = default; hitNormal = default;
+            return false;
         }
 
     }

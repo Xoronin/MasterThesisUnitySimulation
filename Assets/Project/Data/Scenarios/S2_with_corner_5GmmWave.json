@@ -23,7 +23,7 @@
                 "y": 27.510000228881837,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -33,7 +33,7 @@
                 "y": 28.1200008392334,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -43,7 +43,7 @@
                 "y": 28.3799991607666,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -53,7 +53,7 @@
                 "y": 28.559999465942384,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -63,7 +63,7 @@
                 "y": 28.739999771118165,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -73,7 +73,7 @@
                 "y": 28.790000915527345,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -83,7 +83,7 @@
                 "y": 28.540000915527345,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -93,7 +93,7 @@
                 "y": 28.15999984741211,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -103,7 +103,7 @@
                 "y": 27.780000686645509,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -113,7 +113,7 @@
                 "y": 27.6200008392334,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -123,7 +123,7 @@
                 "y": 26.93000030517578,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -133,7 +133,7 @@
                 "y": 25.739999771118165,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -143,7 +143,7 @@
                 "y": 24.549999237060548,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -153,7 +153,7 @@
                 "y": 23.8700008392334,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -163,7 +163,7 @@
                 "y": 23.59000015258789,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -173,7 +173,7 @@
                 "y": 23.520000457763673,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -183,7 +183,7 @@
                 "y": 23.440000534057618,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -193,7 +193,7 @@
                 "y": 23.520000457763673,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -203,7 +203,7 @@
                 "y": 23.8700008392334,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -213,7 +213,7 @@
                 "y": 24.559999465942384,
                 "z": -250.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -223,7 +223,7 @@
                 "y": 25.25,
                 "z": -260.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -233,7 +233,7 @@
                 "y": 25.780000686645509,
                 "z": -270.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -243,7 +243,7 @@
                 "y": 25.850000381469728,
                 "z": -280.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -253,7 +253,7 @@
                 "y": 25.920000076293947,
                 "z": -290.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -263,7 +263,7 @@
                 "y": 26.0,
                 "z": -300.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -273,7 +273,7 @@
                 "y": 26.059999465942384,
                 "z": -310.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -283,7 +283,7 @@
                 "y": 26.079999923706056,
                 "z": -320.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -293,7 +293,7 @@
                 "y": 26.09000015258789,
                 "z": -330.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -303,7 +303,7 @@
                 "y": 26.110000610351564,
                 "z": -340.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -313,7 +313,7 @@
                 "y": 26.100000381469728,
                 "z": -350.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -323,7 +323,7 @@
                 "y": 26.139999389648439,
                 "z": -360.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -333,7 +333,7 @@
                 "y": 26.200000762939454,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -343,7 +343,7 @@
                 "y": 26.450000762939454,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -353,7 +353,7 @@
                 "y": 26.700000762939454,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -363,7 +363,7 @@
                 "y": 26.889999389648439,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -373,7 +373,7 @@
                 "y": 27.06999969482422,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -383,7 +383,7 @@
                 "y": 27.149999618530275,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -393,7 +393,7 @@
                 "y": 27.239999771118165,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -403,7 +403,7 @@
                 "y": 27.3799991607666,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -413,7 +413,7 @@
                 "y": 27.530000686645509,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -423,7 +423,7 @@
                 "y": 27.440000534057618,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -433,7 +433,7 @@
                 "y": 27.350000381469728,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -443,7 +443,7 @@
                 "y": 27.229999542236329,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -453,7 +453,7 @@
                 "y": 27.100000381469728,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -463,7 +463,7 @@
                 "y": 27.079999923706056,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -473,7 +473,7 @@
                 "y": 27.079999923706056,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -483,7 +483,7 @@
                 "y": 26.93000030517578,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -493,7 +493,7 @@
                 "y": 26.68000030517578,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -503,7 +503,7 @@
                 "y": 26.440000534057618,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -513,7 +513,7 @@
                 "y": 26.200000762939454,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -523,7 +523,7 @@
                 "y": 25.989999771118165,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -533,7 +533,7 @@
                 "y": 25.799999237060548,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -543,7 +543,7 @@
                 "y": 25.6299991607666,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -553,7 +553,7 @@
                 "y": 25.489999771118165,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -563,7 +563,7 @@
                 "y": 25.360000610351564,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -573,7 +573,7 @@
                 "y": 25.290000915527345,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -583,7 +583,7 @@
                 "y": 25.290000915527345,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -593,7 +593,7 @@
                 "y": 25.3799991607666,
                 "z": -370.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -603,7 +603,7 @@
                 "y": 26.6299991607666,
                 "z": -240.07000732421876
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -613,7 +613,7 @@
                 "y": 25.510000228881837,
                 "z": -365.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -623,7 +623,7 @@
                 "y": 25.549999237060548,
                 "z": -365.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -633,7 +633,7 @@
                 "y": 25.549999237060548,
                 "z": -365.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         },
@@ -643,7 +643,7 @@
                 "y": 25.56999969482422,
                 "z": -365.07000732421877
             },
-            "technology": "5G",
+            "technology": "5GmmWave",
             "sensitivity": -90.0,
             "receiverHeight": 1.5
         }

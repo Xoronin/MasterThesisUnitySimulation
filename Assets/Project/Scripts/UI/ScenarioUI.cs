@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using RFSimulation.Core.Managers;
 using RFSimulation.Propagation;
-using RFSimulation.Core.Connections;
 using RFSimulation.Core.Components;
 using RFSimulation.Propagation.Core;
 using System.Globalization;
@@ -258,6 +257,8 @@ namespace RFSimulation.UI
 
                     foreach (var rx in receivers)
                     {
+                        if (!rx.HasValidSignal()) continue;
+
                         Vector3 rxPos = rx.transform.position;
                         float rxHeight = SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
                         float rxPower = SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);
@@ -412,21 +413,6 @@ namespace RFSimulation.UI
                 return scenarioManager.scenarios[selectedIndex];
             }
             return null;
-        }
-
-        private string CreateScenarioDescription(Scenario scenario)
-        {
-            var description = new System.Text.StringBuilder();
-
-            description.AppendLine($"Name: {scenario.scenarioName}");
-            description.AppendLine($"Propagation: {scenario.propagationModel}");
-
-            if (scenario.settings != null)
-            {
-                description.AppendLine($"Connection Margin: {scenario.settings.connectionMargin:F1} dB");
-            }
-
-            return description.ToString().Trim();
         }
 
         private bool ConfirmDeletion(string scenarioName)

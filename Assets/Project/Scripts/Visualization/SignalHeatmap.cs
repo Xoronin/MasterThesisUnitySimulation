@@ -702,45 +702,45 @@ namespace RFSimulation.Visualization
                 _lastProbeBand = map.band + $" [{map.reason}]";
             }
         }
-        void OnGUI()
-        {
-            if (!debugOverlay) return;
+        //void OnGUI()
+        //{
+        //    if (!debugOverlay) return;
 
-            var prev = GUI.color;
-            var style = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = debugFontSize };
-            var lab = new GUIStyle(GUI.skin.label) { fontSize = debugFontSize };
+        //    var prev = GUI.color;
+        //    var style = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = debugFontSize };
+        //    var lab = new GUIStyle(GUI.skin.label) { fontSize = debugFontSize };
 
-            Rect box = new Rect(debugHudAnchor.x, debugHudAnchor.y, 420, 140);
-            GUI.Box(box, "Heatmap Debug", style);
+        //    Rect box = new Rect(debugHudAnchor.x, debugHudAnchor.y, 420, 140);
+        //    GUI.Box(box, "Heatmap Debug", style);
 
-            float y = box.y + 24;
-            GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
-                $"Probe world: {_lastProbeWorld.x:F1}, {_lastProbeWorld.y:F1}, {_lastProbeWorld.z:F1}", lab);
-            y += 20;
+        //    float y = box.y + 24;
+        //    GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
+        //        $"Probe world: {_lastProbeWorld.x:F1}, {_lastProbeWorld.y:F1}, {_lastProbeWorld.z:F1}", lab);
+        //    y += 20;
 
-            string rssiTxt = float.IsNegativeInfinity(_lastProbeRssi) ? "−∞" : $"{_lastProbeRssi:F1} dBm";
-            GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
-                $"RSRP: {rssiTxt}    Band: {_lastProbeBand}", lab);
-            y += 20;
+        //    string rssiTxt = float.IsNegativeInfinity(_lastProbeRssi) ? "−∞" : $"{_lastProbeRssi:F1} dBm";
+        //    GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
+        //        $"RSRP: {rssiTxt}    Band: {_lastProbeBand}", lab);
+        //    y += 20;
 
-            GUI.color = _lastProbeColor;
-            GUI.Box(new Rect(box.x + 8, y, 40, 18), GUIContent.none);
-            GUI.color = prev;
+        //    GUI.color = _lastProbeColor;
+        //    GUI.Box(new Rect(box.x + 8, y, 40, 18), GUIContent.none);
+        //    GUI.color = prev;
 
-            var c = _lastProbeColor;
-            GUI.Label(new Rect(box.x + 56, y - 2, box.width - 64, 24),
-                $"Color: RGBA({c.r:F2},{c.g:F2},{c.b:F2},{c.a:F2})", lab);
-            y += 22;
+        //    var c = _lastProbeColor;
+        //    GUI.Label(new Rect(box.x + 56, y - 2, box.width - 64, 24),
+        //        $"Color: RGBA({c.r:F2},{c.g:F2},{c.b:F2},{c.a:F2})", lab);
+        //    y += 22;
 
-            GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
-                $"Mapping range: [{settings.minSignalStrength:F0}, {settings.maxSignalStrength:F0}] dBm   (autoScale={(settings.autoScaleColors ? "ON" : "OFF")})",
-                lab);
-        }
-        [ContextMenu("Debug: Dump cursor sample")]
-        public void DebugDumpCursorSample()
-        {
-            Debug.Log($"[HeatmapDebug] Pos={_lastProbeWorld}  RSRP={_lastProbeRssi:F1} dBm  Band={_lastProbeBand}  Color={_lastProbeColor}");
-        }
+        //    GUI.Label(new Rect(box.x + 8, y, box.width - 16, 22),
+        //        $"Mapping range: [{settings.minSignalStrength:F0}, {settings.maxSignalStrength:F0}] dBm   (autoScale={(settings.autoScaleColors ? "ON" : "OFF")})",
+        //        lab);
+        //}
+        //[ContextMenu("Debug: Dump cursor sample")]
+        //public void DebugDumpCursorSample()
+        //{
+        //    Debug.Log($"[HeatmapDebug] Pos={_lastProbeWorld}  RSRP={_lastProbeRssi:F1} dBm  Band={_lastProbeBand}  Color={_lastProbeColor}");
+        //}
 
     }
 }

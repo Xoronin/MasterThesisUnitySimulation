@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Components;
-using RFSimulation.Core.Connections;
 using System;
 
 namespace RFSimulation.Core.Managers
@@ -16,10 +15,6 @@ namespace RFSimulation.Core.Managers
     {
         [Header("Basic Info")]
         public string scenarioName;
-
-        [Header("Connection Strategy")] 
-        public string strategyName;
-        public StrategyType strategyType;
 
         [Header("Equipment")]
         public List<TransmitterConfig> transmitters;
@@ -56,11 +51,7 @@ namespace RFSimulation.Core.Managers
     [System.Serializable]
     public class ScenarioSettings
     {
-        public float minimumSignalThreshold = -110f;
-        public float connectionMargin = 10f;
-        public float handoverMargin = 3f;
         public bool showConnections = true;
-        public bool showCoverage = false;
     }
 
     public class ScenarioManager : MonoBehaviour
@@ -231,17 +222,8 @@ namespace RFSimulation.Core.Managers
             {
                 var connectionManager = SimulationManager.Instance.connectionManager;
 
-                // Apply connection strategy
-                if (!string.IsNullOrEmpty(scenario.strategyName))
-                {
-                    connectionManager.SetConnectionStrategy(scenario.strategyType);
-                }
-
                 // Apply scenario settings
                 var s = connectionManager.GetSettings();
-                s.minimumSignalThreshold = scenario.settings.minimumSignalThreshold;
-                s.connectionMargin = scenario.settings.connectionMargin;
-                s.handoverMargin = scenario.settings.handoverMargin;
                 connectionManager.ApplySettings(s); 
 
             }
@@ -314,12 +296,7 @@ namespace RFSimulation.Core.Managers
 
             if (SimulationManager.Instance.connectionManager != null)
             {
-                newScenario.strategyName = SimulationManager.Instance.connectionManager.GetCurrentStrategyName();
-
                 var currentSettings = SimulationManager.Instance.connectionManager.GetSettings();
-                newScenario.settings.minimumSignalThreshold = currentSettings.minimumSignalThreshold;
-                newScenario.settings.connectionMargin = currentSettings.connectionMargin;
-                newScenario.settings.handoverMargin = currentSettings.handoverMargin;
             }
 
             // Collect transmitter configurations

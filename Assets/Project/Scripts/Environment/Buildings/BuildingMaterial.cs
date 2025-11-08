@@ -8,8 +8,7 @@ namespace RFSimulation.Environment
         Concrete,
         Brick,
         Metal,
-        Glass,
-        Wood
+        Glass
     }
 
     [CreateAssetMenu(fileName = "New Building Material", menuName = "RF Simulation/Building Material")]
@@ -19,28 +18,13 @@ namespace RFSimulation.Environment
         public MaterialType materialType;
         public string materialName;
 
-        [Header("RF Properties")]
-        [Tooltip("Penetration loss in dB per meter")]
-        public float penetrationLoss;
-
-        [Tooltip("Reflection coefficient (0-1)")]
-        [Range(0f, 1f)]
-        public float reflectionCoefficient;
-
-        [Tooltip("Frequency-dependent attenuation factor")]
-        public float frequencyFactor = 1f;
-
-        [Header("Physical Properties")]
-        public float density = 2000f; // kg/m³
-        public float thickness = 0.2f; // meters
-
         [Header("Surface Roughness (for specular reduction)")]
-        [Tooltip("RMS surface height σ_h in meters (~0.0–0.01 for smooth glass, ~0.02–0.05 concrete, ~0.1 rough brick)")]
         [Min(0f)]
         public float roughnessSigmaMeters = 0.02f;
 
+        public float reflectionCoefficient;
+
         [Header("Diffuse Scattering")]
-        [Tooltip("Fraction of incident power (post-specular reduction) redistributed diffusely (0..1).")]
         [Range(0f, 1f)]
         public float scatterAlbedo = 0.2f;
 
@@ -53,58 +37,104 @@ namespace RFSimulation.Environment
             {
                 case MaterialType.Concrete:
                     material.materialName = "Concrete";
-                    material.penetrationLoss = 10.62f;
-                    material.reflectionCoefficient = 0.7f;
-                    material.density = 2400f;
                     material.roughnessSigmaMeters = 0.03f;
                     material.scatterAlbedo = 0.25f;
                     break;
 
                 case MaterialType.Brick:
                     material.materialName = "Brick";
-                    material.penetrationLoss = 4.25f;
-                    material.reflectionCoefficient = 0.6f;
-                    material.density = 1800f;
                     material.roughnessSigmaMeters = 0.05f;
                     material.scatterAlbedo = 0.35f;
                     break;
 
                 case MaterialType.Metal:
                     material.materialName = "Metal";
-                    material.penetrationLoss = 50f;
-                    material.reflectionCoefficient = 0.9f;
-                    material.density = 7800f;
                     material.roughnessSigmaMeters = 0.005f;
                     material.scatterAlbedo = 0.05f;
                     break;
 
                 case MaterialType.Glass:
                     material.materialName = "Glass";
-                    material.penetrationLoss = 2f;
-                    material.reflectionCoefficient = 0.4f;
-                    material.density = 2500f;
                     material.roughnessSigmaMeters = 0.002f;
                     material.scatterAlbedo = 0.10f;
-                    break;
-
-                case MaterialType.Wood:
-                    material.materialName = "Wood";
-                    material.penetrationLoss = 3f;
-                    material.reflectionCoefficient = 0.2f;
-                    material.density = 600f;
-                    material.roughnessSigmaMeters = 0.04f;
-                    material.scatterAlbedo = 0.30f;
                     break;
             }
 
             return material;
         }
 
-        public float CalculatePenetrationLoss(float frequency, float thickness)
+        // Returns reflection coefficient based on frequency
+        public static float GetReflectionCoefficient(float frequency_GHz, BuildingMaterial material)
         {
-            // Frequency-dependent penetration loss
-            float frequencyMultiplier = 1f + (frequency / 2400f - 1f) * frequencyFactor;
-            return penetrationLoss * thickness * frequencyMultiplier;
+            // Low frequency (< 1 GHz) - VHF/UHF bands
+            if (frequency_GHz < 1.0f)
+            {
+                return GetLowFrequencyReflection(material);
+            }
+            // Mid frequency (1-6 GHz) - Sub-6 5G, WiFi
+            else if (frequency_GHz <= 6.0f)
+            {
+                return GetMidFrequencyReflection(material);
+            }
+            // High frequency (6-30 GHz) - mmWave 5G
+            else if (frequency_GHz <= 30.0f)
+            {
+                return GetHighFrequencyReflection(material);
+            }
+            // Very high frequency (> 30 GHz)
+            else
+            {
+                return GetVeryHighFrequencyReflection(material);
+            }
         }
+
+        private static float GetLowFrequencyReflection(BuildingMaterial mat)
+        {
+            switch (mat.materialType)
+            {
+                case MaterialType.Concrete: return 0.35f; // Lower reflection
+                case MaterialType.Brick: return 0.40f;
+                case MaterialType.Glass: return 0.55f;
+                case MaterialType.Metal: return 0.90f;
+                default: return 0.40f;
+            }
+        }
+
+        private static float GetMidFrequencyReflection(BuildingMaterial mat)
+        {
+            switch (mat.materialType)
+            {
+                case MaterialType.Concrete: return 0.45f; // Standard values
+                case MaterialType.Brick: return 0.50f;
+                case MaterialType.Glass: return 0.70f;
+                case MaterialType.Metal: return 0.95f;
+                default: return 0.50f;
+            }
+        }
+
+        private static float GetHighFrequencyReflection(BuildingMaterial mat)
+        {
+            switch (mat.materialType)
+            {
+                case MaterialType.Concrete: return 0.55f; // Higher reflection
+                case MaterialType.Brick: return 0.60f;
+                case MaterialType.Glass: return 0.75f;
+                case MaterialType.Metal: return 0.98f;
+                default: return 0.60f;
+            }
+        }
+
+        private static float GetVeryHighFrequencyReflection(BuildingMaterial mat)
+        {
+            switch (mat.materialType)
+            {
+                case MaterialType.Concrete: return 0.60f; // Even higher
+                case MaterialType.Brick: return 0.65f;
+                case MaterialType.Glass: return 0.80f;
+                case MaterialType.Metal: return 0.99f;
+                default: return 0.65f;
+            }
+        }
+
     }
 }
