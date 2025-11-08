@@ -290,7 +290,7 @@ namespace RFSimulation.Core.Managers
                 scenarioName = scenarioName,
                 transmitters = new List<TransmitterConfig>(),
                 receiverPositions = new List<ReceiverConfig>(),
-                propagationModel = PropagationModel.LogDistance, 
+                propagationModel = PropagationModel.RayTracing, 
                 settings = new ScenarioSettings()
             };
 
@@ -427,7 +427,7 @@ namespace RFSimulation.Core.Managers
     {
         public string scenarioName;
         public List<TransmitterConfig> transmitters;
-        public List<Vector3> receiverPositions; // Old format: just positions
+        public List<Vector3> receiverPositions; 
         public PropagationModel propagationModel;
     }
 }

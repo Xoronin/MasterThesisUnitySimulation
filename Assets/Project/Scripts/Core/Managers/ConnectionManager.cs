@@ -18,12 +18,6 @@ namespace RFSimulation.Core.Managers
         public float excellentSignalThreshold = 15f; // dB above sensitivity
         public float goodSignalThreshold = 10f; // dB above sensitivity
 
-        [UnityEngine.Header("Multi-Connection Settings")]
-        public int maxSimultaneousConnections = 3;
-        public bool allowLoadBalancing = true;
-
-        [UnityEngine.Header("Debug")]
-        public bool enableDebugLogs = false;
     }
 
     /// <summary>
@@ -39,7 +33,7 @@ namespace RFSimulation.Core.Managers
         private float lastUpdateTime = 0f;
 
         // Events for UI updates
-        public System.Action<int, int> OnConnectionsUpdated; // (totalConnections, totalReceivers)
+        public System.Action<int, int> OnConnectionsUpdated;
 
         void Start()
         {
@@ -69,10 +63,8 @@ namespace RFSimulation.Core.Managers
 
             if (transmitters.Count == 0 || receivers.Count == 0) return;
 
-            // Apply the current strategy
             UpdateConnections(transmitters, receivers, settings);
 
-            // Notify UI of connection statistics
             int totalConnections = CountTotalConnections(receivers);
             OnConnectionsUpdated?.Invoke(totalConnections, receivers.Count);
         }
@@ -93,7 +85,6 @@ namespace RFSimulation.Core.Managers
 
                     float signal = transmitter.CalculateSignalStrength(receiver.transform.position);
 
-                    // Apply handover margin to current serving cell
                     float effectiveSignal = signal;
                     if (receiver.GetConnectedTransmitter() == transmitter)
                     {
@@ -107,11 +98,9 @@ namespace RFSimulation.Core.Managers
                     }
                 }
 
-                // Update receiver connection
                 receiver.UpdateSignalStrength(bestSignal);
-                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 20f : float.NegativeInfinity); // Assume good SINR
+                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 20f : float.NegativeInfinity); 
 
-                // Clear connections to other transmitters
                 foreach (var transmitter in transmitters)
                 {
                     if (transmitter != bestTx)
@@ -120,7 +109,6 @@ namespace RFSimulation.Core.Managers
                     }
                 }
 
-                // Establish new connection if we found a suitable transmitter
                 if (bestTx != null)
                 {
                     bestTx.ConnectToReceiver(receiver);
@@ -148,13 +136,11 @@ namespace RFSimulation.Core.Managers
 
 
         // Public getters for UI
-
         public ConnectionSettings GetSettings()
         {
             return settings;
         }
 
-        // Methods for runtime adjustment
         public void UpdateMinimumSignalThreshold(float threshold)
         {
             settings.minimumSignalThreshold = threshold;

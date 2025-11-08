@@ -130,9 +130,6 @@ namespace RFSimulation.Data
                 minimumSINR = minimumSINR,
                 excellentSignalThreshold = 15f,
                 goodSignalThreshold = 10f,
-                maxSimultaneousConnections = maxSimultaneousConnections,
-                allowLoadBalancing = allowLoadBalancing,
-                enableDebugLogs = enableDebugLogs
             };
         }
 

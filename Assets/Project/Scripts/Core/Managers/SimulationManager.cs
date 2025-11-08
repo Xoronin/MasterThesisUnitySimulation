@@ -2,15 +2,13 @@
 using RFSimulation.Core.Components;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Propagation.PathLoss;
+using RFSimulation.UI;
 using RFSimulation.Visualization;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace RFSimulation.Core.Managers
 {
-    /// <summary>
-    /// Main simulation orchestrator - delegates responsibilities to specialized managers
-    /// </summary>
     public class SimulationManager : MonoBehaviour
     {
         public static SimulationManager Instance { get; private set; }
@@ -24,12 +22,17 @@ namespace RFSimulation.Core.Managers
 
         [Header("Managers")]
         public ConnectionManager connectionManager;
+        public BuildingManager buildingManager;
+        public ScenarioManager scenarioManager;
+        public UIManager uiManager;
+
         public SignalHeatmap signalHeatmap;
 
-        // Events for UI and other systems
         public System.Action OnSimulationStarted;
         public System.Action OnSimulationStopped;
-        public System.Action<int, int> OnEquipmentCountChanged; // (transmitters, receivers)
+        public System.Action<int, int> OnEquipmentCountChanged;
+
+        #region Unity Lifecycle
 
         private void Awake()
         {
@@ -51,7 +54,6 @@ namespace RFSimulation.Core.Managers
 
         private void InitializeSimulation()
         {
-            // Find or create ConnectionManager
             if (connectionManager == null)
             {
                 connectionManager = GetComponent<ConnectionManager>();
@@ -66,41 +68,44 @@ namespace RFSimulation.Core.Managers
                 connectionManager.enabled = true;
             }
 
+            if (buildingManager == null)
+            {
+                buildingManager = GetComponent<BuildingManager>();
+                if (buildingManager == null)
+                {
+                    buildingManager = gameObject.AddComponent<BuildingManager>();
+                }
+            }
+
+            if (scenarioManager == null)
+            {
+                scenarioManager = GetComponent<ScenarioManager>();
+                if (scenarioManager == null)
+                {
+                    scenarioManager = gameObject.AddComponent<ScenarioManager>();
+                }
+            }
+
+            if (uiManager == null)
+            {
+                uiManager = GetComponent<UIManager>();
+                if (uiManager == null)
+                {
+                    uiManager = gameObject.AddComponent<UIManager>();
+                }
+            }
+
+
             if (signalHeatmap == null)
             {
                 signalHeatmap = GetComponent<SignalHeatmap>();
             }
         }
 
-        #region Simulation Control
-
         public void StartSimulation()
         {
             isSimulationRunning = true;
             OnSimulationStarted?.Invoke();
-        }
-
-        public void StopSimulation()
-        {
-            isSimulationRunning = false;
-            OnSimulationStopped?.Invoke();
-        }
-
-        public void PauseSimulation()
-        {
-            isSimulationRunning = false;
-        }
-
-        public void ResumeSimulation()
-        {
-            isSimulationRunning = true;
-        }
-
-        public void RestartSimulation()
-        {
-            StopSimulation();
-            ClearAllConnections();
-            StartSimulation();
         }
 
         #endregion
@@ -124,7 +129,6 @@ namespace RFSimulation.Core.Managers
         {
             if (transmitter == null || !transmitters.Contains(transmitter)) return;
 
-            // Clear all connections to this transmitter
             transmitter.ClearAllConnections();
             transmitters.Remove(transmitter);
 
@@ -148,7 +152,6 @@ namespace RFSimulation.Core.Managers
         {
             if (receiver == null || !receivers.Contains(receiver)) return;
 
-            // Clear all connections to this receiver
             foreach (var transmitter in transmitters)
             {
                 transmitter?.DisconnectFromReceiver(receiver);
@@ -160,10 +163,8 @@ namespace RFSimulation.Core.Managers
 
         public void ClearAllEquipment()
         {
-            // Clear connections first
             ClearAllConnections();
 
-            // Remove all equipment
             foreach (var tx in transmitters.ToArray())
             {
                 if (tx != null) DestroyImmediate(tx.gameObject);
@@ -191,7 +192,6 @@ namespace RFSimulation.Core.Managers
                 transmitter?.ClearAllConnections();
             }
         }
-
 
         public void UpdateConnectionSettings(ConnectionSettings settings)
         {
@@ -224,11 +224,9 @@ namespace RFSimulation.Core.Managers
                 foreach (var rx in rxs)
                 {
                     if (rx == null) continue;
-                    // compute & WRITE BACK
                     float rssi = tx.CalculateSignalStrength(rx);
                     rx.UpdateSignalStrength(rssi);
 
-                    // keep connection truth in sync for this pair
                     if (tx.CanConnectTo(rx))
                         tx.ConnectToReceiver(rx);
                     else if (tx.IsConnectedTo(rx))
@@ -236,7 +234,6 @@ namespace RFSimulation.Core.Managers
                 }
             }
 
-            // let strategies re-evaluate best connections after parameter/model changes
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
 
@@ -296,74 +293,6 @@ namespace RFSimulation.Core.Managers
 
         #endregion
 
-        #region Validation and Statistics
 
-        public void ValidateSimulation()
-        {
-            int issues = 0;
-
-            // Check for null references
-            transmitters.RemoveAll(tx => tx == null);
-            receivers.RemoveAll(rx => rx == null);
-
-            // Validate transmitter configurations
-            foreach (var tx in transmitters)
-            {
-                if (tx.transmitterPower <= 0)
-                {
-                    issues++;
-                }
-
-                if (tx.frequency <= 0)
-                {
-                    issues++;
-                }
-            }
-
-            // Validate receiver configurations
-            foreach (var rx in receivers)
-            {
-                if (rx.sensitivity > -10f) // Unrealistically high sensitivity
-                {
-                    issues++;
-                }
-            }
-        }
-
-        public SimulationStatistics GetStatistics()
-        {
-            var stats = new SimulationStatistics
-            {
-                transmitterCount = transmitters.Count,
-                receiverCount = receivers.Count,
-                isRunning = isSimulationRunning
-            };
-
-            if (connectionManager != null)
-            {
-                var connectionStats = connectionManager.GetConnectionStatistics();
-                stats.connectedReceivers = (int)connectionStats.GetValueOrDefault("connectedReceivers", 0);
-                stats.connectionPercentage = (float)connectionStats.GetValueOrDefault("connectionPercentage", 0f);
-                stats.averageSignalStrength = (float)connectionStats.GetValueOrDefault("averageSignalStrength", 0f);
-            }
-
-            return stats;
-        }
-
-        #endregion
-    }
-
-    /// <summary>
-    /// Data structure for simulation statistics
-    /// </summary>
-    [System.Serializable]
-    public class SimulationStatistics
-    {
-        public int transmitterCount;
-        public int receiverCount;
-        public int connectedReceivers;
-        public float connectionPercentage;
-        public float averageSignalStrength;
-        public bool isRunning;
     }
 }
