@@ -53,6 +53,7 @@ namespace RFSimulation.Core.Managers
             public Building buildingComponent;
             public bool originalBlockSignals;
             public Renderer renderer;
+            public Collider[] colliders;
         }
 
         void Awake()
@@ -100,12 +101,24 @@ namespace RFSimulation.Core.Managers
                     b.gameObject.layer = b.originalLayer;
                     if (b.renderer != null) b.renderer.enabled = true;
                     if (b.buildingComponent != null) b.buildingComponent.blockSignals = b.originalBlockSignals;
+
+                    if (b.colliders != null)
+                    {
+                        foreach (var col in b.colliders)
+                            if (col != null) col.enabled = true;
+                    }
                 }
                 else
                 {
                     b.gameObject.layer = disabledBuildingLayer;
                     if (b.renderer != null) b.renderer.enabled = false;
                     if (b.buildingComponent != null) b.buildingComponent.blockSignals = false;
+
+                    if (b.colliders != null)
+                    {
+                        foreach (var col in b.colliders)
+                            if (col != null) col.enabled = false;
+                    }
                 }
             }
         }
@@ -140,7 +153,8 @@ namespace RFSimulation.Core.Managers
                 originalLayer = buildingObj.layer,
                 buildingComponent = buildingObj.GetComponent<Building>(),
                 renderer = buildingObj.GetComponent<Renderer>(),
-                originalBlockSignals = buildingObj.GetComponent<Building>()?.blockSignals ?? true
+                originalBlockSignals = buildingObj.GetComponent<Building>()?.blockSignals ?? true,
+                colliders = buildingObj.GetComponentsInChildren<Collider>(true)
             };
             managedBuildings.Add(data);
         }

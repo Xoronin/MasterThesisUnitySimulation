@@ -23,7 +23,7 @@ namespace RFSimulation.Core.Managers
         public ScenarioManager scenarioManager;
         public UIManager uiManager;
 
-        public SignalHeatmap signalHeatmap;
+        public HeatmapVisualization heatmapVisualization;
 
         public System.Action OnSimulationStarted;
         public System.Action OnSimulationStopped;
@@ -80,9 +80,9 @@ namespace RFSimulation.Core.Managers
             }
 
 
-            if (signalHeatmap == null)
+            if (heatmapVisualization == null)
             {
-                signalHeatmap = GetComponent<SignalHeatmap>();
+                heatmapVisualization = GetComponent<HeatmapVisualization>();
             }
         }
 
@@ -196,7 +196,7 @@ namespace RFSimulation.Core.Managers
             }
         }
 
-        public void RecomputeAllSignalStrength()
+        public void RecomputeAllSignalStrength(bool heatmapUpdate)
         {
             var txs = transmitters?.ToArray();
             var rxs = receivers?.ToArray();
@@ -221,8 +221,8 @@ namespace RFSimulation.Core.Managers
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
 
-            var heatmap = FindFirstObjectByType<SignalHeatmap>();
-            if (heatmap != null && heatmap.enabledByUI)
+            var heatmap = FindFirstObjectByType<HeatmapVisualization>();
+            if (heatmap != null && heatmap.enabledByUI && heatmapUpdate)
                 heatmap.UpdateHeatmap();
         }
 
@@ -245,7 +245,7 @@ namespace RFSimulation.Core.Managers
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
 
-            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            var heatmap = FindFirstObjectByType<HeatmapVisualization>();
             if (heatmap != null && heatmap.enabledByUI)
                 heatmap.UpdateHeatmap();
         }
@@ -268,10 +268,6 @@ namespace RFSimulation.Core.Managers
 
             if (connectionManager != null)
                 connectionManager.UpdateAllConnections();
-
-            var heatmap = FindFirstObjectByType<SignalHeatmap>();
-            if (heatmap != null && heatmap.enabledByUI)
-                heatmap.UpdateHeatmap();
         }
 
 

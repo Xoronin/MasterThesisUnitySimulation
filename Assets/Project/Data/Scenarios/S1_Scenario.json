@@ -1,7 +1,5 @@
 {
     "scenarioName": "S1_Scenario",
-    "strategyName": "Strongest Signal",
-    "strategyType": 0,
     "transmitters": [
         {
             "position": {
@@ -16,7 +14,7 @@
             "propagationModel": 1
         }
     ],
-    "receiverPositions": [
+    "receivers": [
         {
             "position": {
                 "x": 115.25,
@@ -616,24 +614,12 @@
             "technology": "5G",
             "sensitivity": -120.0,
             "receiverHeight": 1.5
-        },
-        {
-            "position": {
-                "x": 125.25,
-                "y": 40.130001068115237,
-                "z": -240.07000732421876
-            },
-            "technology": "5G",
-            "sensitivity": -120.0,
-            "receiverHeight": 15.0
         }
     ],
     "propagationModel": 1,
     "settings": {
         "minimumSignalThreshold": -110.0,
         "connectionMargin": 10.0,
-        "handoverMargin": 3.0,
-        "showConnections": true,
-        "showCoverage": false
+        "handoverMargin": 3.0
     }
 }

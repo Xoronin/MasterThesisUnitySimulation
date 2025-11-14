@@ -1,0 +1,1020 @@
+{
+    "scenarioName": "S1_1000m",
+    "transmitters": [
+        {
+            "position": {
+                "x": 525.25,
+                "y": 19.860000610351564,
+                "z": -240.07000732421876
+            },
+            "powerDbm": 43.0,
+            "antennaGain": 0.0,
+            "frequency": 2100.0,
+            "transmitterHeight": 25.0,
+            "propagationModel": 1
+        }
+    ],
+    "receivers": [
+        {
+            "position": {
+                "x": 115.25,
+                "y": 27.110000610351564,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 105.25,
+                "y": 27.719999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 95.25,
+                "y": 27.979999542236329,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 85.25,
+                "y": 28.15999984741211,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 75.25,
+                "y": 28.34000015258789,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 65.25,
+                "y": 28.389999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 55.25,
+                "y": 28.139999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 45.25,
+                "y": 27.760000228881837,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 35.25,
+                "y": 27.3799991607666,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 25.25,
+                "y": 27.219999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 15.25,
+                "y": 26.530000686645509,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 5.25,
+                "y": 25.34000015258789,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -4.75,
+                "y": 24.149999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -14.75,
+                "y": 23.469999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -24.75,
+                "y": 23.190000534057618,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -34.75,
+                "y": 23.1200008392334,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -44.75,
+                "y": 23.040000915527345,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -54.75,
+                "y": 23.1200008392334,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -64.75,
+                "y": 23.469999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -74.75,
+                "y": 24.170000076293947,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -84.75,
+                "y": 24.8799991607666,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -94.75,
+                "y": 25.469999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -104.75,
+                "y": 25.850000381469728,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -114.75,
+                "y": 26.06999969482422,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -124.75,
+                "y": 26.290000915527345,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -134.75,
+                "y": 26.389999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -144.75,
+                "y": 26.170000076293947,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -154.75,
+                "y": 25.799999237060548,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -164.75,
+                "y": 25.43000030517578,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -174.75,
+                "y": 25.079999923706056,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -184.75,
+                "y": 24.799999237060548,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -194.75,
+                "y": 24.649999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -204.75,
+                "y": 24.510000228881837,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -214.75,
+                "y": 24.389999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -224.75,
+                "y": 24.950000762939454,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -234.75,
+                "y": 25.139999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -244.75,
+                "y": 25.200000762939454,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -254.75,
+                "y": 25.260000228881837,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -264.75,
+                "y": 25.219999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -274.75,
+                "y": 25.239999771118165,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -284.75,
+                "y": 25.299999237060548,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -294.75,
+                "y": 25.360000610351564,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -304.75,
+                "y": 25.149999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -314.75,
+                "y": 24.940000534057618,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -324.75,
+                "y": 24.850000381469728,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -334.75,
+                "y": 24.760000228881837,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -344.75,
+                "y": 24.709999084472658,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -354.75,
+                "y": 24.579999923706056,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -364.75,
+                "y": 24.260000228881837,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -374.75,
+                "y": 23.93000030517578,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -384.75,
+                "y": 23.65999984741211,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -394.75,
+                "y": 23.440000534057618,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -404.75,
+                "y": 23.200000762939454,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -414.75,
+                "y": 22.969999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -424.75,
+                "y": 22.649999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -434.75,
+                "y": 22.219999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -444.75,
+                "y": 22.350000381469728,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -454.75,
+                "y": 22.489999771118165,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -464.75,
+                "y": 22.600000381469728,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": -474.75,
+                "y": 22.65999984741211,
+                "z": -240.07000732421876
+            },
+            "technology": "5G",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 515.25,
+                "y": 21.65999984741211,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 505.25,
+                "y": 21.969999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 495.25,
+                "y": 22.280000686645509,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 485.25,
+                "y": 22.5,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 475.25,
+                "y": 22.520000457763673,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 465.25,
+                "y": 22.579999923706056,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 455.25,
+                "y": 22.639999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 445.25,
+                "y": 22.639999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 435.25,
+                "y": 22.360000610351564,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 425.25,
+                "y": 22.399999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 415.25,
+                "y": 22.469999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 405.25,
+                "y": 22.540000915527345,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 395.25,
+                "y": 22.420000076293947,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 385.25,
+                "y": 22.329999923706056,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 375.25,
+                "y": 22.239999771118165,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 365.25,
+                "y": 22.149999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 355.25,
+                "y": 22.3700008392334,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 345.25,
+                "y": 22.65999984741211,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 335.25,
+                "y": 22.969999313354493,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 325.25,
+                "y": 23.280000686645509,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 315.25,
+                "y": 23.829999923706056,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 305.25,
+                "y": 24.309999465942384,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 295.25,
+                "y": 24.6200008392334,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 285.25,
+                "y": 24.93000030517578,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 275.25,
+                "y": 25.229999542236329,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 265.25,
+                "y": 25.290000915527345,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 255.25,
+                "y": 24.889999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 245.25,
+                "y": 24.489999771118165,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 235.25,
+                "y": 23.940000534057618,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 225.25,
+                "y": 23.299999237060548,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 215.25,
+                "y": 22.959999084472658,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 205.25,
+                "y": 22.6200008392334,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 195.25,
+                "y": 22.25,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 185.25,
+                "y": 21.899999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 175.25,
+                "y": 22.649999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 165.25,
+                "y": 23.399999618530275,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 155.25,
+                "y": 24.139999389648439,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 145.25,
+                "y": 24.850000381469728,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 135.25,
+                "y": 25.729999542236329,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        },
+        {
+            "position": {
+                "x": 125.25,
+                "y": 26.6299991607666,
+                "z": -240.07000732421876
+            },
+            "technology": "5GSub6",
+            "sensitivity": -100.0,
+            "receiverHeight": 1.5
+        }
+    ],
+    "propagationModel": 5
+}

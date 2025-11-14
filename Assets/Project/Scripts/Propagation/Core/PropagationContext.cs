@@ -5,7 +5,6 @@ namespace RFSimulation.Propagation.Core
 {
     public class PropagationContext
     {
-        // Required parameters
         public Vector3 TransmitterPosition { get; set; }
         public Vector3 ReceiverPosition { get; set; }
         public float TransmitterPowerDbm { get; set; }
@@ -13,21 +12,21 @@ namespace RFSimulation.Propagation.Core
         public float TransmitterHeight { get; set; }
         public float ReceiverHeight { get; set; }
 
-        // Optional parameters with defaults
         public float AntennaGainDbi { get; set; }
         public float ReceiverGainDbi { get; set; }
         public float ReceiverSensitivityDbm { get; set; }
         public PropagationModel Model { get; set; }
-        public LayerMask? BuildingLayers { get; set; }
+        public LayerMask BuildingLayer { get; set; }
         public TechnologyType Technology { get; set; }
         public bool IsLOS { get; set; }
 
-        // Computed properties
+        public float MaxReflections { get; set; }
+        public float MaxDiffractions { get; set; }
+        public float MaxDistanceMeters { get; set; }
+
         public float Distance => Vector3.Distance(TransmitterPosition, ReceiverPosition);
-        public bool HasObstacles => BuildingLayers.HasValue;
         public float WavelengthMeters => RFConstants.SPEED_OF_LIGHT / (FrequencyMHz * 1e6f);
 
-        // Factory methods
         public static PropagationContext Create(
             Vector3 txPosition,
             Vector3 rxPosition,
@@ -47,7 +46,6 @@ namespace RFSimulation.Propagation.Core
             };
         }
 
-        // Validation
         public bool IsValid(out string errorMessage)
         {
             if (Distance < RFConstants.MIN_DISTANCE)
@@ -72,7 +70,6 @@ namespace RFSimulation.Propagation.Core
             return true;
         }
 
-        // Copy constructor for modifications
         public PropagationContext Clone()
         {
             return new PropagationContext
@@ -85,18 +82,18 @@ namespace RFSimulation.Propagation.Core
                 ReceiverGainDbi = ReceiverGainDbi,
                 ReceiverSensitivityDbm = ReceiverSensitivityDbm,
                 Model = Model,
-                BuildingLayers = BuildingLayers,
+                BuildingLayer = BuildingLayer,
                 Technology = Technology,
                 IsLOS = IsLOS
             };
         }
     }
 
-    // Enums
     public enum PropagationModel
     {
         FreeSpace,
-        LogDistance,
+        LogD,
+        LogDShadow,
         Hata,                    
         COST231,
         RayTracing

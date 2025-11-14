@@ -6,6 +6,26 @@ namespace RFSimulation.Utils
     {
         private const float SPEED_OF_LIGHT = 299792458f; // m/s
 
+        public static float MHzToGHz(float mhz)
+        {
+            return mhz / 1000f;
+        }
+
+        public static float GHzToMHz(float ghz)
+        {
+            return ghz * 1000f;
+        }
+
+        public static float MHzToHz(float mhz)
+        {
+            return mhz * 1e6f;
+        }
+
+        public static float mToKm(float meters)
+        {
+            return meters / 1000f;
+        }
+
         /// <summary>
         /// Calculate wavelength from frequency
         /// </summary>
@@ -36,7 +56,7 @@ namespace RFSimulation.Utils
         /// </summary>
         public static float LinearToDb(float linear)
         {
-            return 10f * Mathf.Log10(Mathf.Max(linear, 1e-10f)); // Avoid log(0)
+            return 10f * Mathf.Log10(Mathf.Max(linear, 1e-10f));
         }
 
         /// <summary>
@@ -62,33 +82,6 @@ namespace RFSimulation.Utils
         }
 
         /// <summary>
-        /// Clamp value with optional soft limiting
-        /// </summary>
-        public static float SoftClamp(float value, float min, float max, float softness = 0.1f)
-        {
-            if (value <= min) return min;
-            if (value >= max) return max;
-
-            // Soft limiting near boundaries
-            float range = max - min;
-            float softZone = range * softness;
-
-            if (value < min + softZone)
-            {
-                float t = (value - min) / softZone;
-                return min + softZone * SmoothStep(t);
-            }
-
-            if (value > max - softZone)
-            {
-                float t = (max - value) / softZone;
-                return max - softZone * (1f - SmoothStep(t));
-            }
-
-            return value;
-        }
-
-        /// <summary>
         /// Smooth step function
         /// </summary>
         public static float SmoothStep(float t)
@@ -97,47 +90,5 @@ namespace RFSimulation.Utils
             return t * t * (3f - 2f * t);
         }
 
-        /// <summary>
-        /// Calculate moving average
-        /// </summary>
-        public static float MovingAverage(float[] values, int count)
-        {
-            if (values == null || values.Length == 0) return 0f;
-
-            int actualCount = Mathf.Min(count, values.Length);
-            float sum = 0f;
-
-            for (int i = 0; i < actualCount; i++)
-            {
-                sum += values[values.Length - 1 - i];
-            }
-
-            return sum / actualCount;
-        }
-
-        /// <summary>
-        /// Interpolate between values with different interpolation modes
-        /// </summary>
-        public static float Interpolate(float a, float b, float t, InterpolationMode mode = InterpolationMode.Linear)
-        {
-            t = Mathf.Clamp01(t);
-
-            return mode switch
-            {
-                InterpolationMode.Linear => Mathf.Lerp(a, b, t),
-                InterpolationMode.Smooth => Mathf.Lerp(a, b, SmoothStep(t)),
-                InterpolationMode.Exponential => Mathf.Lerp(a, b, t * t),
-                InterpolationMode.Logarithmic => Mathf.Lerp(a, b, Mathf.Sqrt(t)),
-                _ => Mathf.Lerp(a, b, t)
-            };
-        }
-    }
-
-    public enum InterpolationMode
-    {
-        Linear,
-        Smooth,
-        Exponential,
-        Logarithmic
     }
 }

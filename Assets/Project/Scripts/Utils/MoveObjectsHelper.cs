@@ -1,6 +1,7 @@
 using RFSimulation.Core.Managers;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using RFSimulation.Core.Components;
 
 /// <summary>
 /// Click-and-drag mover for world objects (TX/RX).
@@ -17,26 +18,24 @@ namespace RFSimulation.Utils
 	public class MoveObjectsHelper : MonoBehaviour
 	{
 		[Header("Ground Raycast")]
-		[Tooltip("Layers considered as 'ground' to drag over (same as your placement layers).")]
 		public LayerMask groundMask;
 		public LayerMask forbiddenMask;
 
-		[Tooltip("How high above the terrain to keep the object while dragging.")]
 		public float heightOffset = 0f;
-
-		[Tooltip("How far above the object to start terrain probes.")]
 		public float raycastStartHeight = 1000f;
 
 		[Header("Rotation While Dragging")]
 		public bool allowRotate = true;
-		public float rotateSpeed = 120f; // deg/sec (Q/E)
+		public float rotateSpeed = 120f; 
 
 		private Camera _cam;
 		private bool _dragging;
-		private float _capturedOffset; // preserves original height offset
+		private float _capturedOffset; 
 		private Transform _t;
-		private float _yAtGrab; // used when ground has gaps
-		private Vector3 _grabLocalDelta; // optional: keep pointer-relative offset
+		private float _yAtGrab; 
+		private Vector3 _grabLocalDelta;
+
+		private GameObject _grabObject;
 
 		[SerializeField] private RFSimulation.UI.GroundGrid groundGrid;
 
@@ -47,26 +46,23 @@ namespace RFSimulation.Utils
 
 			if (groundGrid == null)
 				groundGrid = FindFirstObjectByType<RFSimulation.UI.GroundGrid>(FindObjectsInactive.Include);
-		}
+        }
 
 		void OnMouseDown()
 		{
-			// Ignore if clicking through UI
 			if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
 				return;
 
 			_dragging = true;
 
-			// Compute current offset above terrain so we keep it while dragging
-			float terrainY = _t.position.y;
+            float terrainY = _t.position.y;
 			if (RFSimulation.Utils.GeometryHelper.TryGetGroundY(_t.position, groundMask, out var gy))
 				terrainY = gy;
 			_capturedOffset = Mathf.Max(0f, _t.position.y - terrainY);
-			if (heightOffset != 0f) _capturedOffset = heightOffset; // allow forcing a fixed offset
+			if (heightOffset != 0f) _capturedOffset = heightOffset; 
 
 			_yAtGrab = _t.position.y;
 
-			// Optional: keep pointer-relative delta so object doesn't jump
 			if (TryGetMouseGround(out Vector3 hit))
 				_grabLocalDelta = _t.position - hit;
 			else
@@ -79,11 +75,12 @@ namespace RFSimulation.Utils
 
 			if (TryGetMouseGround(out Vector3 pos))
 			{
-				pos += _grabLocalDelta;
+                _grabObject = gameObject;
+
+                pos += _grabLocalDelta;
 
 				pos = groundGrid.SnapToGrid(pos);
 
-				// Keep height above ground
 				float terrainY = pos.y;
 				if (GeometryHelper.TryGetGroundY(pos, groundMask, out var gy))
 					terrainY = gy;
@@ -99,12 +96,10 @@ namespace RFSimulation.Utils
 			}
 			else
 			{
-				// No ground hit? Project onto plane at last Y, then snap with the grid's origin-aware method
 				Ray ray = _cam.ScreenPointToRay(Input.mousePosition);
 				float t = (_yAtGrab - ray.origin.y) / Mathf.Max(0.0001f, ray.direction.y);
 				Vector3 fallback = ray.origin + ray.direction * t;
 
-				// Use the grid's SnapToGrid (respects origin, terrain height, and offset)
 				_t.position = groundGrid ? groundGrid.SnapToGrid(new Vector3(fallback.x, _yAtGrab, fallback.z))
 										 : new Vector3(fallback.x, _yAtGrab, fallback.z);
 			}
@@ -114,7 +109,20 @@ namespace RFSimulation.Utils
 		{
 			if (!_dragging) return;
 			_dragging = false;
-			SimulationManager.Instance?.RecomputeAllSignalStrength();
+
+            if (_grabObject != null)
+            {
+                if (_grabObject.TryGetComponent<RFSimulation.Core.Components.Transmitter>(out var transmitter))
+                {
+                    SimulationManager.Instance?.RecomputeForTransmitter(transmitter);
+                }
+                else if (_grabObject.TryGetComponent<RFSimulation.Core.Components.Receiver>(out var receiver))
+                {
+                    SimulationManager.Instance?.RecomputeForReceiver(receiver);
+                }
+
+                _grabObject = null;
+            }
 
             BroadcastMessage("OnWorldDragged", SendMessageOptions.DontRequireReceiver);
 		}
@@ -126,7 +134,6 @@ namespace RFSimulation.Utils
 			if (_cam == null) _cam = Camera.main;
 			if (_cam == null) return false;
 
-			// Combine masks: ground minus forbidden
 			int mask = groundMask & ~forbiddenMask;
 
 			if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, out RaycastHit hit))

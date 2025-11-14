@@ -99,7 +99,6 @@ namespace RFSimulation.Core.Managers
                 }
 
                 receiver.UpdateSignalStrength(bestSignal);
-                receiver.UpdateSINR(bestSignal > float.NegativeInfinity ? 20f : float.NegativeInfinity); 
 
                 foreach (var transmitter in transmitters)
                 {

@@ -1,12 +1,12 @@
-Shader "Custom/TerrainSignalHeatmap_UltraFast"
+Shader "Custom/SignalHeatmapShader"
 {
     Properties
     {
         _MainTex   ("Heatmap Texture", 2D) = "white" {}
         _Intensity ("Intensity", Range(0, 2)) = 1.0
-        _Alpha     ("Alpha", Range(0, 1)) = 0.8
-        _EdgeFade  ("Edge Fade (UV)", Range(0, 1)) = 0.2
-        _UseDepthFade ("Use Depth Fade", Float) = 0 // 0=off, 1=on
+        _Alpha     ("Alpha", Range(0, 1)) = 1
+        _EdgeFade  ("Edge Fade (UV)", Range(0, 1)) = 0
+        _UseDepthFade ("Use Depth Fade", Float) = 0 
         _DepthFade ("Depth Fade Strength", Range(0, 5)) = 1.0
     }
 
@@ -23,12 +23,12 @@ Shader "Custom/TerrainSignalHeatmap_UltraFast"
         Pass
         {
             Name "UnlitHeatmap"
-            Tags { "LightMode"="UniversalForward" } // still fine, but no lighting code
+            Tags { "LightMode"="UniversalForward" }
 
             HLSLPROGRAM
             #pragma vertex   vert
             #pragma fragment frag
-            // Keep it lean: no lighting/fog/ssao/additional lights keywords.
+
             #pragma target 2.5
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -53,7 +53,7 @@ Shader "Custom/TerrainSignalHeatmap_UltraFast"
                 half   _Intensity;
                 half   _Alpha;
                 half   _EdgeFade;
-                half   _UseDepthFade; // 0 or 1
+                half   _UseDepthFade; 
                 half   _DepthFade;
             CBUFFER_END
 
@@ -71,7 +71,6 @@ Shader "Custom/TerrainSignalHeatmap_UltraFast"
             {
                 #if defined(_CameraDepthTexture)
                     float2 uv = screenPos.xy / screenPos.w;
-                    // PointClamp sampler is defined in URP library
                     float sceneRaw = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_PointClamp, uv).r;
                     float sceneEye = LinearEyeDepth(sceneRaw, _ZBufferParams);
                     float pixEye   = LinearEyeDepth(screenPos.z / screenPos.w, _ZBufferParams);
@@ -85,14 +84,12 @@ Shader "Custom/TerrainSignalHeatmap_UltraFast"
             {
                 half4 c = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
 
-                // Soft UV edge fade without branching
                 if (_EdgeFade > 0.0h)
                 {
                     half2 ed = saturate(min(IN.uv, 1.0h - IN.uv) / _EdgeFade);
                     c.a *= (ed.x * ed.y);
                 }
 
-                // Optional depth fade (toggle with _UseDepthFade)
                 if (_UseDepthFade > 0.5h)
                 {
                     c.a *= SampleDepthFade(IN.screenPos, _DepthFade);
@@ -101,7 +98,6 @@ Shader "Custom/TerrainSignalHeatmap_UltraFast"
                 c.rgb *= _Intensity;
                 c.a   *= _Alpha;
 
-                // No lighting, no fog
                 return c;
             }
             ENDHLSL

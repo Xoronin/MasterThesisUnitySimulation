@@ -1,13 +1,9 @@
-// RFSimulation/Visualization/RayVisualization.cs
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace RFSimulation.Visualization
 {
-	/// <summary>
-	/// Centralized, pooled ray visualization (single + multi-segment).
-	/// Call BeginFrame() before drawing a new solution, EndFrame() after.
-	/// </summary>
+
 	public class RayVisualization : MonoBehaviour
 	{
 		[Header("Hierarchy")]
@@ -15,18 +11,16 @@ namespace RFSimulation.Visualization
 		[SerializeField] private Transform root;
 
 		[Header("Appearance")]
-		[SerializeField] private Material lineMaterial;      // Optional; will create a default if null
+		[SerializeField] private Material lineMaterial;     
 		[SerializeField] private float lineWidth = 0.02f;
 
 		[Header("Lifetime")]
 		[Tooltip("If true, lines remain enabled; otherwise, EndFrame disables unused ones.")]
 		[SerializeField] private bool persistent = false;
 
-		// Pool
 		private readonly List<LineRenderer> pool = new();
 		private int used;
 
-		// Optional labels/metadata holder per line (if you ever want to show tooltips)
 		private readonly Dictionary<LineRenderer, string> labels = new();
 
 		void Awake()
@@ -45,21 +39,17 @@ namespace RFSimulation.Visualization
 			}
 		}
 
-		/// <summary>Call this before you render a new set of rays.</summary>
 		public void BeginFrame()
 		{
 			used = 0;
 		}
 
-		/// <summary>Call this after you rendered all rays this frame. Disables leftovers.</summary>
 		public void EndFrame()
 		{
-			// disable the unused tail
 			for (int i = used; i < pool.Count; i++)
-				pool[i].enabled = persistent && pool[i].enabled; // keep or hide depending on 'persistent'
+				pool[i].enabled = persistent && pool[i].enabled; 
 		}
 
-		/// <summary>Remove ALL lines (hard clear).</summary>
 		public void ClearAll()
 		{
 			for (int i = 0; i < pool.Count; i++)
@@ -72,7 +62,6 @@ namespace RFSimulation.Visualization
 			used = 0;
 		}
 
-		/// <summary>Draw a single straight segment.</summary>
 		public void DrawSegment(Vector3 a, Vector3 b, Color color, string label = null)
 		{
 			var lr = Rent();
@@ -82,12 +71,10 @@ namespace RFSimulation.Visualization
 			if (label != null) labels[lr] = label;
 		}
 
-		/// <summary>Draw a polyline (multi-segment ray: reflections, diffractions, etc.).</summary>
 		public void DrawPolyline(IReadOnlyList<Vector3> points, Color color, string label = null)
 		{
 			if (points == null || points.Count < 2) return;
 
-			// One renderer for the whole chain is enough
 			var lr = Rent();
 			Setup(lr, points.Count, color);
 			for (int i = 0; i < points.Count; i++)
@@ -126,7 +113,6 @@ namespace RFSimulation.Visualization
 			lr.useWorldSpace = true;
 			lr.positionCount = positionCount;
 
-			// Important: set material color (works with Sprites/Default)
 			lr.material.color = color;
 			lr.startColor = lr.endColor = color;
 		}

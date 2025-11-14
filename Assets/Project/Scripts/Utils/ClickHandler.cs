@@ -11,9 +11,7 @@ namespace RFSimulation.Core.Managers
         [SerializeField] private Camera _cam;
 
         [Header("Layer Masks")]
-        [Tooltip("Layers that can be selected (e.g., Transmitter, Receiver)")]
         [SerializeField] private LayerMask selectableMask;
-        [Tooltip("Layers that block or cancel clicks (e.g., Buildings)")]
         [SerializeField] private LayerMask forbiddenMask;
 
         [Header("UI / Managers")]
@@ -28,9 +26,14 @@ namespace RFSimulation.Core.Managers
 
         private void Update()
         {
-            // Prevent all click actions while typing in an input field
             if (UIInput.IsTyping())
                 return;
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                statusUI.ClearSelection();
+                return;
+            }
 
             if (Input.GetMouseButtonDown(0))
             {
@@ -65,21 +68,18 @@ namespace RFSimulation.Core.Managers
 
             var go = hit.collider.gameObject;
 
-            // Try select transmitter
             if (go.TryGetComponent(out Transmitter tx))
             {
                 statusUI.ShowTransmitter(tx);
                 return;
             }
 
-            // Try select receiver
             if (go.TryGetComponent(out Receiver rx))
             {
                 statusUI.ShowReceiver(rx);
                 return;
             }
 
-            // Clicked on something non-selectable
             statusUI.ClearSelection();
         }
     }

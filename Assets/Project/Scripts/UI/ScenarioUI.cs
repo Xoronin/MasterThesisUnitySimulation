@@ -145,7 +145,8 @@ namespace RFSimulation.UI
                 Scenario selectedScenario = GetSelectedScenario();
                 string scenarioName = selectedScenario.scenarioName;
                 scenarioManager.DeleteScenario(scenarioName);
-                SetStatusText($"✅ Deleted: { scenarioName}", Color.green);RefreshScenarioList();
+                SetStatusText($"Deleted: { scenarioName}", Color.green);
+                RefreshScenarioList();
                 scenarioManager.ClearCurrentScenario();
             }
             catch (Exception ex)
@@ -163,20 +164,20 @@ namespace RFSimulation.UI
             string scenarioName = newScenarioNameInput.text.Trim();
             if (string.IsNullOrEmpty(scenarioName))
             {
-                SetStatusText("❌ Please enter a scenario name", Color.red);
+                SetStatusText("Please enter a scenario name", Color.red);
                 return;
             }
 
             if (ValidateScenario())
             {
                 scenarioManager.SaveCurrentScenario(scenarioName);
-                SetStatusText($"✅ Saved: {scenarioName}", Color.green);
+                SetStatusText($"Saved: {scenarioName}", Color.green);
                 RefreshScenarioList();
                 return;
             }
             else
             {
-                SetStatusText("❌ Scenario validation failed", Color.red);
+                SetStatusText("Scenario validation failed", Color.red);
                 return;
             }
 
@@ -188,7 +189,7 @@ namespace RFSimulation.UI
 
             if (newScenarioNameInput != null)
             {
-                newScenarioNameInput.text = "New Scenario";
+                newScenarioNameInput.text = "NewScenario_" + DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
             }
 
             SetStatusText("Ready to create new scenario", Color.blue);
@@ -322,16 +323,16 @@ namespace RFSimulation.UI
                             tx = transmitters.OrderBy(t => Vector3.Distance(rx.transform.position, t.transform.position)).First();
 
                         Vector3 txPos = tx.transform.position;
-                        float txHeight = FormatHelper.SafeFloat(tx, nameof(tx.transmitterHeight), float.NaN);
-                        float txPower = FormatHelper.SafeFloat(tx, nameof(tx.transmitterPower), float.NaN);
-                        float txFreq = FormatHelper.SafeFloat(tx, nameof(tx.frequency), float.NaN);
+                        float txHeight = FormatHelper.SafeFloat(tx, nameof(tx.settings.transmitterHeight), float.NaN);
+                        float txPower = FormatHelper.SafeFloat(tx, nameof(tx.settings.transmitterPower), float.NaN);
+                        float txFreq = FormatHelper.SafeFloat(tx, nameof(tx.settings.frequency), float.NaN);
 
                         float dist = Vector3.Distance(rxPos, txPos);
 
                         sw.WriteLine(string.Join(",", new string[] {
                     FormatHelper.Esc(GetSelectedScenario().scenarioName),
                     ts,                                    
-                    FormatHelper.Esc(scenarioManager != null ? tx.propagationModel.ToString() : "Unknown"), 
+                    FormatHelper.Esc(scenarioManager != null ? tx.settings.propagationModel.ToString() : "Unknown"), 
                     FormatHelper.Esc(FormatHelper.SafeString(rx, nameof(rx.uniqueID), rx.name)),
                     rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
                     FormatHelper.FormatFloat(rxHeight, "F3"),

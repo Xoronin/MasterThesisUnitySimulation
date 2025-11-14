@@ -1,4 +1,3 @@
-// RFSimulation.Utils/UIInput.cs
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;

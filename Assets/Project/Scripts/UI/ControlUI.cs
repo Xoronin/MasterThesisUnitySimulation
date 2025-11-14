@@ -4,6 +4,7 @@ using RFSimulation.Propagation.Core;
 using RFSimulation.Utils;
 using RFSimulation.Visualization;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -51,8 +52,8 @@ namespace RFSimulation.UI
         [Header("Placement Settings")]
         public LayerMask placementLayerMask = 6;
         public LayerMask buildingLayerMask = 8;
-        public float transmitterHeight = 8f;
-        public float receiverHeight = 1f;
+        public float transmitterHeight = 10f;
+        public float receiverHeight = 1.5f;
         public float maxTransmitterHeight = 30f;
 
         [Header("Placement Preview")]
@@ -78,7 +79,6 @@ namespace RFSimulation.UI
 
         private PropagationModel _defaultTxModel = PropagationModel.RayTracing;
 
-        // Managers we actually need here (no ScenarioManager here)
         private ConnectionManager connectionManager;
 
         void Start()
@@ -96,7 +96,6 @@ namespace RFSimulation.UI
                 connectionManager = SimulationManager.Instance.connectionManager;
             }
 
-            // BuildingManager is allowed here for the “show buildings” toggle
             if (BuildingManager.Instance != null)
             {
                 BuildingManager.Instance.OnBuildingsToggled += OnBuildingsToggled;
@@ -164,7 +163,13 @@ namespace RFSimulation.UI
         {
             if (receiverTechnologyDropdown != null)
             {
-                var technologies = new List<string> { "5GSub6", "5GmmWave", "LTE" };
+                var technologies = new List<string>();
+                var technologiesSpec = TechnologySpecifications.GetAllSpecs().ToList();
+                for (int i = 0; i < technologiesSpec.Count; i++)
+                {
+                    technologies.Add(technologiesSpec[i].Name);
+                }
+
                 receiverTechnologyDropdown.ClearOptions();
                 receiverTechnologyDropdown.AddOptions(technologies);
                 receiverTechnologyDropdown.value = 0;
@@ -175,29 +180,42 @@ namespace RFSimulation.UI
 
         private void OnReceiverTechnologyChanged(int index)
         {
-            // When user changes dropdown, update all UI fields from spec
             if (receiverTechnologyDropdown == null) return;
 
-            string tech = receiverTechnologyDropdown.options[index].text;
+            var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[index].text);
             var spec = TechnologySpecifications.GetSpec(tech);
 
-            // Update receiver UI fields to match technology defaults
+            // RX defaults
             if (receiverSensitivityInput != null)
                 receiverSensitivityInput.text = spec.SensitivityDbm.ToString("F1");
+
+            if (receiverHeightInput != null)
+                receiverHeightInput.text = spec.TypicalRxHeight.ToString("F1");
+
+            // TX defaults 
+            if (transmitterFrequencyInput != null)
+                transmitterFrequencyInput.text = MathHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
+
+            if (transmitterPowerInput != null)
+                transmitterPowerInput.text = spec.TypicalTxPowerDbm.ToString("F1");
+
+            if (transmitterHeightInput != null)
+                transmitterHeightInput.text = spec.TypicalTxHeight.ToString("F1");
         }
 
         private static readonly string[] ModelNames =
-            { "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
+            { "FreeSpace", "LogD", "LogDShadow", "Hata", "COST231", "RayTracing" };
 
         private static PropagationModel ModelFromIndex(int i)
         {
             switch (i)
             {
                 case 0: return PropagationModel.FreeSpace;
-                case 1: return PropagationModel.LogDistance;
-                case 2: return PropagationModel.Hata;    
-                case 3: return PropagationModel.COST231;   
-                case 4: return PropagationModel.RayTracing;
+                case 1: return PropagationModel.LogD;
+                case 2: return PropagationModel.LogDShadow;
+                case 3: return PropagationModel.Hata;    
+                case 4: return PropagationModel.COST231;   
+                case 5: return PropagationModel.RayTracing;
                 default: return PropagationModel.RayTracing;
             }
         }
@@ -207,11 +225,12 @@ namespace RFSimulation.UI
             switch (m)
             {
                 case PropagationModel.FreeSpace: return 0;
-                case PropagationModel.LogDistance: return 1;
-                case PropagationModel.Hata: return 2; 
-                case PropagationModel.COST231: return 3;  
-                case PropagationModel.RayTracing: return 4;
-                default: return 4;
+                case PropagationModel.LogD: return 1;
+                case PropagationModel.LogDShadow: return 2;
+                case PropagationModel.Hata: return 3; 
+                case PropagationModel.COST231: return 4;  
+                case PropagationModel.RayTracing: return 5;
+                default: return 5;
             }
         }
 
@@ -221,6 +240,14 @@ namespace RFSimulation.UI
 
             transmitterPropagationModelDropdown.ClearOptions();
             transmitterPropagationModelDropdown.AddOptions(new List<string>(ModelNames));
+
+            if (transmitterPrefab != null)
+            {
+                var tx = transmitterPrefab.GetComponent<Transmitter>();
+                if (tx != null)
+                    _defaultTxModel = tx.settings.propagationModel;
+            }
+
             transmitterPropagationModelDropdown.value = IndexFromModel(_defaultTxModel);
             transmitterPropagationModelDropdown.onValueChanged.AddListener(i =>
             {
@@ -230,6 +257,32 @@ namespace RFSimulation.UI
 
         private void SetDefaultUIValues()
         {
+            var allSpecs = TechnologySpecifications.GetAllSpecs().ToList();
+            if (allSpecs.Count > 0)
+            {
+                var spec = allSpecs[0];
+
+                if (receiverTechnologyDropdown != null)
+                {
+                    receiverTechnologyDropdown.value = 0;
+                }
+
+                if (receiverSensitivityInput != null)
+                    receiverSensitivityInput.text = spec.SensitivityDbm.ToString("F1");
+
+                if (receiverHeightInput != null)
+                    receiverHeightInput.text = spec.TypicalRxHeight.ToString("F1");
+
+                if (transmitterFrequencyInput != null)
+                    transmitterFrequencyInput.text = MathHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
+
+                if (transmitterPowerInput != null)
+                    transmitterPowerInput.text = spec.TypicalTxPowerDbm.ToString("F1");
+
+                if (transmitterHeightInput != null)
+                    transmitterHeightInput.text = spec.TypicalTxHeight.ToString("F1");
+            }
+
             if (showConnectionsToggle != null) showConnectionsToggle.isOn = true;
             if (showGridToggle != null) showGridToggle.isOn = true;
 
@@ -239,16 +292,6 @@ namespace RFSimulation.UI
             if (showHeatmapToggle != null) showHeatmapToggle.isOn = false;
 
             if (showRaysToggle != null) showRaysToggle.isOn = false;
-
-            if (transmitterHeightInput != null)
-            {
-                transmitterHeightInput.text = transmitterHeight.ToString("F1");
-            }
-
-            if (receiverHeightInput != null)
-            {
-                receiverHeightInput.text = receiverHeight.ToString("F1");
-            }
 
             if (groundGridComponent != null && gridSizeInput != null)
             {
@@ -311,7 +354,7 @@ namespace RFSimulation.UI
                 BuildingManager.Instance.SetBuildingsEnabled(enabled);
 
             UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")}");
-            SimulationManager.Instance?.RecomputeAllSignalStrength();
+            SimulationManager.Instance?.RecomputeAllSignalStrength(true);
         }
 
         private void OnBuildingsToggled(bool enabled)
@@ -320,12 +363,12 @@ namespace RFSimulation.UI
                 showBuildingsToggle.SetIsOnWithoutNotify(enabled);
 
             UpdateStatusText($"Buildings {(enabled ? "enabled" : "disabled")} - RF calculations updated");
-            SimulationManager.Instance?.RecomputeAllSignalStrength();
+            SimulationManager.Instance?.RecomputeAllSignalStrength(true);
         }
 
         private void ToggleHeatmap(bool enabled)
         {
-            var heatmap = FindAnyObjectByType<SignalHeatmap>();
+            var heatmap = FindAnyObjectByType<HeatmapVisualization>();
             heatmap.SetUIEnabled(enabled);
 
             UpdateStatusText($"Heatmap {(enabled ? "enabled" : "disabled")}");
@@ -339,7 +382,7 @@ namespace RFSimulation.UI
                 if (tx == null) continue;
                 if (enabled)
                 {
-                    tx.showRayPaths = true;
+                    tx.settings.showRayPaths = true;
                     tx.EnableRayVisualization();
                     RecomputeRaysFor(tx);          
                 }
@@ -431,14 +474,11 @@ namespace RFSimulation.UI
 
         private void PlaceTransmitter(Vector3 position)
         {
-            // 1) snap XZ to grid (if enabled)
             if (enableGridSnap && groundGridComponent != null)
                 position = groundGridComponent.SnapToGrid(position);
 
-            // 2) force Y to real terrain height (removes any grid heightOffset)
             if (groundGridComponent != null)
             {
-                // copy of your grid’s probe but returning pure hit.point.y
                 var probe = new Vector3(position.x, groundGridComponent.raycastStartHeight, position.z);
                 if (Physics.Raycast(new Ray(probe, Vector3.down), out var hit, Mathf.Infinity, groundGridComponent.terrainMask, QueryTriggerInteraction.Ignore))
                     position.y = hit.point.y;
@@ -451,12 +491,12 @@ namespace RFSimulation.UI
             if (tx != null)
             {
                 if (transmitterPowerInput != null && float.TryParse(transmitterPowerInput.text, out float p))
-                    tx.transmitterPower = p;
+                    tx.settings.transmitterPower = p;
 
                 if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
                 {
-                    float fMHz = GHzToMHz(fGHz);
-                    tx.frequency = fMHz;
+                    float fMHz = MathHelper.GHzToMHz(fGHz);
+                    tx.settings.frequency = fMHz;
                 }
 
                 if (transmitterPropagationModelDropdown != null)
@@ -473,9 +513,9 @@ namespace RFSimulation.UI
                     tx.SetTransmitterHeight(Mathf.Max(0f, h));
                 }
 
-                tx.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
+                tx.settings.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
 
-                UpdateStatusText($"Transmitter placed: {tx.transmitterPower:F1} dBm, {tx.frequency:F0} MHz @ {position}");
+                UpdateStatusText($"Transmitter placed: {tx.settings.transmitterPower:F1} dBm, {tx.settings.frequency:F0} MHz @ {position}");
 
                 statusUI?.ShowTransmitter(tx);
             }
@@ -492,7 +532,7 @@ namespace RFSimulation.UI
             {
                 if (receiverTechnologyDropdown != null)
                 {
-                    string tech = receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text;
+                    var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text);
                     rx.SetTechnology(tech); 
                 }
 
@@ -538,18 +578,15 @@ namespace RFSimulation.UI
 
         private void BeginPlacement(GameObject prefab, float heightOffset)
         {
-            // clean up any old preview
             if (previewInstance != null) Destroy(previewInstance);
 
             previewSourcePrefab = prefab;
             previewHeightOffset = heightOffset;
 
-            // Create ghost preview from the prefab (no side-effects on the actual prefab)
             previewInstance = Instantiate(prefab);
             previewInstance.name = prefab.name + "_PREVIEW";
-            previewInstance.layer = 2; // IgnoreRaycast by default
+            previewInstance.layer = 2;
 
-            // Make it semi-transparent and non-interactive
             foreach (var col in previewInstance.GetComponentsInChildren<Collider>(true))
                 col.enabled = false;
 
@@ -558,9 +595,8 @@ namespace RFSimulation.UI
             {
                 if (previewMaterial != null)
                 {
-                    r.sharedMaterial = previewMaterial; // use your transparent material
+                    r.sharedMaterial = previewMaterial;
                 }
-                // force tint alpha (works if material uses _BaseColor/_Color)
                 if (r.sharedMaterial.HasProperty("_BaseColor"))
                 {
                     var c = r.sharedMaterial.GetColor("_BaseColor");
@@ -580,7 +616,6 @@ namespace RFSimulation.UI
         {
             if (previewInstance == null) return;
 
-            // Ignore UI clicks/hover for raycast targeting
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
                 previewInstance.SetActive(false);
@@ -590,7 +625,6 @@ namespace RFSimulation.UI
             if (mainCamera == null) mainCamera = Camera.main;
             var ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-            // If we are placing a receiver and the ray is over a building -> hide preview
             if (isPlacingReceiver && RayHitsBuilding(ray))
             {
                 previewInstance.SetActive(false);
@@ -634,7 +668,6 @@ namespace RFSimulation.UI
                 return true;
             }
 
-            // Fallback plane
             var groundPlane = new Plane(Vector3.up, new Vector3(0, groundLevel, 0));
             if (groundPlane.Raycast(ray, out float dist))
             {
@@ -647,7 +680,6 @@ namespace RFSimulation.UI
         private bool RaycastSkippingBuildings(Ray ray, out RaycastHit hit, float maxDist = 10000f)
         {
             hit = default;
-            // Use terrainOnlyMask if provided, else fall back to placementLayerMask
             var mask = (terrainLayerMask.value != 0) ? terrainLayerMask : placementLayerMask;
 
             var hits = Physics.RaycastAll(ray, maxDist, mask, QueryTriggerInteraction.Ignore);
@@ -657,14 +689,13 @@ namespace RFSimulation.UI
             foreach (var h in hits)
             {
                 bool isBuilding = (buildingLayerMask.value & (1 << h.collider.gameObject.layer)) != 0;
-                if (isBuilding) continue;                 // skip buildings
+                if (isBuilding) continue;                 
                 hit = h;
                 return true;
             }
             return false;
         }
 
-        // Utility: are we currently pointing at a building?
         private bool RayHitsBuilding(Ray ray, float maxDist = 10000f)
         {
             if (buildingLayerMask.value == 0) return false;
@@ -697,7 +728,6 @@ namespace RFSimulation.UI
             var go = Instantiate(previewSourcePrefab, pos, previewInstance.transform.rotation);
             PlaceObjectsHelper.Organize(go);
 
-            // Initialize fields from UI (same as your existing PlaceTransmitter/Receiver)
             if (isPlacingTransmitter)
             {
                 var tx = go.GetComponent<Transmitter>();
@@ -707,16 +737,15 @@ namespace RFSimulation.UI
                     if (transmitterHeightInput != null && float.TryParse(transmitterHeightInput.text, out float h))
                         desiredH = Mathf.Max(0f, h);
 
-                    // 3) apply by moving the whole model (uses your TX setter)
                     tx.SetTransmitterHeight(desiredH);
 
                     if (transmitterPowerInput != null && float.TryParse(transmitterPowerInput.text, out float p))
-                        tx.transmitterPower = p;
+                        tx.settings.transmitterPower = p;
 
                     if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
                     {
-                        float fMHz = GHzToMHz(fGHz);
-                        tx.frequency = fMHz;
+                        float fMHz = MathHelper.GHzToMHz(fGHz);
+                        tx.settings.frequency = fMHz;
                     }
 
                     if (transmitterPropagationModelDropdown != null)
@@ -734,16 +763,16 @@ namespace RFSimulation.UI
                         RecomputeRaysFor(tx);
                     }
 
-                    tx.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
+                    tx.settings.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
 
                     if (statusUI != null)
                     {
                         statusUI.ShowTransmitter(tx);
                     }
 
-                    UpdateStatusText($"Transmitter placed: {tx.transmitterPower:F1} dBm, {tx.frequency:F0} MHz @ {pos}");
+                    UpdateStatusText($"Transmitter placed: {tx.settings.transmitterPower:F1} dBm, {tx.settings.frequency:F0} MHz @ {pos}");
                     StartCoroutine(SelectTransmitterNextFrame(tx));
-                    SimulationManager.Instance?.RecomputeAllSignalStrength();
+                    SimulationManager.Instance?.RecomputeAllSignalStrength(true);
                 }
             }
             else if (isPlacingReceiver)
@@ -753,7 +782,7 @@ namespace RFSimulation.UI
                 {
                     if (receiverTechnologyDropdown != null)
                     {
-                        string tech = receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text;
+                        var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text);
                         rx.SetTechnology(tech);
                     }
 
@@ -785,11 +814,9 @@ namespace RFSimulation.UI
 
                     UpdateStatusText($"Receiver placed: {rx.technology}, {rx.sensitivity:F1} dBm @ {pos}");
                     StartCoroutine(SelectReceiverNextFrame(rx));
-                    SimulationManager.Instance?.RecomputeAllSignalStrength();
                 }
             }
 
-            // Done
             CancelPlacement();
         }
 
@@ -840,13 +867,12 @@ namespace RFSimulation.UI
 
         private void ToggleGrid(bool show)
         {
-            // Prefer the cached reference; if missing, include inactive in the search
             if (groundGridComponent == null)
                 groundGridComponent = FindFirstObjectByType<GroundGrid>(FindObjectsInactive.Include);
 
             if (groundGridComponent != null)
             {
-                groundGridComponent.SetGridVisibility(show); // << use the API in GroundGrid
+                groundGridComponent.SetGridVisibility(show);
                 UpdateStatusText($"Grid {(show ? "enabled" : "disabled")}");
             }
             else
@@ -863,9 +889,9 @@ namespace RFSimulation.UI
                 var tx = transmitterPrefab.GetComponent<Transmitter>();
                 if (tx != null)
                 {
-                    if (transmitterPowerInput != null) transmitterPowerInput.text = tx.transmitterPower.ToString();
+                    if (transmitterPowerInput != null) transmitterPowerInput.text = tx.settings.transmitterPower.ToString();
                     if (transmitterFrequencyInput != null)
-                        transmitterFrequencyInput.text = MHzToGHz(tx.frequency).ToString("F2");
+                        transmitterFrequencyInput.text = MathHelper.MHzToGHz(tx.settings.frequency).ToString("F2");
                 }
             }
 
@@ -881,7 +907,7 @@ namespace RFSimulation.UI
                         var opts = receiverTechnologyDropdown.options;
                         for (int i = 0; i < opts.Count; i++)
                         {
-                            if (opts[i].text.ToLower() == rx.technology.ToLower())
+                            if (opts[i].text.ToLower() == rx.technology.ToString().ToLower())
                             {
                                 receiverTechnologyDropdown.value = i;
                                 break;
@@ -897,7 +923,7 @@ namespace RFSimulation.UI
         private void RecomputeRaysFor(Transmitter tx)
         {         
             if (tx == null) return;
-            if (tx.propagationModel != PropagationModel.RayTracing) return;
+            if (tx.settings.propagationModel != PropagationModel.RayTracing) return;
             var rxs = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
             for (int i = 0; i < rxs.Length; i++)
             {
@@ -917,15 +943,5 @@ namespace RFSimulation.UI
                 BuildingManager.Instance.OnBuildingsToggled -= OnBuildingsToggled;
         }
 
-
-        private float MHzToGHz(float mhz)
-        {
-            return mhz / 1000f;
-        }
-
-        private float GHzToMHz(float ghz)
-        {
-            return ghz * 1000f;
-        }
     }
 }

@@ -36,12 +36,6 @@ namespace RFSimulation.Utils
         public float cameraTransitionSpeed = 3f;
         public bool smoothCameraTransition = true;
 
-        [Header("Visual Feedback")]
-        public Material highlightMaterial;
-        public Color highlightColor = Color.yellow;
-        public float highlightPulseSpeed = 2f;
-        public bool showInfoPopup = true;
-
         // Internal state
         private List<Transmitter> transmitters = new List<Transmitter>();
         private List<Receiver> receivers = new List<Receiver>();
@@ -49,10 +43,6 @@ namespace RFSimulation.Utils
         private int currentReceiverIndex = 0;
         private int currentAllIndex = 0;
         private GameObject currentlySelected = null;
-
-        // Highlighting system
-        private Dictionary<GameObject, HighlightInfo> highlightedObjects = new Dictionary<GameObject, HighlightInfo>();
-        private Material defaultHighlightMaterial;
 
         // Camera movement
         private Vector3 targetCameraPosition;
@@ -71,7 +61,6 @@ namespace RFSimulation.Utils
             InitializeSystem();
             RefreshObjectLists();
 
-            // Auto-select first object if available
             if (GetTotalObjectCount() > 0)
             {
                 CycleToNextAll();
@@ -83,7 +72,6 @@ namespace RFSimulation.Utils
             if (UIInput.IsTyping()) return;
             HandleInput();
             UpdateCameraMovement();
-            UpdateHighlightEffects();
             UpdateObjectLists();
         }
 
@@ -92,20 +80,6 @@ namespace RFSimulation.Utils
             if (targetCamera == null)
                 targetCamera = Camera.main;
 
-            if (highlightMaterial == null)
-                CreateDefaultHighlightMaterial();
-        }
-
-        private void CreateDefaultHighlightMaterial()
-        {
-            defaultHighlightMaterial = new Material(Shader.Find("Lit"));
-            defaultHighlightMaterial.color = highlightColor;
-            defaultHighlightMaterial.SetFloat("_Mode", 2); // Fade mode
-            defaultHighlightMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            defaultHighlightMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            defaultHighlightMaterial.SetInt("_ZWrite", 0);
-            defaultHighlightMaterial.EnableKeyword("_ALPHABLEND_ON");
-            defaultHighlightMaterial.renderQueue = 3000;
         }
 
         private void HandleInput()
@@ -169,7 +143,6 @@ namespace RFSimulation.Utils
             currentTransmitterIndex = (currentTransmitterIndex + 1) % transmitters.Count;
             SelectTransmitter(currentTransmitterIndex);
 
-            // Update global index
             currentAllIndex = currentTransmitterIndex;
         }
 
@@ -180,7 +153,6 @@ namespace RFSimulation.Utils
             currentReceiverIndex = (currentReceiverIndex + 1) % receivers.Count;
             SelectReceiver(currentReceiverIndex);
 
-            // Update global index
             currentAllIndex = transmitters.Count + currentReceiverIndex;
         }
 
@@ -188,13 +160,11 @@ namespace RFSimulation.Utils
         {
             if (globalIndex < transmitters.Count)
             {
-                // Select transmitter
                 currentTransmitterIndex = globalIndex;
                 SelectTransmitter(currentTransmitterIndex);
             }
             else
             {
-                // Select receiver
                 int receiverIndex = globalIndex - transmitters.Count;
                 if (receiverIndex < receivers.Count)
                 {
@@ -226,76 +196,13 @@ namespace RFSimulation.Utils
 
         private void SelectObject(GameObject obj, string objectType)
         {
-            // Clear previous selection
-            ClearHighlight();
-
             // Set new selection
             currentlySelected = obj;
-
-            // Apply highlight
-            ApplyHighlight(obj);
 
             // Auto-focus if enabled
             if (smoothCameraTransition)
             {
                 SetCameraTarget(obj.transform.position);
-            }
-        }
-
-        #endregion
-
-        #region Highlighting System
-
-        private void ApplyHighlight(GameObject obj)
-        {
-            var renderer = obj.GetComponent<Renderer>();
-            if (renderer == null) return;
-
-            if (!highlightedObjects.ContainsKey(obj))
-            {
-                var highlightInfo = new HighlightInfo
-                {
-                    renderer = renderer,
-                    originalMaterial = renderer.material,
-                    isHighlighted = true
-                };
-                highlightedObjects[obj] = highlightInfo;
-            }
-
-            // Apply highlight material
-            Material materialToUse = highlightMaterial ?? defaultHighlightMaterial;
-            renderer.material = materialToUse;
-        }
-
-        private void ClearHighlight()
-        {
-            if (currentlySelected != null && highlightedObjects.ContainsKey(currentlySelected))
-            {
-                var highlightInfo = highlightedObjects[currentlySelected];
-                if (highlightInfo.renderer != null)
-                {
-                    highlightInfo.renderer.material = highlightInfo.originalMaterial;
-                }
-                highlightedObjects.Remove(currentlySelected);
-            }
-        }
-
-        private void UpdateHighlightEffects()
-        {
-            if (currentlySelected == null) return;
-
-            // Pulse effect
-            float pulseValue = 0.5f + 0.5f * Mathf.Sin(Time.time * highlightPulseSpeed);
-
-            if (highlightedObjects.ContainsKey(currentlySelected))
-            {
-                var renderer = highlightedObjects[currentlySelected].renderer;
-                if (renderer != null && renderer.material != null)
-                {
-                    Color color = highlightColor;
-                    color.a = pulseValue;
-                    renderer.material.color = color;
-                }
             }
         }
 
@@ -400,57 +307,5 @@ namespace RFSimulation.Utils
 
         #endregion
 
-        #region Public Methods
-
-        public void SelectTransmitterByID(string uniqueID)
-        {
-            for (int i = 0; i < transmitters.Count; i++)
-            {
-                if (transmitters[i].uniqueID == uniqueID)
-                {
-                    currentTransmitterIndex = i;
-                    currentAllIndex = i;
-                    SelectTransmitter(i);
-                    return;
-                }
-            }
-        }
-
-        public void SelectReceiverByID(string uniqueID)
-        {
-            for (int i = 0; i < receivers.Count; i++)
-            {
-                if (receivers[i].uniqueID == uniqueID)
-                {
-                    currentReceiverIndex = i;
-                    currentAllIndex = transmitters.Count + i;
-                    SelectReceiver(i);
-                    return;
-                }
-            }
-        }
-
-        public GameObject GetCurrentlySelected()
-        {
-            return currentlySelected;
-        }
-
-        public void SetCameraTransitionSpeed(float speed)
-        {
-            cameraTransitionSpeed = speed;
-        }
-
-        #endregion
-
-        void OnDestroy()
-        {
-            // Clean up highlight materials
-            ClearHighlight();
-
-            if (defaultHighlightMaterial != null)
-            {
-                DestroyImmediate(defaultHighlightMaterial);
-            }
-        }
     }
 }

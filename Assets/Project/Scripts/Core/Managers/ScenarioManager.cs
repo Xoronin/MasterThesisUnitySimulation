@@ -16,6 +16,7 @@ namespace RFSimulation.Core.Managers
     {
         [Header("Basic Info")]
         public string scenarioName;
+        public int id;
 
         [Header("Equipment")]
         public List<TransmitterConfig> transmitters;
@@ -23,6 +24,7 @@ namespace RFSimulation.Core.Managers
 
         [Header("Propagation")]
         public PropagationModel propagationModel;
+        public TechnologyType technology;
     }
 
     [System.Serializable]
@@ -33,17 +35,20 @@ namespace RFSimulation.Core.Managers
         public float antennaGain;
         public float frequency;
         public float transmitterHeight;
+        public float maxReflections;
+        public float maxDiffractions;
 
-        public PropagationModel propagationModel = PropagationModel.LogDistance;
+        public PropagationModel propagationModel;
     }
 
     [System.Serializable]
     public class ReceiverConfig
     {
         public Vector3 position;
-        public string technology;
         public float sensitivity;
         public float receiverHeight;
+        public float connectionMargin;
+        public TechnologyType technology;
     }
 
     public class ScenarioManager : MonoBehaviour
@@ -89,14 +94,12 @@ namespace RFSimulation.Core.Managers
 
             string scenarioPath = System.IO.Path.Combine(Application.dataPath, scenariosfolder);
 
-            // Create directory if it doesn't exist
             if (!Directory.Exists(scenarioPath))
             {
                 Directory.CreateDirectory(scenarioPath);
                 return;
             }
 
-            // Load all JSON files in the scenarios folder
             string[] files = Directory.GetFiles(scenarioPath, "*.json");
 
             foreach (string filePath in files)
@@ -141,6 +144,18 @@ namespace RFSimulation.Core.Managers
             return null;
         }
 
+        public int GetScenarioIndex(int id)
+        {
+            for (int i = 0; i < scenarios.Count; i++)
+            {
+                if (scenarios[i].id == id)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         public void SelectScenario(int index)
         {
             if (index < 0 || index >= scenarios.Count)
@@ -175,10 +190,12 @@ namespace RFSimulation.Core.Managers
 
             Scenario newScenario = new Scenario
             {
+                id = scenarios.Count,
                 scenarioName = scenarioName,
                 transmitters = new List<TransmitterConfig>(),
                 receivers = new List<ReceiverConfig>(),
                 propagationModel = PropagationModel.RayTracing,
+                technology = TechnologyType.FiveGSub6
             };
 
             if (SimulationManager.Instance.connectionManager != null)
@@ -186,7 +203,6 @@ namespace RFSimulation.Core.Managers
                 var currentSettings = SimulationManager.Instance.connectionManager.GetSettings();
             }
 
-            // Collect transmitter configurations
             foreach (var transmitter in SimulationManager.Instance.transmitters)
             {
                 if (transmitter != null)
@@ -201,18 +217,19 @@ namespace RFSimulation.Core.Managers
                             (float)Math.Round(pos.z, 2)
                         ),
 
-                        powerDbm = (float)Math.Round(transmitter.transmitterPower, 2),
-                        antennaGain = (float)Math.Round(transmitter.antennaGain, 2),
-                        frequency = (float)Math.Round(transmitter.frequency, 2),
-                        transmitterHeight = (float)Math.Round(transmitter.transmitterHeight, 2),
+                        powerDbm = (float)Math.Round(transmitter.settings.transmitterPower, 2),
+                        antennaGain = (float)Math.Round(transmitter.settings.antennaGain, 2),
+                        frequency = (float)Math.Round(transmitter.settings.frequency, 2),
+                        transmitterHeight = (float)Math.Round(transmitter.settings.transmitterHeight, 2),
+                        maxReflections = transmitter.settings.maxReflections,
+                        maxDiffractions = transmitter.settings.maxDiffractions,
 
-                        propagationModel = transmitter.propagationModel
+                        propagationModel = transmitter.settings.propagationModel
                     };
                     newScenario.transmitters.Add(config);
                 }
             }
 
-            // Collect receiver configurations
             foreach (var receiver in SimulationManager.Instance.receivers)
             {
                 if (receiver != null)
@@ -229,13 +246,13 @@ namespace RFSimulation.Core.Managers
 
                         technology = receiver.technology,
                         sensitivity = (float)Math.Round(receiver.sensitivity, 2),
-                        receiverHeight = (float)Math.Round(receiver.receiverHeight, 2)
+                        receiverHeight = (float)Math.Round(receiver.receiverHeight, 2),
+                        connectionMargin = (float)Math.Round(receiver.connectionMargin, 2)
                     };
                     newScenario.receivers.Add(config);
                 }
             }
 
-            // Infer propagation model from first transmitter
             if (newScenario.transmitters.Count > 0)
             {
                 newScenario.propagationModel = newScenario.transmitters[0].propagationModel;
@@ -251,8 +268,9 @@ namespace RFSimulation.Core.Managers
                 string json = JsonUtility.ToJson(newScenario, true);
                 File.WriteAllText(filePath, json);
 
-                // Reload scenarios to include the new one
                 LoadAllScenarios();
+                currentScenarioIndex = GetScenarioIndex(newScenario.id);
+                SelectScenario(currentScenarioIndex);
             }
             catch (System.Exception e)
             {
@@ -265,9 +283,7 @@ namespace RFSimulation.Core.Managers
             if (index < 0 || index >= scenarios.Count) return;
 
             ClearCurrentScenario();
-
             Scenario scenario = scenarios[index];
-
             ApplyScenarioSettings(scenario);
 
             foreach (var txConfig in scenario.transmitters)
@@ -309,9 +325,9 @@ namespace RFSimulation.Core.Managers
 
             if (transmitter != null)
             {
-                transmitter.transmitterPower = config.powerDbm;
-                transmitter.antennaGain = config.antennaGain;
-                transmitter.frequency = config.frequency;
+                transmitter.settings.transmitterPower = config.powerDbm;
+                transmitter.settings.antennaGain = config.antennaGain;
+                transmitter.settings.frequency = config.frequency;
                 transmitter.SetPropagationModel(config.propagationModel);
                 transmitter.SetTransmitterHeight(Mathf.Max(0f, config.transmitterHeight));
             }

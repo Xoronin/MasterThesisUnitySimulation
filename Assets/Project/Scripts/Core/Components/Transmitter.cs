@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Propagation.Core;
-using RFSimulation.Propagation.PathLoss;
+using RFSimulation.Propagation.Models;
 using RFSimulation.Core.Managers;
 using RFSimulation.Core.Components;
 using RFSimulation.Utils;
@@ -9,35 +9,37 @@ using RFSimulation.Visualization;
 
 namespace RFSimulation.Core.Components
 {
-    /// <summary>
-    /// Settings for ray tracing functionality.
-    /// </summary>
+
     [System.Serializable]
     public class TransmitterSettings
     {
+        [Header("Propagation Settings")]
+        public string technology;
+        public float transmitterPower = 20.0f;
+        public float antennaGain = 0f;
+        public float frequency = 3500f;
+        public float transmitterHeight = 10f;
         public PropagationModel propagationModel;
 
+        [Header("Visualization")]
+        public bool showConnections = true;
+        public bool showRayPaths = false;
+
         [Header("Performance")]
-        public bool usePerformanceOptimizations = true;
-        public int maxReflections = 1;
-        public int maxDiffractions = 1;
-        public float maxCalculationDistance = 3000f;
+        public int maxReflections = 2;
+        public int maxDiffractions = 2;
+        public float maxCalculationDistance = 5000f;
 
         [Header("Mapbox Integration")]
-        public LayerMask mapboxBuildingLayer = 8;
-        public LayerMask terrainLayer = 6;
-        public bool enableBuildingMaterialDetection = true;
+        public LayerMask buildingLayer;
+        public LayerMask terrainLayer;
     }
 
-    /// <summary>
-    /// Unified Transmitter combining RF functionality with optional ray tracing.
-    /// </summary>
+
     public class Transmitter : MonoBehaviour
     {
         #region Data Contracts
-        /// <summary>
-        /// Snapshot of transmitter configuration, state, and derived values.
-        /// </summary>
+
         public sealed class TransmitterInfo
         {
             public string UniqueID { get; set; }
@@ -50,7 +52,6 @@ namespace RFSimulation.Core.Components
             public float TransmitterHeightM { get; set; }
 
             public PropagationModel PropagationModel { get; set; }
-            public bool RayTracingEnabled { get; set; }
             public float MaxCalculationDistanceM { get; set; }
             public int MaxReflections { get; set; }
             public int MaxDiffractions { get; set; }
@@ -68,27 +69,20 @@ namespace RFSimulation.Core.Components
         #region Inspector Fields
         [Header("Transmitter Properties")]
         public string uniqueID;
-        public string technology = "5G sub-6 GHz";
-        public float transmitterPower = 40f;
-        public float antennaGain = 12f;
-        public float frequency = 2400f;
-        public float transmitterHeight;
 
-        [Header("Propagation Settings")]
-        public PropagationModel propagationModel;
 
         [Header("Settings")]
         public TransmitterSettings settings = new TransmitterSettings();
 
         [Header("Visualization")]
+        private ConnectionLineVisualization lineVisualization;
+        private HeatmapVisualization heatmapVisualization;
         private RayVisualization rayVisualization;
-        public bool showConnections = true;
-        public bool showRayPaths = false;
 
         [Header("Defaults")]
-        public float defaultReceiverSensitivityDbm = -95f;
+        public float defaultReceiverSensitivityDbm;
 
-        [SerializeField] private ConnectionLineRenderer connectionRenderer;
+
         #endregion
 
         #region Private Fields
@@ -111,36 +105,37 @@ namespace RFSimulation.Core.Components
         void Awake()
         {
             InitializeTransmitter();
-            panelMountHeightFromBaseTop = transmitterHeight;
-            if (connectionRenderer == null) connectionRenderer = FindAnyObjectByType<ConnectionLineRenderer>();
+            panelMountHeightFromBaseTop = settings.transmitterHeight;
+            if (lineVisualization == null) lineVisualization = FindAnyObjectByType<ConnectionLineVisualization>();
             if (rayVisualization == null) rayVisualization = FindAnyObjectByType<RayVisualization>();
             SimulationManager.Instance?.RegisterTransmitter(this);
-            _lastAppliedModel = propagationModel;
+            _lastAppliedModel = settings.propagationModel;
         }
 
         void Start()
         {
             if (pathLossCalculator == null) InitializeCalculators();
-            panelMountHeightFromBaseTop = transmitterHeight;
+            if (heatmapVisualization == null) heatmapVisualization = FindFirstObjectByType<HeatmapVisualization>();
+            panelMountHeightFromBaseTop = settings.transmitterHeight;
             CreateTransmitterModel();
         }
 
         void Update()
         {
-            if (_lastAppliedModel != propagationModel) UpdatePropagationModel();
+            if (_lastAppliedModel != settings.propagationModel) UpdatePropagationModel();
 
-            if (!showConnections || connectionRenderer == null) return;
+            if (!settings.showConnections || lineVisualization == null) return;
 
-            panelMountHeightFromBaseTop = transmitterHeight;
-            UpdateMastHeight(transmitterHeight);
-            SetAntennaOrigin(transmitterHeight);
+            panelMountHeightFromBaseTop = settings.transmitterHeight;
+            UpdateMastHeight(settings.transmitterHeight);
+            SetAntennaOrigin(settings.transmitterHeight);
 
             foreach (var kv in connectionLines)
             {
                 var rx = kv.Key;
                 if (rx == null) continue;
                 float rssi = CalculateSignalStrength(rx);
-                connectionRenderer.UpdateConnection(
+                lineVisualization.UpdateConnection(
                     ConnId(rx),
                     GetAntennaOrigin(),
                     rx.transform.position,
@@ -153,7 +148,7 @@ namespace RFSimulation.Core.Components
         void OnDestroy()
         {
             foreach (var rx in new List<Receiver>(connectionLines.Keys))
-                connectionRenderer?.RemoveConnection(ConnId(rx));
+                lineVisualization?.RemoveConnection(ConnId(rx));
             connectionLines.Clear();
 
             rayVisualization.ClearAll();
@@ -163,28 +158,26 @@ namespace RFSimulation.Core.Components
         #endregion
 
         #region Public API
-        /// <summary>
-        /// Returns a single object containing all transmitter parameters and derived values.
-        /// </summary>
+
         public TransmitterInfo GetInfo()
         {
             return new TransmitterInfo
             {
                 UniqueID = uniqueID,
-                Technology = technology,
+                Technology = settings.technology,
 
-                TransmitterPowerDbm = transmitterPower,
-                AntennaGainDbi = antennaGain,
-                FrequencyMHz = frequency,
-                TransmitterHeightM = transmitterHeight,
+                TransmitterPowerDbm = settings.transmitterPower,
+                AntennaGainDbi = settings.antennaGain,
+                FrequencyMHz = settings.frequency,
+                TransmitterHeightM = settings.transmitterHeight,
 
-                PropagationModel = propagationModel,
+                PropagationModel = settings.propagationModel,
                 MaxCalculationDistanceM = settings.maxCalculationDistance,
                 MaxReflections = settings.maxReflections,
                 MaxDiffractions = settings.maxDiffractions,
 
-                ShowConnections = showConnections,
-                ShowRayPaths = showRayPaths,
+                ShowConnections = settings.showConnections,
+                ShowRayPaths = settings.showRayPaths,
 
                 ConnectedReceiverCount = connectedReceivers.Count,
                 WorldPosition = transform.position,
@@ -192,9 +185,7 @@ namespace RFSimulation.Core.Components
             };
         }
 
-        /// <summary>
-        /// Calculates received power (dBm) at a world position.
-        /// </summary>
+
         public float CalculateSignalStrength(Vector3 receiverPosition)
         {
             var context = CreatePropagationContext(receiverPosition, null);
@@ -202,9 +193,6 @@ namespace RFSimulation.Core.Components
             catch { return float.NegativeInfinity; }
         }
 
-        /// <summary>
-        /// Calculates received power (dBm) for a receiver instance.
-        /// </summary>
         public float CalculateSignalStrength(Receiver receiver)
         {
             if (receiver == null) return float.NegativeInfinity;
@@ -213,41 +201,34 @@ namespace RFSimulation.Core.Components
             catch { return float.NegativeInfinity; }
         }
 
-        /// <summary>
-        /// Returns the antenna world position.
-        /// </summary>
         public Vector3 GetAntennaWorldPos()
         {
             return antennaOrigin != null ? antennaOrigin.position : transform.position;
         }
 
-        /// <summary>
-        /// Returns connected receivers.
-        /// </summary>
         public List<Receiver> GetConnectedReceivers() => new List<Receiver>(connectedReceivers);
 
-        /// <summary>
-        /// Returns the connection count.
-        /// </summary>
+
         public int GetConnectionCount() => connectedReceivers.Count;
 
-        /// <summary>
-        /// Returns whether the transmitter is connected to the given receiver.
-        /// </summary>
         public bool IsConnectedTo(Receiver receiver) => connectedReceivers.Contains(receiver);
 
-        /// <summary>
-        /// Sets the propagation model and triggers updates.
-        /// </summary>
         public void SetPropagationModel(PropagationModel model)
         {
-            propagationModel = model;
+            settings.propagationModel = model;
             UpdatePropagationModel();
         }
 
-        /// <summary>
-        /// Clears cached path-loss computations.
-        /// </summary>
+        public void SetMaxReflections(int maxReflections)
+        {
+            settings.maxReflections = maxReflections;
+        }
+
+        public void SetMaxDiffractions(int maxDiffractions)
+        {
+            settings.maxDiffractions = maxDiffractions;
+        }
+
         public void ClearPathLossCache()
         {
             pathLossCalculator?.ClearCache();
@@ -262,42 +243,41 @@ namespace RFSimulation.Core.Components
             var isLOS = RaycastUtil.IsLineOfSight(
                 txPos,
                 receiverPosition,
-                settings.mapboxBuildingLayer
+                settings.buildingLayer
             );
 
             var context = PropagationContext.Create(
                 txPos,
                 receiverPosition,
-                transmitterPower,
-                frequency,
-                transmitterHeight,
+                settings.transmitterPower,
+                settings.frequency,
+                settings.transmitterHeight,
                 receiverHeight
             );
 
             context.IsLOS = isLOS;
-            context.Model = propagationModel;
-            context.AntennaGainDbi = antennaGain;
+            context.Model = settings.propagationModel;
+            context.AntennaGainDbi = settings.antennaGain;
             context.ReceiverGainDbi = 0f;
             context.ReceiverSensitivityDbm = receiverSensitivityDbm ?? defaultReceiverSensitivityDbm;
-            context.BuildingLayers = settings.mapboxBuildingLayer;
+            context.BuildingLayer = settings.buildingLayer;
+            context.MaxReflections = settings.maxReflections;
+            context.MaxDiffractions = settings.maxDiffractions;
+            context.MaxDistanceMeters = settings.maxCalculationDistance;
+
             return context;
         }
 
         #endregion
 
         #region Connection Management
-        /// <summary>
-        /// Returns whether a receiver can connect based on received power.
-        /// </summary>
+
         public bool CanConnectTo(Receiver receiver)
         {
             float rssi = CalculateSignalStrength(receiver);
             return rssi >= (receiver.sensitivity + receiver.connectionMargin);
         }
 
-        /// <summary>
-        /// Connects to a receiver and creates a connection line if enabled.
-        /// </summary>
         public void ConnectToReceiver(Receiver receiver)
         {
             if (receiver == null || connectedReceivers.Contains(receiver)) return;
@@ -306,10 +286,10 @@ namespace RFSimulation.Core.Components
             connectedReceivers.Add(receiver);
             receiver.SetConnectedTransmitter(this);
 
-            if (showConnections && connectionRenderer != null && !connectionLines.ContainsKey(receiver))
+            if (settings.showConnections && lineVisualization != null && !connectionLines.ContainsKey(receiver))
             {
                 float rssi = CalculateSignalStrength(receiver);
-                var lr = connectionRenderer.CreateConnection(
+                var lr = lineVisualization.CreateConnection(
                     ConnId(receiver),
                     GetAntennaOrigin(),
                     receiver.transform.position,
@@ -320,16 +300,13 @@ namespace RFSimulation.Core.Components
             }
         }
 
-        /// <summary>
-        /// Disconnects from a receiver and removes its connection line.
-        /// </summary>
         public void DisconnectFromReceiver(Receiver receiver)
         {
             if (receiver == null) return;
 
             if (connectionLines.ContainsKey(receiver))
             {
-                connectionRenderer?.RemoveConnection(ConnId(receiver));
+                lineVisualization?.RemoveConnection(ConnId(receiver));
                 connectionLines.Remove(receiver);
             }
 
@@ -337,9 +314,6 @@ namespace RFSimulation.Core.Components
                 receiver.ClearConnection();
         }
 
-        /// <summary>
-        /// Disconnects from all receivers.
-        /// </summary>
         public void ClearAllConnections()
         {
             foreach (var rx in new List<Receiver>(connectedReceivers))
@@ -365,14 +339,12 @@ namespace RFSimulation.Core.Components
         #endregion
 
         #region Parameter Updates
-        /// <summary>
-        /// Updates transmitter power (dBm) with validation.
-        /// </summary>
+
         public bool UpdateTransmitterPower(float newPowerDbm)
         {
             if (newPowerDbm >= 0f && newPowerDbm <= 80f)
             {
-                transmitterPower = newPowerDbm;
+                settings.transmitterPower = newPowerDbm;
                 RefreshConnections();
                 TryConnectEligibleReceivers();
                 SimulationManager.Instance?.RecomputeForTransmitter(this);
@@ -382,14 +354,12 @@ namespace RFSimulation.Core.Components
             return false;
         }
 
-        /// <summary>
-        /// Updates frequency (MHz) with validation.
-        /// </summary>
+
         public bool UpdateFrequency(float newFrequencyMHz)
         {
             if (newFrequencyMHz > 0f && newFrequencyMHz <= 100000f)
             {
-                frequency = newFrequencyMHz;
+                settings.frequency = newFrequencyMHz;
                 RefreshConnections();
                 TryConnectEligibleReceivers();
                 SimulationManager.Instance?.RecomputeForTransmitter(this);
@@ -399,14 +369,12 @@ namespace RFSimulation.Core.Components
             return false;
         }
 
-        /// <summary>
-        /// Updates antenna gain (dBi) with validation.
-        /// </summary>
+
         public bool UpdateAntennaGain(float newGainDbi)
         {
             if (newGainDbi >= 0f && newGainDbi <= 50f)
             {
-                antennaGain = newGainDbi;
+                settings.antennaGain = newGainDbi;
                 RefreshConnections();
                 TryConnectEligibleReceivers();
                 SimulationManager.Instance?.RecomputeForTransmitter(this);
@@ -416,13 +384,10 @@ namespace RFSimulation.Core.Components
             return false;
         }
 
-        /// <summary>
-        /// Updates transmitter height (m) and refreshes connections.
-        /// </summary>
         public void UpdateTransmitterHeight(float newHeightM)
         {
-            transmitterHeight = newHeightM;
-            SetAntennaOrigin(transmitterHeight);
+            settings.transmitterHeight = newHeightM;
+            SetAntennaOrigin(settings.transmitterHeight);
             RefreshConnections();
             TryConnectEligibleReceivers();
             SimulationManager.Instance?.RecomputeForTransmitter(this);
@@ -430,7 +395,7 @@ namespace RFSimulation.Core.Components
 
         private void UpdatePropagationModel()
         {
-            _lastAppliedModel = propagationModel;
+            _lastAppliedModel = settings.propagationModel;
             if (pathLossCalculator == null) InitializeCalculators();
 
             RefreshConnections();
@@ -443,36 +408,18 @@ namespace RFSimulation.Core.Components
 
         #region Configuration
 
-        /// <summary>
-        /// Sets the maximum calculation distance (m).
-        /// </summary>
         public void SetMaxDistance(float maxDistance)
         {
             settings.maxCalculationDistance = maxDistance;
         }
 
-        /// <summary>
-        /// Applies new settings and reinitializes calculators.
-        /// </summary>
+
         public void UpdateSettings(TransmitterSettings newSettings)
         {
             settings = newSettings;
             InitializeCalculators();
         }
 
-        /// <summary>
-        /// Estimates a coverage radius based on current configuration.
-        /// </summary>
-        public float EstimateCoverageRadius()
-        {
-            var txPos = GetAntennaWorldPos();
-            var baseContext = CreatePropagationContext(txPos + Vector3.forward, null);
-            return pathLossCalculator.EstimateCoverageRadius(baseContext);
-        }
-
-        /// <summary>
-        /// Samples ground height at a world position.
-        /// </summary>
         public float SampleGroundHeight(Vector3 worldPos)
         {
             var origin = new Vector3(worldPos.x, worldPos.y + 2000f, worldPos.z);
@@ -482,9 +429,6 @@ namespace RFSimulation.Core.Components
             return worldPos.y;
         }
 
-        /// <summary>
-        /// Returns receiver height above local ground (m).
-        /// </summary>
         public float GetReceiverHeightMeters(Vector3 receiverWorldPos)
         {
             float groundY = SampleGroundHeight(receiverWorldPos);
@@ -499,7 +443,7 @@ namespace RFSimulation.Core.Components
             CreateTowerBase();
             CreateMast();
             CreateSectors();
-            SetAntennaOrigin(transmitterHeight);
+            SetAntennaOrigin(settings.transmitterHeight);
             RebuildTransmitterCollider();
         }
 
@@ -584,9 +528,6 @@ namespace RFSimulation.Core.Components
             var panelCol = panel.GetComponent<Collider>(); if (panelCol) Destroy(panelCol);
         }
 
-        /// <summary>
-        /// Sets or creates the antenna origin at the given local Y height.
-        /// </summary>
         public void SetAntennaOrigin(float? localY = null)
         {
             float y = localY ?? panelMountHeightFromBaseTop;
@@ -617,9 +558,6 @@ namespace RFSimulation.Core.Components
             }
         }
 
-        /// <summary>
-        /// Ensures a single CapsuleCollider on the root sized to child renderers.
-        /// </summary>
         private void RebuildTransmitterCollider()
         {
             var rends = GetComponentsInChildren<Renderer>(true);
@@ -640,20 +578,16 @@ namespace RFSimulation.Core.Components
                 if (c != cap) Destroy(c);
         }
 
-        /// <summary>
-        /// Sets line visibility for all connection renderers.
-        /// </summary>
+
         public void ToggleConnectionLineVisualization(bool show)
         {
-            showConnections = show;
-            connectionRenderer?.SetLineVisibility(showConnections);
+            settings.showConnections = show;
+            lineVisualization?.SetLineVisibility(settings.showConnections);
         }
         #endregion
 
         #region Ray Visualization
-        /// <summary>
-        /// Computes and displays transient rays to all receivers.
-        /// </summary>
+
         public void VisualizeRaysToReceivers()
         {
             if (pathLossCalculator == null) return;
@@ -666,18 +600,14 @@ namespace RFSimulation.Core.Components
                 CalculateSignalStrength(receiver.transform.position);
         }
 
-        /// <summary>
-        /// Enables persistent ray visualization and recomputes paths.
-        /// </summary>
+
         public void EnableRayVisualization()
         {
-            showRayPaths = true;
+            settings.showRayPaths = true;
 
-            // Only switch to RayTracing if not already using it
-            if (propagationModel != PropagationModel.RayTracing)
+            if (settings.propagationModel != PropagationModel.RayTracing)
             {
-                propagationModel = PropagationModel.RayTracing;
-                // Force calculator reinit after model change
+                settings.propagationModel = PropagationModel.RayTracing;
                 if (pathLossCalculator != null)
                 {
                     pathLossCalculator = null;
@@ -685,19 +615,16 @@ namespace RFSimulation.Core.Components
                 }
             }
 
-            // Ensure calculator exists
             if (pathLossCalculator == null)
             {
                 InitializeCalculators();
             }
 
-            // Ensure visualizer reference exists
             if (rayVisualization == null)
             {
                 rayVisualization = FindAnyObjectByType<RayVisualization>();
             }
 
-            // Get the ray tracing model
             var model = pathLossCalculator?.GetRayTracingModel();
             if (model == null)
             {
@@ -705,11 +632,9 @@ namespace RFSimulation.Core.Components
                 return;
             }
 
-            // Configure the model for visualization
             model.enableRayVisualization = true;
             model.Visualizer = rayVisualization;
 
-            // Force recalculation to draw rays immediately
             var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.InstanceID);
             if (receivers.Length == 0)
             {
@@ -726,12 +651,9 @@ namespace RFSimulation.Core.Components
             }
         }
 
-        /// <summary>
-        /// Disables ray visualization and clears rays.
-        /// </summary>
         public void DisableRayVisualization()
         {
-            showRayPaths = false;
+            settings.showRayPaths = false;
 
             var model = pathLossCalculator?.GetRayTracingModel();
             if (model != null)
@@ -739,7 +661,6 @@ namespace RFSimulation.Core.Components
                 model.enableRayVisualization = false;
             }
 
-            // Clear all rays from visualizer
             if (rayVisualization != null)
             {
                 rayVisualization.ClearAll();
@@ -759,27 +680,18 @@ namespace RFSimulation.Core.Components
                 collider.radius = 1f;
             }
 
-            transmitterHeight = GeometryHelper.GetHeightAboveGround(GetAntennaWorldPos());
+            settings.transmitterHeight = GeometryHelper.GetHeightAboveGround(GetAntennaWorldPos());
         }
 
         private void InitializeCalculators()
         {
-            pathLossCalculator = new PathLossCalculator
-            {
-                mapboxBuildingLayer = settings.mapboxBuildingLayer,
-                maxDistance = settings.maxCalculationDistance
-            };
+            pathLossCalculator = new PathLossCalculator();
 
             var rt = pathLossCalculator.GetRayTracingModel();
             if (rt != null)
             {
                 rt.Visualizer = rayVisualization;
-                rt.enableRayVisualization = showRayPaths;
-                rt.showDirectRays = true;
-                rt.showReflectionRays = true;
-                rt.showDiffractionRays = true;
-                rt.mapboxBuildingLayer = settings.mapboxBuildingLayer;
-                rt.maxDistance = settings.maxCalculationDistance;
+                rt.enableRayVisualization = settings.showRayPaths;
             }
         }
 
@@ -800,13 +712,11 @@ namespace RFSimulation.Core.Components
             }
         }
 
-        /// <summary>
-        /// Sets the full transmitter height, moves sector brackets, and antenna origin.
-        /// </summary>
+
         public void SetTransmitterHeight(float newHeight)
         {
             newHeight = Mathf.Max(0f, newHeight);
-            transmitterHeight = newHeight;
+            settings.transmitterHeight = newHeight;
             panelMountHeightFromBaseTop = newHeight;
             MoveSectorBracketsTo(newHeight);
             SetAntennaOrigin(newHeight);
@@ -814,7 +724,7 @@ namespace RFSimulation.Core.Components
 
         private void RefreshHeatmap()
         {
-            var heatmap = FindFirstObjectByType<SignalHeatmap>();
+            var heatmap = FindFirstObjectByType<HeatmapVisualization>();
             if (heatmap != null && heatmap.enabled)
                 heatmap.UpdateHeatmap();
         }

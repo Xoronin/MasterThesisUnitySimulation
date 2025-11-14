@@ -6,6 +6,7 @@ using RFSimulation.Core.Components;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Managers;
 using RFSimulation.Utils;
+using System;
 
 namespace RFSimulation.UI
 {
@@ -26,14 +27,16 @@ namespace RFSimulation.UI
         public InputField txPowerInput;
         public InputField txFreqInput;
         public InputField txHeightInput;
+        public InputField txMaxReflectionsInput;
+        public InputField txMaxDiffractionsInput;
         public Dropdown txModelDropdown;
-        public Text txCoverage;
         public Text txConnectedReceivers;
 
         [Header("Receiver Group")]
         public GameObject receiverGroup;
         public Dropdown rxTechDropdown;
         public InputField rxSensitivityInput;
+        public InputField rxConnectionMarginInput;
         public InputField rxHeightInput;
         public Text rxSignalLabel;
         public Text rxConnectedTransmitter;
@@ -59,6 +62,11 @@ namespace RFSimulation.UI
             EnsureTechOptions();
             EnsureTxModelOptions();
             ClearSelection();
+        }
+
+        void Start()
+        {
+            gameObject.SetActive(false);
         }
 
         void Update()
@@ -100,6 +108,8 @@ namespace RFSimulation.UI
 
         public void ShowTransmitter(Transmitter tx)
         {
+            gameObject.SetActive(true);
+
             _selectedTx = tx;
             _selectedRx = null;
             RefreshUIFromSelection();
@@ -107,6 +117,8 @@ namespace RFSimulation.UI
 
         public void ShowReceiver(Receiver rx)
         {
+            gameObject.SetActive(true);
+
             _selectedRx = rx;
             _selectedTx = null;
             RefreshUIFromSelection();
@@ -114,6 +126,8 @@ namespace RFSimulation.UI
 
         public void ClearSelection()
         {
+            gameObject.SetActive(false);
+
             _selectedTx = null;
             _selectedRx = null;
             SetHeader("Nothing selected");
@@ -143,7 +157,8 @@ namespace RFSimulation.UI
             if (txPowerInput) txPowerInput.onEndEdit.AddListener(OnTxPowerEdited);
             if (txFreqInput) txFreqInput.onEndEdit.AddListener(OnTxFreqEdited);
             if (txHeightInput) txHeightInput.onEndEdit.AddListener(OnTxHeightEdited);
-            if (txCoverage) txCoverage.text = "—";
+            if (txMaxDiffractionsInput) txMaxDiffractionsInput.onEndEdit.AddListener(OnTxMaxDiffractionsEdited);
+            if (txMaxReflectionsInput) txMaxReflectionsInput.onEndEdit.AddListener(OnTxMaxReflectionsEdited);
             if (txConnectedReceivers) txConnectedReceivers.text = "—";
         }
 
@@ -151,6 +166,7 @@ namespace RFSimulation.UI
         {
             if (rxTechDropdown) rxTechDropdown.onValueChanged.AddListener(OnRxTechChanged);
             if (rxSensitivityInput) rxSensitivityInput.onEndEdit.AddListener(OnRxSensitivityEdited);
+            if (rxConnectionMarginInput) rxConnectionMarginInput.onEndEdit.AddListener(OnRxConnectionMarginEdited);
             if (rxHeightInput) rxHeightInput.onEndEdit.AddListener(OnRxHeightEdited);
             if (rxSignalLabel) rxSignalLabel.text = "—";
             if (rxConnectedTransmitter) rxConnectedTransmitter.text = "—";
@@ -159,15 +175,14 @@ namespace RFSimulation.UI
         private void EnsureTechOptions()
         {
             if (rxTechDropdown == null) return;
+
+            var techNames = new System.Collections.Generic.List<string>();
+            var specs = TechnologySpecifications.GetAllSpecs();
+            foreach (var spec in specs)
+                techNames.Add(spec.Name);
+
             rxTechDropdown.ClearOptions();
-
-            // Match ControlUI technology list
-            rxTechDropdown.AddOptions(new System.Collections.Generic.List<string> {
-                "5GSub6",
-                "5GmmWave",
-                "LTE"
-            });
-
+            rxTechDropdown.AddOptions(techNames);
             rxTechDropdown.value = 0;
             rxTechDropdown.RefreshShownValue();
         }
@@ -177,7 +192,7 @@ namespace RFSimulation.UI
             if (txModelDropdown == null) return;
             txModelDropdown.ClearOptions();
             txModelDropdown.AddOptions(new System.Collections.Generic.List<string>(
-                new[] { "Free Space", "Log Distance", "Hata", "COST 231", "Ray Tracing" }
+                new[] { "FreeSpace", "LogD", "LogDShadow", "Hata", "COST231", "RayTracing" }
             ));
             txModelDropdown.onValueChanged.AddListener(OnTxModelChanged);
         }
@@ -190,7 +205,7 @@ namespace RFSimulation.UI
                 t.position = new Vector3(v, t.position.y, t.position.z);
             _selectedTx.ClearPathLossCache();
             RefreshCommonFromTransform();
-            RecomputeAll();
+            RecomputeAll(true);
         }
 
         private void OnPosYEdited(string s)
@@ -201,7 +216,7 @@ namespace RFSimulation.UI
                 t.position = new Vector3(t.position.x, v, t.position.z);
             _selectedTx.ClearPathLossCache();
             RefreshCommonFromTransform();
-            RecomputeAll();
+            RecomputeAll(true);
         }
 
         private void OnPosZEdited(string s)
@@ -212,7 +227,7 @@ namespace RFSimulation.UI
                 t.position = new Vector3(t.position.x, t.position.y, v);
             _selectedTx.ClearPathLossCache();
             RefreshCommonFromTransform();
-            RecomputeAll();
+            RecomputeAll(true);
         }
 
         private void OnTxPowerEdited(string s)
@@ -231,7 +246,7 @@ namespace RFSimulation.UI
 
             if (TryParseFloat(s, out float fGHz))
             {
-                float fMHz = GHzToMHz(fGHz);
+                float fMHz = MathHelper.GHzToMHz(fGHz);
                 _selectedTx.UpdateFrequency((float)System.Math.Round(fMHz, 2));
             }
 
@@ -260,18 +275,43 @@ namespace RFSimulation.UI
             RecomputeForTx();
         }
 
+        private void OnTxMaxDiffractionsEdited(string s)
+        {
+            if (_selectedTx == null) return;
+            int i = Int32.Parse(s);
+            _selectedTx.SetMaxDiffractions(i);
+            _selectedTx.ClearPathLossCache();
+            RefreshTransmitterFields();
+            RefreshCommonFromTransform();
+            RecomputeForTx();
+        }
+
+        private void OnTxMaxReflectionsEdited(string s)
+        {
+            if (_selectedTx == null) return;
+            int i = Int32.Parse(s);
+            _selectedTx.SetMaxReflections(i);
+            _selectedTx.ClearPathLossCache();
+            RefreshTransmitterFields();
+            RefreshCommonFromTransform();
+            RecomputeForTx();
+        }
+
         private void OnRxTechChanged(int idx)
         {
             if (_selectedRx == null || rxTechDropdown == null) return;
 
-            var tech = rxTechDropdown.options[idx].text;
+            var tech = TechnologySpecifications.ParseTechnologyString(rxTechDropdown.options[idx].text);
+            var spec = TechnologySpecifications.GetSpec(tech);
             _selectedRx.SetTechnology(tech);
 
-            RefreshReceiverFields();
+            _selectedRx.sensitivity = spec.SensitivityDbm;
+            _selectedRx.receiverHeight = spec.TypicalRxHeight;
 
             if (_selectedRx.GetConnectedTransmitter() != null)
                 _selectedRx.GetConnectedTransmitter().ClearPathLossCache();
 
+            RefreshReceiverFields();
             RecomputeForRx();
         }
 
@@ -280,7 +320,23 @@ namespace RFSimulation.UI
             if (_selectedRx == null) return;
             if (TryParseFloat(s, out float v))
                 _selectedRx.sensitivity = (float)System.Math.Round(v, 2);
-            _selectedTx.ClearPathLossCache();
+
+            if (_selectedRx.GetConnectedTransmitter() != null)
+                _selectedRx.GetConnectedTransmitter().ClearPathLossCache();
+
+            RefreshReceiverFields();
+            RecomputeForRx();
+        }
+
+        private void OnRxConnectionMarginEdited(string s)
+        {
+            if (_selectedRx == null) return;
+            if (TryParseFloat(s, out float v))
+                _selectedRx.connectionMargin = (float)System.Math.Round(v, 2);
+
+            if (_selectedRx.GetConnectedTransmitter() != null)
+                _selectedRx.GetConnectedTransmitter().ClearPathLossCache();
+
             RefreshReceiverFields();
             RecomputeForRx();
         }
@@ -296,7 +352,9 @@ namespace RFSimulation.UI
             _selectedRx.receiverHeight = roundedH;
             _selectedRx.transform.position = new Vector3(pos.x, groundY + roundedH, pos.z);
 
-            _selectedTx.ClearPathLossCache();
+            if (_selectedRx.GetConnectedTransmitter() != null)
+                _selectedRx.GetConnectedTransmitter().ClearPathLossCache();
+
             RefreshReceiverFields();
             RefreshCommonFromTransform();
             RecomputeForRx();
@@ -310,6 +368,7 @@ namespace RFSimulation.UI
                 SimulationManager.Instance?.RemoveTransmitter(_selectedTx);
                 _selectedTx = null;
                 if (Application.isPlaying) Destroy(go); else DestroyImmediate(go);
+                RecomputeAll(true);
                 ClearSelection();
                 return;
             }
@@ -367,18 +426,14 @@ namespace RFSimulation.UI
         {
             if (_selectedTx == null) return;
             _isUpdatingUI = true;
-            txPowerInput?.SetTextWithoutNotify(_selectedTx.transmitterPower.ToString("F2", Ci));
-            txFreqInput?.SetTextWithoutNotify(MHzToGHz(_selectedTx.frequency).ToString("F2", Ci));
-            txHeightInput?.SetTextWithoutNotify(_selectedTx.transmitterHeight.ToString("F2", Ci));
+            txPowerInput?.SetTextWithoutNotify(_selectedTx.settings.transmitterPower.ToString("F2", Ci));
+            txFreqInput?.SetTextWithoutNotify(MathHelper.MHzToGHz(_selectedTx.settings.frequency).ToString("F2", Ci));
+            txHeightInput?.SetTextWithoutNotify(_selectedTx.settings.transmitterHeight.ToString("F2", Ci));
+            txMaxReflectionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxReflections.ToString());
+            txMaxDiffractionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxDiffractions.ToString());
 
             if (txModelDropdown != null)
-                txModelDropdown.SetValueWithoutNotify(IndexFromModel(_selectedTx.propagationModel));
-
-            if (txCoverage != null)
-            {
-                float cov = TryGetCoverageRadius(_selectedTx);
-                txCoverage.text = cov > 0 ? cov.ToString("F2", Ci) : "—";
-            }
+                txModelDropdown.SetValueWithoutNotify(IndexFromModel(_selectedTx.settings.propagationModel));
 
             if (txConnectedReceivers != null)
             {
@@ -396,12 +451,13 @@ namespace RFSimulation.UI
 
             if (rxTechDropdown != null)
             {
-                var idx = rxTechDropdown.options.FindIndex(o => o.text == _selectedRx.technology);
+                var idx = rxTechDropdown.options.FindIndex(o => o.text == _selectedRx.technology.ToString());
                 if (idx >= 0) rxTechDropdown.SetValueWithoutNotify(idx);
             }
 
             rxSensitivityInput?.SetTextWithoutNotify(_selectedRx.sensitivity.ToString("F2", Ci));
             rxHeightInput?.SetTextWithoutNotify(_selectedRx.receiverHeight.ToString("F2", Ci));
+            rxConnectionMarginInput?.SetTextWithoutNotify(_selectedRx.connectionMargin.ToString("F2", Ci));
 
             if (rxSignalLabel != null)
                 rxSignalLabel.text = _selectedRx.currentSignalStrength.ToString("F2", Ci);
@@ -436,17 +492,18 @@ namespace RFSimulation.UI
         }
 
         private static readonly string[] ModelNames =
-            { "Free Space", "Log Distance", "Hata", "COST 231 Hata", "Ray Tracing" };
+            { "FreeSpace", "LogD", "LogDShadow", "Hata", "COST231", "RayTracing" };
 
         private static PropagationModel ModelFromIndex(int i)
         {
             switch (i)
             {
                 case 0: return PropagationModel.FreeSpace;
-                case 1: return PropagationModel.LogDistance;
-                case 2: return PropagationModel.Hata;
-                case 3: return PropagationModel.COST231;
-                case 4: return PropagationModel.RayTracing;
+                case 1: return PropagationModel.LogD;
+                case 2: return PropagationModel.LogDShadow;
+                case 3: return PropagationModel.Hata;
+                case 4: return PropagationModel.COST231;
+                case 5: return PropagationModel.RayTracing;
                 default: return PropagationModel.RayTracing;
             }
         }
@@ -456,19 +513,13 @@ namespace RFSimulation.UI
             switch (m)
             {
                 case PropagationModel.FreeSpace: return 0;
-                case PropagationModel.LogDistance: return 1;
-                case PropagationModel.Hata: return 2;
-                case PropagationModel.COST231: return 3;
-                case PropagationModel.RayTracing: return 4;
-                default: return 4;
+                case PropagationModel.LogD: return 1;
+                case PropagationModel.LogDShadow: return 2;
+                case PropagationModel.Hata: return 3;
+                case PropagationModel.COST231: return 4;
+                case PropagationModel.RayTracing: return 5;
+                default: return 5;
             }
-        }
-
-        private float TryGetCoverageRadius(Transmitter tx)
-        {
-            if (tx == null) return -1f;
-            try { return tx.EstimateCoverageRadius(); }
-            catch { return -1f; }
         }
 
         private void SetHeader(string text)
@@ -496,19 +547,9 @@ namespace RFSimulation.UI
         private bool TryParseFloat(string s, out float v)
             => float.TryParse(s, NumberStyles.Float, Ci, out v);
 
-        private void RecomputeAll() => SimulationManager.Instance?.RecomputeAllSignalStrength();
+        private void RecomputeAll(bool heatmapUpdate) => SimulationManager.Instance?.RecomputeAllSignalStrength(heatmapUpdate);
         private void RecomputeForTx() { if (_selectedTx) SimulationManager.Instance?.RecomputeForTransmitter(_selectedTx); }
         private void RecomputeForRx() { if (_selectedRx) SimulationManager.Instance?.RecomputeForReceiver(_selectedRx); }
 
-
-        private float MHzToGHz(float mhz)
-        {
-            return mhz / 1000f;
-        }
-
-        private float GHzToMHz(float ghz)
-        {
-            return ghz * 1000f;
-        }
     }
 }
