@@ -3,7 +3,6 @@ using System;
 
 namespace RFSimulation.Propagation.Core
 {
-    [Serializable]
     public class TechnologySpec
     {
         public string Name;

@@ -23,7 +23,7 @@ namespace RFSimulation.Propagation.Models
             distance = Mathf.Max(distance, RFConstants.MIN_DISTANCE);
 
             // Calculate wavelength (λ = c/f)
-            float wavelength = MathHelper.CalculateWavelength(frequency);
+            float wavelength = RFMathHelper.CalculateWavelength(frequency);
 
             // Calculate path loss in linear scale
             float fourPiSquared = Mathf.Pow(4f * Mathf.PI, 2f);

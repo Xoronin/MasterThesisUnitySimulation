@@ -39,14 +39,8 @@ namespace RFSimulation.UI
         [Header("Data Export")]
         public Button exportButton;
         public InputField exportFileNameInput; 
-        public string exportSubfolder = "Project/Data/Exports";
         public Button screenshotButton;
         public InputField screenshotFileNameInput;
-        public string screenshotSubfolder = "Project/Data/Screenshots";
-        public Camera targetCamera;
-        public Canvas uiCanvas;
-        public int width = 1920;
-        public int height = 1080;
 
         // Events
         public System.Action<string> OnScenarioSelected;
@@ -66,6 +60,7 @@ namespace RFSimulation.UI
         {
             scenarioManager = ScenarioManager.Instance;
             controlUI = FindAnyObjectByType<ControlUI>();
+            SetStatusText($"Ready to manage scenarios.", Color.white);
         }
 
         private void SetupEventListeners()
@@ -89,7 +84,7 @@ namespace RFSimulation.UI
 
             // Data export
             if (exportButton != null)
-                exportButton.onClick.AddListener(ExportCurrentScenario);
+                exportButton.onClick.AddListener(OnExportButtonClicked);
 
             if (screenshotButton != null)
                 screenshotButton.onClick.AddListener(OnScreenshotButtonClicked);
@@ -100,6 +95,7 @@ namespace RFSimulation.UI
                 scenarioManager.OnScenariosLoaded += OnScenariosLoaded;
                 scenarioManager.OnScenarioChanged += OnScenarioChanged;
                 scenarioManager.OnScenarioLoaded += OnScenarioLoaded;
+                scenarioManager.OnScenarioSaved += OnScenarioSaved;
             }
         }
 
@@ -111,6 +107,7 @@ namespace RFSimulation.UI
                 scenarioManager.OnScenariosLoaded -= OnScenariosLoaded;
                 scenarioManager.OnScenarioChanged -= OnScenarioChanged;
                 scenarioManager.OnScenarioLoaded -= OnScenarioLoaded;
+                scenarioManager.OnScenarioSaved -= OnScenarioSaved;
             }
         }
 
@@ -128,11 +125,15 @@ namespace RFSimulation.UI
         {
             if (scenarioDropdown == null || scenarioManager == null) return;
 
-            int selectedIndex = scenarioDropdown.value;
+            int selectedIndex = scenarioDropdown.value - 1;
             if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
             {
                 scenarioManager.SelectScenario(selectedIndex);
                 OnScenarioSelected?.Invoke(scenarioManager.scenarios[selectedIndex].scenarioName);
+            }
+            else
+            {
+                SetStatusText("No scenario selected", Color.red);
             }
         }
 
@@ -151,7 +152,7 @@ namespace RFSimulation.UI
             }
             catch (Exception ex)
             {
-                SetStatusText($"❌ Deletion failed: {ex.Message}", Color.red);
+                SetStatusText($"Deletion failed: {ex.Message}", Color.red);
                 return;
             }
 
@@ -168,19 +169,26 @@ namespace RFSimulation.UI
                 return;
             }
 
-            if (ValidateScenario())
-            {
-                scenarioManager.SaveCurrentScenario(scenarioName);
-                SetStatusText($"Saved: {scenarioName}", Color.green);
-                RefreshScenarioList();
-                return;
-            }
-            else
+            if (!ValidateScenario())
             {
                 SetStatusText("Scenario validation failed", Color.red);
                 return;
             }
 
+            bool overwrite = false;
+
+            var current = scenarioManager.GetCurrentScenario();
+            if (current != null && string.Equals(current.scenarioName, scenarioName, StringComparison.OrdinalIgnoreCase))
+            {
+                overwrite = true;
+            }
+
+            scenarioManager.SaveCurrentScenario(scenarioName, overwrite);
+
+            if (overwrite)
+                SetStatusText($"Overwritten: {scenarioName}", Color.green);
+            else
+                SetStatusText($"Saved new scenario: {scenarioName}", Color.green);
         }
 
         private void CreateNewScenario()
@@ -189,7 +197,7 @@ namespace RFSimulation.UI
 
             if (newScenarioNameInput != null)
             {
-                newScenarioNameInput.text = "NewScenario_" + DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
+                newScenarioNameInput.text = $"NewScenario";
             }
 
             SetStatusText("Ready to create new scenario", Color.blue);
@@ -199,7 +207,7 @@ namespace RFSimulation.UI
         {
             if (scenarioDropdown == null || scenarioManager == null) return null;
 
-            int selectedIndex = scenarioDropdown.value;
+            int selectedIndex = scenarioDropdown.value - 1;
             if (selectedIndex >= 0 && selectedIndex < scenarioManager.scenarios.Count)
             {
                 return scenarioManager.scenarios[selectedIndex];
@@ -250,177 +258,62 @@ namespace RFSimulation.UI
             }
             else
             {
-                scenarioDropdown.AddOptions(scenarioNames);
+                var options = new List<string>();
+                options.Add("-- Select Scenario --");  
+                options.AddRange(scenarioNames);
+                scenarioDropdown.AddOptions(options);
                 scenarioDropdown.interactable = true;
+                scenarioDropdown.value = 0;
+                ScenarioManager.Instance.currentScenarioIndex = -1;
                 SetButtonsInteractable(true);
             }
         }
 
         private void OnScenarioDropdownChanged(int index)
         {
-            var s = GetSelectedScenario();
-            if (s != null) SetStatusText($"Selected: {s.scenarioName}", Color.cyan);
+            if (index <= 0)
+            {
+                ScenarioManager.Instance.currentScenarioIndex = -1;
+                SetStatusText($"No scenario selected.", Color.red);
+                return;
+            }
+            int scenarioIndex = index - 1; 
+            if (scenarioIndex < 0 || scenarioIndex >= scenarioManager.scenarios.Count)
+                return;
+
+            var s = scenarioManager.scenarios[scenarioIndex];
+            SetStatusText($"Selected: {s.scenarioName}", Color.cyan);
+        }
+
+        public void OnExportButtonClicked()
+        {
+            if (ScenarioManager.Instance == null)
+            {
+                Debug.LogError("[ScenarioPanel] ScenarioManager.Instance is null");
+                return;
+            }
+
+            string baseName = exportFileNameInput != null
+                ? exportFileNameInput.text.Trim()
+                : "snapshot";
+
+            ScenarioManager.Instance.ExportSnapshotCsv(baseName);
+            SetStatusText($"Exported CSV: {baseName}", Color.green);
         }
 
         public void OnScreenshotButtonClicked()
         {
-            StartCoroutine(SaveScreenshot());
-        }
-
-        #endregion
-
-        #region Data Export
-
-        private void ExportCurrentScenario()
-        {
-            try
+            if (ScenarioManager.Instance == null)
             {
-                // --- Gather scene objects ---
-                var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.None);
-                var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.None);
-
-                if (receivers == null || receivers.Length == 0)
-                    throw new System.Exception("No receivers in scene.");
-                if (transmitters == null || transmitters.Length == 0)
-                    throw new System.Exception("No transmitters in scene.");
-
-                // --- Build path under Assets/<exportSubfolder> ---
-                string assetsRoot = Application.dataPath; // absolute path to Assets/
-                string folderAbs = System.IO.Path.Combine(assetsRoot, exportSubfolder);
-                System.IO.Directory.CreateDirectory(folderAbs);
-
-                // filename from UI or timestamp fallback
-                string fileName = (exportFileNameInput != null) ? exportFileNameInput.text.Trim() : "";
-                if (string.IsNullOrEmpty(fileName))
-                    fileName = "export_" + System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
-
-                // sanitize filename
-                foreach (char c in System.IO.Path.GetInvalidFileNameChars())
-                    fileName = fileName.Replace(c, '_');
-
-                string fileAbs = System.IO.Path.Combine(folderAbs, fileName + "_" + System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ") + ".csv");
-
-                // --- Write CSV ---
-                using (var sw = new System.IO.StreamWriter(fileAbs, false, System.Text.Encoding.UTF8))
-                {
-                    sw.WriteLine("scenario,timestamp,propagation_model,rx_id,rx_x,rx_y,rx_z,rx_height_m,rx_sensitivity_dbm,rx_signal_strength_dbm," +
-                                 "tx_id,tx_x,tx_y,tx_z,tx_height_m,tx_power_dbm,tx_frequency_mhz,distance_m,buildings_on");
-
-                    string ts = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
-
-                    foreach (var rx in receivers)
-                    {
-                        if (!rx.HasValidSignal()) continue;
-
-                        Vector3 rxPos = rx.transform.position;
-                        float rxHeight = FormatHelper.SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
-                        float rxPower = FormatHelper.SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);
-                        float rxSens = FormatHelper.SafeFloat(rx, nameof(rx.sensitivity), float.NaN);
-
-                        Transmitter tx = null;
-                        try { tx = rx.GetConnectedTransmitter(); } catch { }
-                        if (tx == null)
-                            tx = transmitters.OrderBy(t => Vector3.Distance(rx.transform.position, t.transform.position)).First();
-
-                        Vector3 txPos = tx.transform.position;
-                        float txHeight = FormatHelper.SafeFloat(tx, nameof(tx.settings.transmitterHeight), float.NaN);
-                        float txPower = FormatHelper.SafeFloat(tx, nameof(tx.settings.transmitterPower), float.NaN);
-                        float txFreq = FormatHelper.SafeFloat(tx, nameof(tx.settings.frequency), float.NaN);
-
-                        float dist = Vector3.Distance(rxPos, txPos);
-
-                        sw.WriteLine(string.Join(",", new string[] {
-                    FormatHelper.Esc(GetSelectedScenario().scenarioName),
-                    ts,                                    
-                    FormatHelper.Esc(scenarioManager != null ? tx.settings.propagationModel.ToString() : "Unknown"), 
-                    FormatHelper.Esc(FormatHelper.SafeString(rx, nameof(rx.uniqueID), rx.name)),
-                    rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
-                    FormatHelper.FormatFloat(rxHeight, "F3"),
-                    FormatHelper.FormatFloat(rxSens, "F1"),
-                    (float.IsNegativeInfinity(rxPower) ? "" : FormatHelper.FormatFloat(rxPower, "F1")),
-                    FormatHelper.Esc(FormatHelper.SafeString(tx, nameof(tx.uniqueID), tx.name)),
-                    txPos.x.ToString("F3"), txPos.y.ToString("F3"), txPos.z.ToString("F3"),
-                    FormatHelper.FormatFloat(txHeight, "F3"),
-                    FormatHelper.FormatFloat(txPower, "F1"),
-                    FormatHelper.FormatFloat(txFreq, "F0"),
-                    dist.ToString("F3"),
-                    FormatHelper.Esc(controlUI != null ? controlUI.showBuildingsToggle.IsActive().ToString() : "Unknown")
-                }));
-                    }
-                }
-
-                SetStatusText($"✅ Saved: Assets/{exportSubfolder}/{fileName}.csv", Color.green);
+                Debug.LogError("[ScenarioPanel] ScenarioManager.Instance is null");
+                return;
             }
-            catch (System.Exception ex)
-            {
-                SetStatusText($"❌ Export failed: {ex.Message}", Color.red);
-                Debug.LogError($"[ScenarioUI] Export failed: {ex}");
-            }
-        }
 
-        private IEnumerator SaveScreenshot()
-        {
-            // Fallbacks (optional): find main camera / canvases if not set in Inspector
-            if (targetCamera == null) targetCamera = Camera.main;
+            string baseName = screenshotFileNameInput != null
+                ? screenshotFileNameInput.text.Trim()
+                : "screenshot";
 
-            // 1) Hide UI
-            if (uiCanvas != null)
-                uiCanvas.enabled = false;
-
-            // wait one frame so the UI is actually hidden
-            yield return null;
-
-            RenderTexture rt = null;
-            Texture2D tex = null;
-            try
-            {
-                // 2) Render only the target camera to a RT
-                rt = new RenderTexture(width, height, 24);
-                targetCamera.targetTexture = rt;
-                tex = new Texture2D(width, height, TextureFormat.RGB24, false);
-
-                targetCamera.Render();
-
-                RenderTexture.active = rt;
-                tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-                tex.Apply();
-
-                // 3) Save PNG under Assets/<screenshotSubfolder>/
-                string assetsRoot = Application.dataPath;
-                string folderAbs = Path.Combine(assetsRoot, screenshotSubfolder);
-                Directory.CreateDirectory(folderAbs);
-
-                string baseName = (screenshotFileNameInput != null) ? screenshotFileNameInput.text.Trim() : "";
-                if (string.IsNullOrEmpty(baseName))
-                    baseName = "screenshot";
-
-                // sanitize filename
-                foreach (char c in Path.GetInvalidFileNameChars())
-                    baseName = baseName.Replace(c, '_');
-
-                string stamped = $"{baseName}_{System.DateTime.UtcNow:yyyy-MM-ddTHH-mm-ssZ}.png";
-                string fileAbs = Path.Combine(folderAbs, stamped);
-
-                File.WriteAllBytes(fileAbs, tex.EncodeToPNG());
-                SetStatusText($"📸 Saved: Assets/{screenshotSubfolder}/{stamped}", Color.green);
-            }
-            catch (Exception ex)
-            {
-                SetStatusText($"❌ Screenshot failed: {ex.Message}", Color.red);
-                Debug.LogError($"[ScenarioUI] Screenshot failed: {ex}");
-            }
-            finally
-            {
-                // 4) Cleanup & re-enable UI
-                if (targetCamera != null) targetCamera.targetTexture = null;
-                RenderTexture.active = null;
-                if (rt != null) Destroy(rt);
-                // (Texture2D can be left for GC; destroy if you create many in a session)
-                // if (tex != null) Destroy(tex);
-
-                if (uiCanvas != null)
-                    uiCanvas.enabled = true;
-            }
+            StartCoroutine(ScenarioManager.Instance.CaptureScreenshotCoroutine(baseName));
         }
 
         #endregion
@@ -429,12 +322,38 @@ namespace RFSimulation.UI
 
         private void OnScenarioChanged(string scenarioName)
         {
+            if (scenarioDropdown != null)
+            {
+                int idx = scenarioDropdown.options.FindIndex(o => o.text == scenarioName);
+                if (idx >= 0)
+                {
+                    scenarioDropdown.value = idx;
+                    scenarioDropdown.RefreshShownValue();
+                }
+            }
+
             SetStatusText($"Current Scenario: {scenarioName}", Color.green);
         }
 
         private void OnScenarioLoaded(Scenario scenario)
         {
+            if (newScenarioNameInput != null && scenario != null)
+            {
+                newScenarioNameInput.text = scenario.scenarioName;
+            }
+
             SetStatusText($"Scenario Loaded: {scenario.scenarioName}", Color.green);
+        }
+
+        private void OnScenarioSaved(Scenario scenario)
+        {
+            if (newScenarioNameInput != null && scenario != null)
+            {
+                newScenarioNameInput.text = scenario.scenarioName;
+                scenarioDropdown.value = scenarioManager.currentScenarioIndex + 1;
+                scenarioDropdown.RefreshShownValue();
+            }
+            SetStatusText($"Scenario Saved: {scenario.scenarioName}", Color.green);
         }
 
         private void SetButtonsInteractable(bool interactable)

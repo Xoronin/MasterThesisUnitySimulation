@@ -8,6 +8,9 @@ using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Components;
 using System;
 using RFSimulation.Utils;
+using System.Collections;
+using RFSimulation.UI;
+
 
 namespace RFSimulation.Core.Managers
 {
@@ -57,19 +60,26 @@ namespace RFSimulation.Core.Managers
 
         [Header("Scenario Settings")]
         public List<Scenario> scenarios = new List<Scenario>();
-        public int currentScenarioIndex = 0;
+        public int currentScenarioIndex = -1;
 
         [Header("Prefab References")]
         public GameObject transmitterPrefab;
         public GameObject receiverPrefab;
 
+        [Header("Export Settings")]
+        public string csvSubfolder = "Project/Data/Exports";
+        public string screenshotSubfolder = "Project/Data/Screenshots";
         public string scenariosfolder = "Project/Data/Scenarios";
+
+        public Canvas uiCanvas;
+        public ControlUI controlUI;
 
 
         // Events for UI updates
         public System.Action<List<string>> OnScenariosLoaded;
         public System.Action<string> OnScenarioChanged;
         public System.Action<Scenario> OnScenarioLoaded;
+        public System.Action<Scenario> OnScenarioSaved;
 
         private void Awake()
         {
@@ -92,7 +102,9 @@ namespace RFSimulation.Core.Managers
         {
             scenarios.Clear();
 
-            string scenarioPath = System.IO.Path.Combine(Application.dataPath, scenariosfolder);
+            string assetsRoot = Application.dataPath;
+            string scenarioPath = Path.Combine(assetsRoot, scenariosfolder);
+            Directory.CreateDirectory(scenarioPath);
 
             if (!Directory.Exists(scenarioPath))
             {
@@ -117,7 +129,7 @@ namespace RFSimulation.Core.Managers
                 }
                 catch (System.Exception e)
                 {
-                    Debug.LogWarning($"❌ Failed to load scenario from {filePath}: {e.Message}");
+                    Debug.LogWarning($"Failed to load scenario from {filePath}: {e.Message}");
                 }
             }
 
@@ -184,14 +196,29 @@ namespace RFSimulation.Core.Managers
             }
         }
 
-        public void SaveCurrentScenario(string scenarioName)
+        public void SaveCurrentScenario(string scenarioName, bool overwriteCurrent)
         {
             if (SimulationManager.Instance == null) return;
+
+            int newId;
+            string fileName = scenarioName;
+
+            if (overwriteCurrent && currentScenarioIndex >= 0 && currentScenarioIndex < scenarios.Count)
+            {
+                var current = scenarios[currentScenarioIndex];
+                newId = current.id;
+                fileName = current.scenarioName; 
+            }
+            else
+            {
+                newId = (scenarios.Count > 0) ? scenarios.Max(s => s.id) + 1 : 0;
+                fileName = scenarioName;
+            }
 
             Scenario newScenario = new Scenario
             {
                 id = scenarios.Count,
-                scenarioName = scenarioName,
+                scenarioName = fileName,
                 transmitters = new List<TransmitterConfig>(),
                 receivers = new List<ReceiverConfig>(),
                 propagationModel = PropagationModel.RayTracing,
@@ -260,8 +287,7 @@ namespace RFSimulation.Core.Managers
 
             // Save to file
             string scenarioPath = System.IO.Path.Combine(Application.dataPath, scenariosfolder);
-            scenarioName = scenarioName + ".json";
-            string filePath = System.IO.Path.Combine(scenarioPath, scenarioName);
+            string filePath = System.IO.Path.Combine(scenarioPath, scenarioName + ".json");
 
             try
             {
@@ -270,11 +296,13 @@ namespace RFSimulation.Core.Managers
 
                 LoadAllScenarios();
                 currentScenarioIndex = GetScenarioIndex(newScenario.id);
-                SelectScenario(currentScenarioIndex);
+                if (currentScenarioIndex >= 0)
+                    SelectScenario(currentScenarioIndex);
+                OnScenarioSaved?.Invoke(newScenario);
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"❌ Failed to save scenario: {e.Message}");
+                Debug.LogWarning($"Failed to save scenario: {e.Message}");
             }
         }
 
@@ -369,6 +397,126 @@ namespace RFSimulation.Core.Managers
                 return scenarios[currentScenarioIndex];
             }
             return null;
+        }
+
+        public void ExportSnapshotCsv(string baseName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(baseName))
+                    baseName = "snapshot";
+
+                foreach (char c in Path.GetInvalidFileNameChars())
+                    baseName = baseName.Replace(c, '_');
+
+                string assetsRoot = Application.dataPath;
+                string folderAbs = Path.Combine(assetsRoot, csvSubfolder);
+                Directory.CreateDirectory(folderAbs);
+
+                string stamped = $"{baseName}_{DateTime.UtcNow:yyyy-MM-ddTHH-mm-ssZ}.csv";
+                string fileAbs = Path.Combine(folderAbs, stamped);
+
+                string csv = BuildSnapshotCsv();
+                File.WriteAllText(fileAbs, csv);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ScenarioManager] CSV export failed: {ex}");
+            }
+        }
+
+        private string BuildSnapshotCsv()
+        {
+            var receivers = FindObjectsByType<Receiver>(FindObjectsSortMode.None);
+            var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.None);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("ScenarioName,Timestamp,PropagationModel,Technology,RxId,RxPosX,RxPosY,RxPosZ,RxHeight,RxSensitivity,RxSignalStrength,RxConnectMargin" +
+                            "TxId,TxPosX,TxPosY,TxPosZ,TxHeight,TxPower,TxFrequency,TxMaxReflections,TxMaxDiffractions,Distance,BuildingsOn");
+
+            string ts = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
+
+            foreach (var rx in receivers)
+            {
+                if (!rx.HasValidSignal()) continue;
+
+                Vector3 rxPos = rx.transform.position;
+                float rxHeight = FormatHelper.SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
+                float rxPower = FormatHelper.SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);
+                float rxSens = FormatHelper.SafeFloat(rx, nameof(rx.sensitivity), float.NaN);
+
+                Transmitter tx = null;
+                try { tx = rx.GetConnectedTransmitter(); } catch { }
+                if (tx == null)
+                    tx = transmitters.OrderBy(t => Vector3.Distance(rx.transform.position, t.transform.position)).First();
+
+                Transmitter.TransmitterInfo txInfo = tx.GetInfo();
+                Vector3 txPos = txInfo.WorldPosition;
+                float txHeight = txInfo.TransmitterHeightM;
+                float txPower =txInfo.TransmitterPowerDbm;
+                float txFreq = txInfo.FrequencyMHz;
+
+                float dist = Vector3.Distance(rxPos, txPos);
+
+                sb.AppendLine(string.Join(",", new string[] {
+                FormatHelper.Esc(GetCurrentScenario().scenarioName),
+                ts,
+                FormatHelper.Esc(txInfo.PropagationModel.ToString()),
+                FormatHelper.Esc(rx.technology.ToString()),
+                FormatHelper.Esc(FormatHelper.SafeString(rx, nameof(rx.uniqueID), rx.name)),
+                rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
+                FormatHelper.FormatFloat(rxHeight, "F2"),
+                FormatHelper.FormatFloat(rxSens, "F1"),
+                rx.connectionMargin.ToString("F0"),
+                (float.IsNegativeInfinity(rxPower) ? "" : FormatHelper.FormatFloat(rxPower, "F1")),
+                FormatHelper.Esc(FormatHelper.SafeString(tx, nameof(tx.uniqueID), tx.name)),
+                txPos.x.ToString("F3"), txPos.y.ToString("F3"), txPos.z.ToString("F3"),
+                FormatHelper.FormatFloat(txHeight, "F2"),
+                FormatHelper.FormatFloat(txPower, "F1"),
+                FormatHelper.FormatFloat(txFreq, "F0"),
+                txInfo.MaxReflections.ToString("F0"),
+                txInfo.MaxDiffractions.ToString("F0"),
+                dist.ToString("F3"),
+                FormatHelper.Esc(controlUI.showBuildingsToggle.IsActive().ToString())
+                }));
+            }
+
+            return sb.ToString();
+        }
+
+        public IEnumerator CaptureScreenshotCoroutine(string baseName)
+        {
+            if (uiCanvas != null)
+                uiCanvas.enabled = false;
+
+            yield return new WaitForEndOfFrame();
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(baseName))
+                    baseName = "screenshot";
+
+                foreach (char c in Path.GetInvalidFileNameChars())
+                    baseName = baseName.Replace(c, '_');
+
+                string assetsRoot = Application.dataPath;
+                string folderAbs = Path.Combine(assetsRoot, screenshotSubfolder);
+                Directory.CreateDirectory(folderAbs);
+
+                string stamped = $"{baseName}_{DateTime.UtcNow:yyyy-MM-ddTHH-mm-ssZ}.png";
+                string fileAbs = Path.Combine(folderAbs, stamped);
+
+                ScreenCapture.CaptureScreenshot(fileAbs);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ScenarioManager] Screenshot failed: {ex}");
+            }
+            finally
+            {
+                if (uiCanvas != null)
+                    uiCanvas.enabled = true;
+            }
         }
 
     }

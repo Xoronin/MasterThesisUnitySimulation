@@ -40,7 +40,7 @@ namespace RFSimulation.Core.Components
     {
         #region Data Contracts
 
-        public sealed class TransmitterInfo
+        public class TransmitterInfo
         {
             public string UniqueID { get; set; }
             public string Technology { get; set; }
@@ -239,8 +239,8 @@ namespace RFSimulation.Core.Components
         private PropagationContext CreatePropagationContext(Vector3 receiverPosition, float? receiverSensitivityDbm)
         {
             var txPos = GetAntennaWorldPos();
-            var receiverHeight = GeometryHelper.GetHeightAboveGround(receiverPosition);
-            var isLOS = RaycastUtil.IsLineOfSight(
+            var receiverHeight = RaycastHelper.GetHeightAboveGround(receiverPosition);
+            var isLOS = RaycastHelper.IsLineOfSight(
                 txPos,
                 receiverPosition,
                 settings.buildingLayer
@@ -680,7 +680,7 @@ namespace RFSimulation.Core.Components
                 collider.radius = 1f;
             }
 
-            settings.transmitterHeight = GeometryHelper.GetHeightAboveGround(GetAntennaWorldPos());
+            settings.transmitterHeight = RaycastHelper.GetHeightAboveGround(GetAntennaWorldPos());
         }
 
         private void InitializeCalculators()

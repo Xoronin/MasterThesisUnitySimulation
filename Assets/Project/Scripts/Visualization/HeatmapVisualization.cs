@@ -243,7 +243,7 @@ namespace RFSimulation.Visualization
 
         private float GetTerrainHeightAtPosition(Vector3 worldPos, out bool hitOK)
         {
-            if (GeometryHelper.TryGetGroundY(worldPos, settings.terrainLayer, out var gy))
+            if (RaycastHelper.TryGetGroundY(worldPos, settings.terrainLayer, out var gy))
             {
                 hitOK = true;
                 return gy;
@@ -259,7 +259,7 @@ namespace RFSimulation.Visualization
             for (int i = 0; i < offsets.Length; i++)
             {
                 var test = worldPos + offsets[i];
-                if (GeometryHelper.TryGetGroundY(test, settings.terrainLayer, out gy))
+                if (RaycastHelper.TryGetGroundY(test, settings.terrainLayer, out gy))
                 {
                     hitOK = true;
                     return gy;

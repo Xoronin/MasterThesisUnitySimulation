@@ -568,7 +568,7 @@ namespace RFSimulation.UI
             pos = default;
             if (mainCamera == null) mainCamera = Camera.main;
 
-            if (RaycastUtil.RayToGround(mainCamera, Input.mousePosition, placementLayerMask, out var hit))
+            if (RaycastHelper.RayToGround(mainCamera, Input.mousePosition, placementLayerMask, out var hit))
             {
                 pos = hit.point;
                 return true;

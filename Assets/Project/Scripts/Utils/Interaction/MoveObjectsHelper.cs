@@ -56,7 +56,7 @@ namespace RFSimulation.Utils
 			_dragging = true;
 
             float terrainY = _t.position.y;
-			if (RFSimulation.Utils.GeometryHelper.TryGetGroundY(_t.position, groundMask, out var gy))
+			if (RaycastHelper.TryGetGroundY(_t.position, groundMask, out var gy))
 				terrainY = gy;
 			_capturedOffset = Mathf.Max(0f, _t.position.y - terrainY);
 			if (heightOffset != 0f) _capturedOffset = heightOffset; 
@@ -82,7 +82,7 @@ namespace RFSimulation.Utils
 				pos = groundGrid.SnapToGrid(pos);
 
 				float terrainY = pos.y;
-				if (GeometryHelper.TryGetGroundY(pos, groundMask, out var gy))
+				if (RaycastHelper.TryGetGroundY(pos, groundMask, out var gy))
 					terrainY = gy;
 				pos.y = terrainY + _capturedOffset;
 
@@ -136,7 +136,7 @@ namespace RFSimulation.Utils
 
 			int mask = groundMask & ~forbiddenMask;
 
-			if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, out RaycastHit hit))
+			if (RaycastHelper.RayToGround(_cam, Input.mousePosition, mask, out RaycastHit hit))
 			{
 				hitPoint = hit.point;
 				return true;

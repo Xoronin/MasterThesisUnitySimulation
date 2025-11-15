@@ -220,7 +220,7 @@ namespace RFSimulation.Core.Components
                 collider.radius = 0.5f;
             }
 
-            receiverHeight = GeometryHelper.GetHeightAboveGround(transform.position);
+            receiverHeight = RaycastHelper.GetHeightAboveGround(transform.position);
         }
 
         private static void SetRendererBaseColor(Renderer r, Color c)

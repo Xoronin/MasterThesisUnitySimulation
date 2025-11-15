@@ -50,7 +50,7 @@ namespace RFSimulation.Core.Managers
 
             int mask = selectableMask & ~forbiddenMask;
 
-            if (RaycastUtil.RayToGround(_cam, Input.mousePosition, mask, out hit))
+            if (RaycastHelper.RayToGround(_cam, Input.mousePosition, mask, out hit))
             {
                 if ((forbiddenMask.value & (1 << hit.collider.gameObject.layer)) != 0)
                     return false;

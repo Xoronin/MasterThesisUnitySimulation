@@ -6767,10 +6767,6 @@ MonoBehaviour:
   mediumSignalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   highSignalColor: {r: 0.6039216, g: 0.8039216, b: 0.1960784, a: 1}
   excellentSignalColor: {r: 0, g: 1, b: 0, a: 1}
-  lowThresh: 0
-  mediumThresh: 5
-  highThresh: 10
-  excellentThresh: 15
   excellentCutoffDbm: -70
   goodCutoffDbm: -85
   poorCutoffDbm: -100
@@ -17051,14 +17047,8 @@ MonoBehaviour:
   statusText: {fileID: 681535142}
   exportButton: {fileID: 496663798}
   exportFileNameInput: {fileID: 914770544}
-  exportSubfolder: Project/Data/Exports
   screenshotButton: {fileID: 277803089}
   screenshotFileNameInput: {fileID: 1293208584}
-  screenshotSubfolder: Project/Data/Screenshots
-  targetCamera: {fileID: 330585545}
-  uiCanvas: {fileID: 1403707497}
-  width: 1920
-  height: 1080
 --- !u!114 &954381468
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -25428,7 +25418,11 @@ MonoBehaviour:
   currentScenarioIndex: 0
   transmitterPrefab: {fileID: 4221688458718699761, guid: 46a3133b84f86ea4b9dd17706f69e022, type: 3}
   receiverPrefab: {fileID: 3105411487471166515, guid: c39802ac12ec140429623212517d35de, type: 3}
+  csvSubfolder: Project/Data/Exports
+  screenshotSubfolder: Project/Data/Screenshots
   scenariosfolder: Project/Data/Scenarios
+  uiCanvas: {fileID: 1403707497}
+  controlUI: {fileID: 1302068594}
 --- !u!1 &1519909955
 GameObject:
   m_ObjectHideFlags: 0
