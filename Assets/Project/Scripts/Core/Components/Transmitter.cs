@@ -14,12 +14,12 @@ namespace RFSimulation.Core.Components
     public class TransmitterSettings
     {
         [Header("Propagation Settings")]
-        public string technology;
         public float transmitterPower = 20.0f;
         public float antennaGain = 0f;
         public float frequency = 3500f;
         public float transmitterHeight = 10f;
         public PropagationModel propagationModel;
+        public TechnologyType technology;
 
         [Header("Visualization")]
         public bool showConnections = true;
@@ -28,6 +28,7 @@ namespace RFSimulation.Core.Components
         [Header("Performance")]
         public int maxReflections = 2;
         public int maxDiffractions = 2;
+        public int maxScattering = 2;
         public float maxCalculationDistance = 5000f;
 
         [Header("Mapbox Integration")]
@@ -43,7 +44,6 @@ namespace RFSimulation.Core.Components
         public class TransmitterInfo
         {
             public string UniqueID { get; set; }
-            public string Technology { get; set; }
             public TechnologyType TechnologyType { get; set; }
 
             public float TransmitterPowerDbm { get; set; }
@@ -55,6 +55,7 @@ namespace RFSimulation.Core.Components
             public float MaxCalculationDistanceM { get; set; }
             public int MaxReflections { get; set; }
             public int MaxDiffractions { get; set; }
+            public int MaxScattering { get; set; }
 
             public bool ShowConnections { get; set; }
             public bool ShowRayPaths { get; set; }
@@ -164,7 +165,7 @@ namespace RFSimulation.Core.Components
             return new TransmitterInfo
             {
                 UniqueID = uniqueID,
-                Technology = settings.technology,
+                TechnologyType = settings.technology,
 
                 TransmitterPowerDbm = settings.transmitterPower,
                 AntennaGainDbi = settings.antennaGain,
@@ -175,6 +176,7 @@ namespace RFSimulation.Core.Components
                 MaxCalculationDistanceM = settings.maxCalculationDistance,
                 MaxReflections = settings.maxReflections,
                 MaxDiffractions = settings.maxDiffractions,
+                MaxScattering = settings.maxScattering,
 
                 ShowConnections = settings.showConnections,
                 ShowRayPaths = settings.showRayPaths,
@@ -229,6 +231,11 @@ namespace RFSimulation.Core.Components
             settings.maxDiffractions = maxDiffractions;
         }
 
+        public void SetMaxScattering(int maxScattering)
+        {
+            settings.maxScattering = maxScattering;
+        }
+
         public void ClearPathLossCache()
         {
             pathLossCalculator?.ClearCache();
@@ -243,7 +250,8 @@ namespace RFSimulation.Core.Components
             var isLOS = RaycastHelper.IsLineOfSight(
                 txPos,
                 receiverPosition,
-                settings.buildingLayer
+                settings.buildingLayer,
+                out var hit
             );
 
             var context = PropagationContext.Create(
@@ -263,7 +271,9 @@ namespace RFSimulation.Core.Components
             context.BuildingLayer = settings.buildingLayer;
             context.MaxReflections = settings.maxReflections;
             context.MaxDiffractions = settings.maxDiffractions;
+            context.MaxScattering = settings.maxScattering;
             context.MaxDistanceMeters = settings.maxCalculationDistance;
+            context.Technology = settings.technology;
 
             return context;
         }
@@ -280,7 +290,16 @@ namespace RFSimulation.Core.Components
 
         public void ConnectToReceiver(Receiver receiver)
         {
-            if (receiver == null || connectedReceivers.Contains(receiver)) return;
+            if (receiver == null) return;
+
+            var previousTx = receiver.GetConnectedTransmitter();
+            if (previousTx != null && previousTx != this)
+            {
+                previousTx.DisconnectFromReceiver(receiver);
+            }
+
+            if (connectedReceivers.Contains(receiver)) return;
+
             if (!CanConnectTo(receiver)) return;
 
             connectedReceivers.Add(receiver);
@@ -720,6 +739,19 @@ namespace RFSimulation.Core.Components
             panelMountHeightFromBaseTop = newHeight;
             MoveSectorBracketsTo(newHeight);
             SetAntennaOrigin(newHeight);
+        }
+
+        public void SetTechnology(TechnologyType tech)
+        {
+            settings.technology = tech;
+
+            var spec = TechnologySpecifications.GetSpec(tech);
+            settings.transmitterPower = spec.TypicalTxPowerDbm;
+            settings.frequency = spec.TypicalFrequencyMHz;
+            SetTransmitterHeight(spec.TypicalTxHeight);
+
+            ClearPathLossCache();
+            SimulationManager.Instance?.RecomputeForTransmitter(this);
         }
 
         private void RefreshHeatmap()

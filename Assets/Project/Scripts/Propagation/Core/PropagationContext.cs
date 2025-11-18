@@ -22,10 +22,10 @@ namespace RFSimulation.Propagation.Core
 
         public float MaxReflections { get; set; }
         public float MaxDiffractions { get; set; }
+        public float MaxScattering { get; set; }
         public float MaxDistanceMeters { get; set; }
 
-        public float Distance => Vector3.Distance(TransmitterPosition, ReceiverPosition);
-        public float WavelengthMeters => RFConstants.SPEED_OF_LIGHT / (FrequencyMHz * 1e6f);
+        public float DistanceM => Vector3.Distance(TransmitterPosition, ReceiverPosition);
 
         public static PropagationContext Create(
             Vector3 txPosition,
@@ -48,9 +48,9 @@ namespace RFSimulation.Propagation.Core
 
         public bool IsValid(out string errorMessage)
         {
-            if (Distance < RFConstants.MIN_DISTANCE)
+            if (DistanceM < RFConstants.MIN_DISTANCE)
             {
-                errorMessage = $"Distance too small: {Distance:F2}m (min: {RFConstants.MIN_DISTANCE}m)";
+                errorMessage = $"Distance too small: {DistanceM:F2}m (min: {RFConstants.MIN_DISTANCE}m)";
                 return false;
             }
 
@@ -93,7 +93,7 @@ namespace RFSimulation.Propagation.Core
     {
         FreeSpace,
         LogD,
-        LogDShadow,
+        LogNShadow,
         Hata,                    
         COST231,
         RayTracing

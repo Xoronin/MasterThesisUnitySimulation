@@ -1,6 +1,11 @@
-﻿using UnityEngine;
+﻿using RFSimulation.Environment;
 using RFSimulation.Propagation.Core;
+using System;
 using System.Numerics;
+using UnityEditor.ShaderGraph.Internal;
+using UnityEngine;
+using Random = UnityEngine.Random;
+using Vector3 = UnityEngine.Vector3;
 
 namespace RFSimulation.Utils
 {
@@ -9,85 +14,85 @@ namespace RFSimulation.Utils
         // Wavelength: λ = c/f
         public static float CalculateWavelength(float frequencyMHz)
         {
-            float frequencyHz = frequencyMHz * 1e6f;
+            float frequencyHz = UnitConversionHelper.MHzToHz(frequencyMHz);
             return RFConstants.SPEED_OF_LIGHT / frequencyHz;
         }
 
-        // FSPL(dB) = 20log10(d) + 20log10(f) + 32.45
-        public static float CalculateFSPL(float frequencyMHz, float distanceMeters)
-        {
-            if (distanceMeters < RFConstants.MIN_DISTANCE)
-                distanceMeters = RFConstants.MIN_DISTANCE;
-
-            float distanceKm = UnitConversionHelper.mToKm(distanceMeters);
-            float freqMHz = frequencyMHz;
-
-            float fspl = 20f * Mathf.Log10(distanceKm) +
-                        20f * Mathf.Log10(freqMHz) +
-                        32.45f;
-
-            return fspl;
-        }
-
         // FSLP(dB) = 20log10(4πd/λ)
-        public static float CalculateFSPLFromWavelength(float distanceMeters, float wavelengthMeters)
+        public static float CalculateFSPL(float distanceM, float frequencyMHz)
         {
+            if (distanceM < RFConstants.MIN_DISTANCE)
+                distanceM = RFConstants.MIN_DISTANCE;
+
+            float wavelength = RFMathHelper.CalculateWavelength(frequencyMHz);
             float fourPiSquared = Mathf.Pow(4f * Mathf.PI, 2f);
-            float pathLossLinear = fourPiSquared * distanceMeters * distanceMeters /
-                                  (wavelengthMeters * wavelengthMeters);
+            float pathLossLinear = fourPiSquared * distanceM * distanceM /
+                                  (wavelength * wavelength);
 
             if (pathLossLinear <= 0f || float.IsInfinity(pathLossLinear) || float.IsNaN(pathLossLinear))
                 return float.NegativeInfinity;
 
-            return 10f * Mathf.Log10(pathLossLinear);
+            float fspl = 10f * Mathf.Log10(pathLossLinear);
+
+            return fspl;
         }
 
-        // Calculate fresnel refelection magnitude using complex permittivity: ε_r - jσ/(ωε_0)
-        public static float CalculateFresnelReflectionMagnitude(
+        // Calculate fresnel refelection coefficients using complex permittivity
+        public static float CalculateFresnelReflectionCoefficients(
             float cosTheta,
             float frequencyMHz,
-            double relativePermittivity,
-            double conductivity)
+            BuildingMaterial material)
         {
+            float conductivity = CalculateConductivity(material.conductivityCoefficientSM, material.conductivityExponent, frequencyMHz);
+
             // Clamp cosθ to valid range
             cosTheta = Mathf.Clamp(cosTheta, -1f, 1f);
-            float absCos = Mathf.Abs(cosTheta);
-            float sin2 = Mathf.Clamp01(1f - absCos * absCos);
-
-            // Physical constants
-            const double eps0 = 8.854e-12; 
-            const double pi = System.Math.PI;
+            float sinTheta = Mathf.Sqrt(1f - cosTheta * cosTheta);
+            float cos2Theta = cosTheta * cosTheta;
 
             // Angular frequency
             double freqHz = UnitConversionHelper.MHzToHz(frequencyMHz);
-            double omega = 2.0 * pi * freqHz;
+            double omega = 2.0 * RFConstants.PI * freqHz;
 
-            // Complex relative permittivity
-            double imagPart = -conductivity / (omega * eps0);
-            Complex epsTilde = new Complex(relativePermittivity, imagPart);
+            // Complex relative permittivity: ε_r = -j * conductivity(σ) / angular_frequency(ω) * ε_0
+            double imagPart = -conductivity / (omega * RFConstants.EPS0);
+            Complex epsComplex = new Complex(material.relativePermittivity, imagPart);
 
-            // Term under sqrt: ε̃_r - sin²θ
-            Complex underRoot = epsTilde - new Complex(sin2, 0.0);
+            // Term under sqrt: ~ε_r - cos^2(theta_i)
+            Complex underRoot = epsComplex - new Complex(cos2Theta, 0.0);
             Complex root = Complex.Sqrt(underRoot);
 
-            // TE (perpendicular) polarization
-            Complex numTE = new Complex(absCos, 0.0) - root;
-            Complex denTE = new Complex(absCos, 0.0) + root;
-            Complex gammaTE = numTE / denTE;
-
-            // TM (parallel) polarization
-            Complex numTM = epsTilde * absCos - root;
-            Complex denTM = epsTilde * absCos + root;
+            // Vertical polarization: (sinTheta_i - root_term) / (sinTheta_i + root_term)
+            Complex numTM = sinTheta - root;
+            Complex denTM = sinTheta + root;
             Complex gammaTM = numTM / denTM;
 
-            // Magnitudes
-            double magTE = gammaTE.Magnitude;
+            // Coefficients
             double magTM = gammaTM.Magnitude;
 
-            // Average for unpolarized wave
-            double mag = System.Math.Sqrt(0.5 * (magTE * magTE + magTM * magTM));
+            return Mathf.Clamp01((float)magTM);
+        }
 
-            return Mathf.Clamp01((float)mag);
+        // Roughness correction factor p_s -> returrn 1 = smooth
+        public static float CalculateRoughnessCorrection(BuildingMaterial material, float cosThetaI, float frequencyMHz, out float g)
+        {
+            g = 0f;
+            float sigmaMeters = material.roughnessMM * 0.001f;
+            if (sigmaMeters <= 0f)
+                return 1f;
+
+            cosThetaI = Mathf.Clamp01(Mathf.Abs(cosThetaI));
+            float sinThetaI = Mathf.Sqrt(Mathf.Clamp01(1f - cosThetaI * cosThetaI));
+
+            float lambda = CalculateWavelength(frequencyMHz);
+
+            // g = π σ_h sinθ / λ
+            g = Mathf.PI * sigmaMeters * sinThetaI / lambda;
+
+            // ρ_s = exp(-8 g^2)
+            float rho_s = Mathf.Exp(-8f * g * g);
+
+            return Mathf.Clamp01(rho_s);
         }
 
         // Conductivity: σ(f) = σ_0 f^n
@@ -98,34 +103,6 @@ namespace RFSimulation.Utils
         {
             float freqGHz = UnitConversionHelper.MHzToGHz(frequencyMHz);
             return conductivityCoefficient * Mathf.Pow(freqGHz, conductivityExponent);
-        }
-
-        // Scattering Coefficient: S = 1 - exp(-2(k_0 σ_h|cosθ|)²)
-        public static float CalculateScatteringCoefficient(
-            float roughnessMeters,
-            float wavelengthMeters,
-            float cosIncidence,
-            float roughnessFactor = 1f)
-        {
-            if (roughnessMeters <= 0f || wavelengthMeters <= 0f)
-                return 0f;
-
-            // Wave number
-            float k0 = 2f * Mathf.PI / wavelengthMeters;
-
-            // Rayleigh parameter
-            float x = k0 * roughnessMeters * Mathf.Abs(cosIncidence);
-
-            // Reduction factor: exp(-2x²)
-            float roughReduction = Mathf.Exp(-2f * x * x);
-
-            // Scattering coefficient (Kirchhoff approximation)
-            float S_rayleigh = 1f - roughReduction;
-
-            // Add material roughness factor
-            float S = S_rayleigh * roughnessFactor;
-
-            return Mathf.Clamp01(S);
         }
 
         // Log-Distance Path Loss Model: PL(d) = PL(d0) + 10n log10(d/d0)
@@ -143,5 +120,81 @@ namespace RFSimulation.Utils
             return pathLoss;
         }
 
+        // Sample from Gaussian distribution using Box-Muller transform
+        public static float SampleGaussian(
+            float mean = 0f,
+            float stdDev = 1f,
+            float clampMin = -15f,
+            float clampMax = 15f)
+        {
+            const float MIN_RANDOM = 0.0001f;
+            const float MAX_RANDOM = 0.9999f;
+
+            // Generate two uniform random numbers
+            float u1 = Mathf.Clamp(Random.Range(0f, 1f), MIN_RANDOM, MAX_RANDOM);
+            float u2 = Mathf.Clamp(Random.Range(0f, 1f), MIN_RANDOM, MAX_RANDOM);
+
+            // Box-Muller transform
+            float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) * Mathf.Sin(2.0f * Mathf.PI * u2);
+
+            float result = mean + stdDev * randStdNormal;
+
+            return Mathf.Clamp(result, clampMin, clampMax);
+        }
+
+        public static float SampleLogNormalShadowing(float shadowingStdDevDb = 4f)
+        {
+            return SampleGaussian(0f, shadowingStdDevDb, -15f, 15f);
+        }
+
+        // Fresnel parameter for knife-edge diffraction
+        public static float FresnelV(Vector3 tx, Vector3 rx, Vector3 edge, float frequencyMHz)
+        {
+            float d1 = Vector3.Distance(tx, edge);
+            float d2 = Vector3.Distance(edge, rx);
+            if (d1 < RFConstants.EPS || d2 < RFConstants.EPS) return 0f;
+
+            float wavelength = CalculateWavelength(frequencyMHz);
+
+            Vector3 dir = rx - tx;
+            float dTot = dir.magnitude;
+            if (dTot < RFConstants.EPS) return 0f;
+
+            Vector3 dirN = dir / dTot;
+
+            float along = Vector3.Dot(edge - tx, dirN);
+            float t = Mathf.Clamp01(along / dTot);
+
+            float lineHeight = Mathf.Lerp(tx.y, rx.y, t);
+
+            float h = edge.y - lineHeight;
+            if (h <= 0f) return 0f;
+
+            // calculate v: v = h * sqrt(2 * (d1 + d2) / (lambda * d1 * d2))
+            float factor = Mathf.Sqrt(2f * (d1 + d2) / (wavelength * d1 * d2));
+            float v = h * factor;
+            return v;
+        }
+
+        public static float KnifeEdgeLoss(float v)
+        {
+            if (v == -0.78f)
+                return 0f;
+
+            // L(v) = 6.9 + 20 log10{ sqrt[(v - 0.1)^2 + 1] + v - 0.1 }
+            float term = Mathf.Sqrt((v - 0.1f) * (v - 0.1f) + 1f) + v - 0.1f;
+            float L = 6.9f + 20f * Mathf.Log10(term);
+
+            return Mathf.Max(0f, L);
+        }
+
+        public static float ScatteringLoss(float cosThetaI, float cosThetaS, float S)
+        {
+            float angularFactor = Mathf.Sqrt(cosThetaI * cosThetaS);
+            float gainTerm = S * angularFactor;
+            float scatteringLossDb = -20f * Mathf.Log10(gainTerm);
+
+            return scatteringLossDb;
+        }
     }
 }

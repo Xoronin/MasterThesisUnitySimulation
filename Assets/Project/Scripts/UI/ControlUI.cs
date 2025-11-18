@@ -24,10 +24,10 @@ namespace RFSimulation.UI
         public Button removeAllButton;
 
         [Header("Parameter Inputs")]
-        public Dropdown transmitterPropagationModelDropdown;
+        public Dropdown propagationModelDropdown;
         public InputField transmitterPowerInput;
         public InputField transmitterFrequencyInput;
-        public Dropdown receiverTechnologyDropdown;
+        public Dropdown technologyDropdown;
         public InputField receiverSensitivityInput;
         public InputField gridSizeInput;
 
@@ -143,6 +143,13 @@ namespace RFSimulation.UI
             if (showRaysToggle != null)
                 showRaysToggle.onValueChanged.AddListener(ToggleRays);
 
+            // Dropdowns
+            if (technologyDropdown != null)
+                technologyDropdown.onValueChanged.AddListener(OnTechnologyChanged);
+
+            if (propagationModelDropdown != null)
+                propagationModelDropdown.onValueChanged.AddListener(OnPropagationModelChanged);
+
             // Auto-find GroundGrid if not assigned
             if (groundGridComponent == null)
             {
@@ -150,8 +157,8 @@ namespace RFSimulation.UI
             }
 
             // Initialize dropdowns
-            InitializeReceiverTechnologyDropdown();
-            InitializeTransmitterPropagationModelDropdown();
+            InitializeTechnologyDropdown();
+            InitializePropagationModelDropdown();
 
             // Defaults
             SetDefaultUIValues();
@@ -159,9 +166,9 @@ namespace RFSimulation.UI
             UpdateStatusText("Ready to place objects");
         }
 
-        private void InitializeReceiverTechnologyDropdown()
+        private void InitializeTechnologyDropdown()
         {
-            if (receiverTechnologyDropdown != null)
+            if (technologyDropdown != null)
             {
                 var technologies = new List<string>();
                 var technologiesSpec = TechnologySpecifications.GetAllSpecs().ToList();
@@ -170,19 +177,18 @@ namespace RFSimulation.UI
                     technologies.Add(technologiesSpec[i].Name);
                 }
 
-                receiverTechnologyDropdown.ClearOptions();
-                receiverTechnologyDropdown.AddOptions(technologies);
-                receiverTechnologyDropdown.value = 0;
+                technologyDropdown.ClearOptions();
+                technologyDropdown.AddOptions(technologies);
+                technologyDropdown.value = 0;
 
-                receiverTechnologyDropdown.onValueChanged.AddListener(OnReceiverTechnologyChanged);
             }
         }
 
-        private void OnReceiverTechnologyChanged(int index)
+        private void OnTechnologyChanged(int index)
         {
-            if (receiverTechnologyDropdown == null) return;
+            if (technologyDropdown == null) return;
 
-            var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[index].text);
+            var tech = TechnologySpecifications.ParseTechnologyString(technologyDropdown.options[index].text);
             var spec = TechnologySpecifications.GetSpec(tech);
 
             // RX defaults
@@ -204,7 +210,7 @@ namespace RFSimulation.UI
         }
 
         private static readonly string[] ModelNames =
-            { "FreeSpace", "LogD", "LogDShadow", "Hata", "COST231", "RayTracing" };
+            { "FreeSpace", "LogD", "LogNShadow", "Hata", "COST231", "RayTracing" };
 
         private static PropagationModel ModelFromIndex(int i)
         {
@@ -212,7 +218,7 @@ namespace RFSimulation.UI
             {
                 case 0: return PropagationModel.FreeSpace;
                 case 1: return PropagationModel.LogD;
-                case 2: return PropagationModel.LogDShadow;
+                case 2: return PropagationModel.LogNShadow;
                 case 3: return PropagationModel.Hata;    
                 case 4: return PropagationModel.COST231;   
                 case 5: return PropagationModel.RayTracing;
@@ -226,7 +232,7 @@ namespace RFSimulation.UI
             {
                 case PropagationModel.FreeSpace: return 0;
                 case PropagationModel.LogD: return 1;
-                case PropagationModel.LogDShadow: return 2;
+                case PropagationModel.LogNShadow: return 2;
                 case PropagationModel.Hata: return 3; 
                 case PropagationModel.COST231: return 4;  
                 case PropagationModel.RayTracing: return 5;
@@ -234,12 +240,12 @@ namespace RFSimulation.UI
             }
         }
 
-        private void InitializeTransmitterPropagationModelDropdown()
+        private void InitializePropagationModelDropdown()
         {
-            if (transmitterPropagationModelDropdown == null) return;
+            if (propagationModelDropdown == null) return;
 
-            transmitterPropagationModelDropdown.ClearOptions();
-            transmitterPropagationModelDropdown.AddOptions(new List<string>(ModelNames));
+            propagationModelDropdown.ClearOptions();
+            propagationModelDropdown.AddOptions(new List<string>(ModelNames));
 
             if (transmitterPrefab != null)
             {
@@ -248,12 +254,15 @@ namespace RFSimulation.UI
                     _defaultTxModel = tx.settings.propagationModel;
             }
 
-            transmitterPropagationModelDropdown.value = IndexFromModel(_defaultTxModel);
-            transmitterPropagationModelDropdown.onValueChanged.AddListener(i =>
-            {
-                _defaultTxModel = ModelFromIndex(i);
-            });
+            propagationModelDropdown.value = IndexFromModel(_defaultTxModel);
+            propagationModelDropdown.RefreshShownValue();
         }
+
+        private void OnPropagationModelChanged(int i)
+        {
+            _defaultTxModel = ModelFromIndex(i);
+        }
+
 
         private void SetDefaultUIValues()
         {
@@ -261,11 +270,6 @@ namespace RFSimulation.UI
             if (allSpecs.Count > 0)
             {
                 var spec = allSpecs[0];
-
-                if (receiverTechnologyDropdown != null)
-                {
-                    receiverTechnologyDropdown.value = 0;
-                }
 
                 if (receiverSensitivityInput != null)
                     receiverSensitivityInput.text = spec.SensitivityDbm.ToString("F1");
@@ -499,10 +503,10 @@ namespace RFSimulation.UI
                     tx.settings.frequency = fMHz;
                 }
 
-                if (transmitterPropagationModelDropdown != null)
+                if (propagationModelDropdown != null)
                 {
-                    var chosenModel = (transmitterPropagationModelDropdown != null)
-                        ? ModelFromIndex(transmitterPropagationModelDropdown.value)
+                    var chosenModel = (propagationModelDropdown != null)
+                        ? ModelFromIndex(propagationModelDropdown.value)
                         : _defaultTxModel; 
 
                     tx.SetPropagationModel(chosenModel);
@@ -512,6 +516,11 @@ namespace RFSimulation.UI
                 {
                     tx.SetTransmitterHeight(Mathf.Max(0f, h));
                 }
+
+                var tech = TechnologySpecifications.ParseTechnologyString(
+                    technologyDropdown.options[technologyDropdown.value].text
+                );
+                tx.SetTechnology(tech);
 
                 tx.settings.showConnections = showConnectionsToggle != null ? showConnectionsToggle.isOn : true;
 
@@ -530,9 +539,9 @@ namespace RFSimulation.UI
             var rx = go.GetComponent<Receiver>();
             if (rx != null)
             {
-                if (receiverTechnologyDropdown != null)
+                if (technologyDropdown != null)
                 {
-                    var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text);
+                    var tech = TechnologySpecifications.ParseTechnologyString(technologyDropdown.options[technologyDropdown.value].text);
                     rx.SetTechnology(tech); 
                 }
 
@@ -748,13 +757,21 @@ namespace RFSimulation.UI
                         tx.settings.frequency = fMHz;
                     }
 
-                    if (transmitterPropagationModelDropdown != null)
+                    if (propagationModelDropdown != null)
                     {
-                        var chosenModel = (transmitterPropagationModelDropdown != null)
-                            ? ModelFromIndex(transmitterPropagationModelDropdown.value)
+                        var chosenModel = (propagationModelDropdown != null)
+                            ? ModelFromIndex(propagationModelDropdown.value)
                             : _defaultTxModel;
 
                         tx.SetPropagationModel(chosenModel);
+                    }
+
+                    if (technologyDropdown != null)
+                    {
+                        var tech = TechnologySpecifications.ParseTechnologyString(
+                            technologyDropdown.options[technologyDropdown.value].text
+                        );
+                        tx.SetTechnology(tech);
                     }
 
                     if (showRaysToggle != null && showRaysToggle.isOn)
@@ -780,9 +797,9 @@ namespace RFSimulation.UI
                 var rx = go.GetComponent<Receiver>();
                 if (rx != null)
                 {
-                    if (receiverTechnologyDropdown != null)
+                    if (technologyDropdown != null)
                     {
-                        var tech = TechnologySpecifications.ParseTechnologyString(receiverTechnologyDropdown.options[receiverTechnologyDropdown.value].text);
+                        var tech = TechnologySpecifications.ParseTechnologyString(technologyDropdown.options[technologyDropdown.value].text);
                         rx.SetTechnology(tech);
                     }
 
@@ -902,14 +919,14 @@ namespace RFSimulation.UI
                 {
                     if (receiverSensitivityInput != null) receiverSensitivityInput.text = rx.sensitivity.ToString();
 
-                    if (receiverTechnologyDropdown != null)
+                    if (technologyDropdown != null)
                     {
-                        var opts = receiverTechnologyDropdown.options;
+                        var opts = technologyDropdown.options;
                         for (int i = 0; i < opts.Count; i++)
                         {
                             if (opts[i].text.ToLower() == rx.technology.ToString().ToLower())
                             {
-                                receiverTechnologyDropdown.value = i;
+                                technologyDropdown.value = i;
                                 break;
                             }
                         }

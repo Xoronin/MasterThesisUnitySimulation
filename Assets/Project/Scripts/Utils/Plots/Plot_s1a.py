@@ -8,10 +8,10 @@ import itertools
 # CONFIGURATION – adjust these for your setup
 # ---------------------------------------------------
 
-EXPORT_FOLDER = r"C:\Users\mer-l\MasterThesis\MasterThesis\Assets\Project\Data\Exports\S1a"
-SCENARIO_FILTER = "S1a"        # value in 'scenario' column for S1a
-FREQUENCIES_OF_INTEREST = [700, 3500, 26000]  # MHz
-BUILDINGS_OFF_ONLY = False     # set True if you want to filter buildings_off
+EXPORT_FOLDER = r"C:\Users\mer-l\MasterThesis\MasterThesis\Assets\Project\Data\Exports\S1"
+SCENARIO_FILTER = "S1a"             # value in 'scenario' column for S1a
+FREQUENCIES_OF_INTEREST = [3500]    # MHz
+BUILDINGS_OFF_ONLY = True          # set True if you want to filter buildings_off
 # ---------------------------------------------------
 
 

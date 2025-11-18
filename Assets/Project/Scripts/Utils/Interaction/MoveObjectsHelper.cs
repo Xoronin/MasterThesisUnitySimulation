@@ -4,11 +4,9 @@ using UnityEngine.EventSystems;
 using RFSimulation.Core.Components;
 
 /// <summary>
-/// Click-and-drag mover for world objects (TX/RX).
-/// - Drags over ground using a LayerMask
-/// - Optional grid snap
+/// Click-and-drag mover for simulation objects (TX/RX).
+/// - Drags over ground
 /// - Keeps the object's height offset above terrain
-/// - Q/E to rotate while dragging (optional)
 /// </summary>
 
 namespace RFSimulation.Utils
@@ -24,25 +22,29 @@ namespace RFSimulation.Utils
 		public float heightOffset = 0f;
 		public float raycastStartHeight = 1000f;
 
-		[Header("Rotation While Dragging")]
-		public bool allowRotate = true;
-		public float rotateSpeed = 120f; 
+        [Header("Change detection")]
+        private float moveThreshold = 0.01f;
+        private float rotationThresholdDeg = 1f;
 
-		private Camera _cam;
-		private bool _dragging;
-		private float _capturedOffset; 
-		private Transform _t;
-		private float _yAtGrab; 
-		private Vector3 _grabLocalDelta;
+        private Camera cam;
+		private bool dragging;
+		private float capturedOffset; 
+		private Transform t;
+		private float yAtGrab; 
+		private Vector3 grabLocalDelta;
 
-		private GameObject _grabObject;
+		private GameObject grabObject;
 
-		[SerializeField] private RFSimulation.UI.GroundGrid groundGrid;
+        private Vector3 initialWorldPos;
+        private Quaternion initialWorldRot;
+        private bool hasMovedDuringDrag;
+
+        private RFSimulation.UI.GroundGrid groundGrid;
 
 		void Awake()
 		{
-			_t = transform;
-			_cam = Camera.main;
+			t = transform;
+			cam = Camera.main;
 
 			if (groundGrid == null)
 				groundGrid = FindFirstObjectByType<RFSimulation.UI.GroundGrid>(FindObjectsInactive.Include);
@@ -53,75 +55,94 @@ namespace RFSimulation.Utils
 			if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
 				return;
 
-			_dragging = true;
+			dragging = true;
 
-            float terrainY = _t.position.y;
-			if (RaycastHelper.TryGetGroundY(_t.position, groundMask, out var gy))
+            float terrainY = t.position.y;
+			if (RaycastHelper.TryGetGroundY(t.position, groundMask, out var gy))
 				terrainY = gy;
-			_capturedOffset = Mathf.Max(0f, _t.position.y - terrainY);
-			if (heightOffset != 0f) _capturedOffset = heightOffset; 
+			capturedOffset = Mathf.Max(0f, t.position.y - terrainY);
+			if (heightOffset != 0f) capturedOffset = heightOffset; 
 
-			_yAtGrab = _t.position.y;
+			yAtGrab = t.position.y;
 
 			if (TryGetMouseGround(out Vector3 hit))
-				_grabLocalDelta = _t.position - hit;
+				grabLocalDelta = t.position - hit;
 			else
-				_grabLocalDelta = Vector3.zero;
-		}
+				grabLocalDelta = Vector3.zero;
+
+            initialWorldPos = t.position;
+            initialWorldRot = t.rotation;
+            hasMovedDuringDrag = false;
+        }
 
 		void OnMouseDrag()
 		{
-			if (!_dragging) return;
+			if (!dragging) return;
 
 			if (TryGetMouseGround(out Vector3 pos))
 			{
-                _grabObject = gameObject;
+				grabObject = gameObject;
 
-                pos += _grabLocalDelta;
+				pos += grabLocalDelta;
 
 				pos = groundGrid.SnapToGrid(pos);
 
 				float terrainY = pos.y;
 				if (RaycastHelper.TryGetGroundY(pos, groundMask, out var gy))
 					terrainY = gy;
-				pos.y = terrainY + _capturedOffset;
+				pos.y = terrainY + capturedOffset;
 
-				_t.position = pos;
+				t.position = pos;
 
-				if (allowRotate)
+				if (hasMovedDuringDrag)
 				{
-					if (Input.GetKey(KeyCode.Q)) _t.Rotate(0f, -rotateSpeed * Time.deltaTime, 0f, Space.World);
-					if (Input.GetKey(KeyCode.E)) _t.Rotate(0f, rotateSpeed * Time.deltaTime, 0f, Space.World);
+					if (Vector3.Distance(initialWorldPos, t.position) > moveThreshold)
+						hasMovedDuringDrag = true;
+					else if (Quaternion.Angle(initialWorldRot, t.rotation) > rotationThresholdDeg)
+						hasMovedDuringDrag = true;
 				}
 			}
 			else
 			{
-				Ray ray = _cam.ScreenPointToRay(Input.mousePosition);
-				float t = (_yAtGrab - ray.origin.y) / Mathf.Max(0.0001f, ray.direction.y);
-				Vector3 fallback = ray.origin + ray.direction * t;
+				Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+				float transform = (yAtGrab - ray.origin.y) / Mathf.Max(0.0001f, ray.direction.y);
+				Vector3 fallback = ray.origin + ray.direction * transform;
 
-				_t.position = groundGrid ? groundGrid.SnapToGrid(new Vector3(fallback.x, _yAtGrab, fallback.z))
-										 : new Vector3(fallback.x, _yAtGrab, fallback.z);
-			}
+				t.position = groundGrid ? groundGrid.SnapToGrid(new Vector3(fallback.x, yAtGrab, fallback.z))
+										 : new Vector3(fallback.x, yAtGrab, fallback.z);
+
+                if (!hasMovedDuringDrag)
+                {
+                    if (Vector3.Distance(initialWorldPos, t.position) > moveThreshold)
+                        hasMovedDuringDrag = true;
+                }
+            }
 		}
 
 		void OnMouseUp()
 		{
-			if (!_dragging) return;
-			_dragging = false;
+			if (!dragging) return;
+			dragging = false;
 
-            if (_grabObject != null)
+            if (grabObject != null)
             {
-                if (_grabObject.TryGetComponent<RFSimulation.Core.Components.Transmitter>(out var transmitter))
+                bool moved = hasMovedDuringDrag ||
+                             Vector3.Distance(initialWorldPos, grabObject.transform.position) > moveThreshold ||
+                             Quaternion.Angle(initialWorldRot, grabObject.transform.rotation) > rotationThresholdDeg;
+
+                if (moved)
                 {
-                    SimulationManager.Instance?.RecomputeForTransmitter(transmitter);
-                }
-                else if (_grabObject.TryGetComponent<RFSimulation.Core.Components.Receiver>(out var receiver))
-                {
-                    SimulationManager.Instance?.RecomputeForReceiver(receiver);
+                    if (grabObject.TryGetComponent<RFSimulation.Core.Components.Transmitter>(out var transmitter))
+                    {
+                        SimulationManager.Instance?.RecomputeForTransmitter(transmitter);
+                    }
+                    else if (grabObject.TryGetComponent<RFSimulation.Core.Components.Receiver>(out var receiver))
+                    {
+                        SimulationManager.Instance?.RecomputeForReceiver(receiver);
+                    }
                 }
 
-                _grabObject = null;
+                grabObject = null;
             }
 
             BroadcastMessage("OnWorldDragged", SendMessageOptions.DontRequireReceiver);
@@ -131,12 +152,12 @@ namespace RFSimulation.Utils
 		{
 			hitPoint = default;
 
-			if (_cam == null) _cam = Camera.main;
-			if (_cam == null) return false;
+			if (cam == null) cam = Camera.main;
+			if (cam == null) return false;
 
 			int mask = groundMask & ~forbiddenMask;
 
-			if (RaycastHelper.RayToGround(_cam, Input.mousePosition, mask, out RaycastHit hit))
+			if (RaycastHelper.RayToGround(cam, Input.mousePosition, mask, out RaycastHit hit))
 			{
 				hitPoint = hit.point;
 				return true;

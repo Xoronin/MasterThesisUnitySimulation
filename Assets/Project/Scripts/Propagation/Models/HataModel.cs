@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
-using RFSimulation.Core;
 using RFSimulation.Interfaces;
 using RFSimulation.Propagation.Core;
+using RFSimulation.Utils;
 
 namespace RFSimulation.Propagation.Models
 {
@@ -10,13 +10,7 @@ namespace RFSimulation.Propagation.Models
         public string ModelName => "Hata";
 
         public float CalculatePathLoss(PropagationContext context)
-        {
-
-            float hte = context.TransmitterHeight;      
-            float hre = context.ReceiverHeight;         
-            float fc = context.FrequencyMHz;            
-            float d = context.Distance / 1000f;         
-
+        { 
             // Validate parameters according to Hata model limitations
             var validation = ValidateHataParameters(context);
             if (!validation.isValid)
@@ -24,23 +18,23 @@ namespace RFSimulation.Propagation.Models
                 Debug.LogWarning($"[HataModel] {validation.warning}");
             }
 
-            // Calculate mobile antenna correction factor a(hre) for small/medium cities
-            float logFc = Mathf.Log10(fc);
-            float aHre = (1.1f * logFc - 0.7f) * hre - (1.56f * logFc - 0.8f);
+            float hte = context.TransmitterHeight;
+            float hre = context.ReceiverHeight;
+            float fc = context.FrequencyMHz;
+            float d = UnitConversionHelper.mToKm(context.DistanceM);
+
+            float mobileCorrection = CalculateLargeCityCorrection(fc, hre);
 
             float pathLoss = 69.55f +
-                           26.16f * logFc -                    
-                           13.82f * Mathf.Log10(hte) -         
-                           aHre +                              
+                           26.16f * Mathf.Log10(fc) -                    
+                           13.82f * Mathf.Log10(hte) -
+                           mobileCorrection +                              
                            (44.9f - 6.55f * Mathf.Log10(hte)) * Mathf.Log10(d);
 
             // Validate result
-            if (float.IsInfinity(pathLoss) || float.IsNaN(pathLoss))
-            {
-                return float.NegativeInfinity;
-            }
-
-            return pathLoss;
+            return float.IsInfinity(pathLoss) || float.IsNaN(pathLoss)
+                ? float.NegativeInfinity
+                : pathLoss;
         }
 
         private (bool isValid, string warning) ValidateHataParameters(PropagationContext context)
@@ -56,7 +50,7 @@ namespace RFSimulation.Propagation.Models
             }
 
             // Distance range: 1 - 20 km
-            float distanceKm = context.Distance / 1000f;
+            float distanceKm = UnitConversionHelper.mToKm(context.DistanceM);
             if (distanceKm < 1f || distanceKm > 20f)
             {
                 warnings += $"Distance {distanceKm:F1}km outside valid range (1-20km). ";
@@ -66,21 +60,19 @@ namespace RFSimulation.Propagation.Models
             // Base station height: 30 - 200 m 
             if (context.TransmitterHeight < 30f || context.TransmitterHeight > 200f)
             {
-                warnings += $"Base station height {context.TransmitterHeight}m outside typical range (30-200m). ";
+                warnings += $"Transmitter height {context.TransmitterHeight}m outside typical range (30-200m). ";
             }
 
             // Mobile station height: 1 - 10 m
             if (context.ReceiverHeight < 1f || context.ReceiverHeight > 10f)
             {
-                warnings += $"Mobile height {context.ReceiverHeight}m outside valid range (1-10m). ";
+                warnings += $"Receiver height {context.ReceiverHeight}m outside valid range (1-10m). ";
             }
 
             return (isValid, warnings);
         }
 
-        /// <summary>
-        /// Alternative mobile antenna correction for large cities 
-        /// </summary>
+        // mobile antenna correction for large cities 
         private float CalculateLargeCityCorrection(float frequencyMHz, float mobileHeight)
         {
             if (frequencyMHz <= 300f)

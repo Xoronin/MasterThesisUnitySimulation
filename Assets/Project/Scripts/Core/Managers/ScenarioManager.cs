@@ -38,9 +38,10 @@ namespace RFSimulation.Core.Managers
         public float antennaGain;
         public float frequency;
         public float transmitterHeight;
-        public float maxReflections;
-        public float maxDiffractions;
-
+        public int maxReflections;
+        public int maxDiffractions;
+        public int maxScattering;
+        public TechnologyType technology;
         public PropagationModel propagationModel;
     }
 
@@ -250,8 +251,10 @@ namespace RFSimulation.Core.Managers
                         transmitterHeight = (float)Math.Round(transmitter.settings.transmitterHeight, 2),
                         maxReflections = transmitter.settings.maxReflections,
                         maxDiffractions = transmitter.settings.maxDiffractions,
+                        maxScattering = transmitter.settings.maxScattering,
 
-                        propagationModel = transmitter.settings.propagationModel
+                        technology = transmitter.settings.technology,
+                        propagationModel = transmitter.settings.propagationModel,
                     };
                     newScenario.transmitters.Add(config);
                 }
@@ -283,6 +286,7 @@ namespace RFSimulation.Core.Managers
             if (newScenario.transmitters.Count > 0)
             {
                 newScenario.propagationModel = newScenario.transmitters[0].propagationModel;
+                newScenario.technology = newScenario.transmitters[0].technology;
             }
 
             // Save to file
@@ -357,7 +361,11 @@ namespace RFSimulation.Core.Managers
                 transmitter.settings.antennaGain = config.antennaGain;
                 transmitter.settings.frequency = config.frequency;
                 transmitter.SetPropagationModel(config.propagationModel);
+                transmitter.SetTechnology(config.technology);
                 transmitter.SetTransmitterHeight(Mathf.Max(0f, config.transmitterHeight));
+                transmitter.SetMaxReflections(config.maxReflections);
+                transmitter.SetMaxDiffractions(config.maxDiffractions);
+                transmitter.SetMaxScattering(config.maxScattering);
             }
         }
 
@@ -378,6 +386,7 @@ namespace RFSimulation.Core.Managers
                 receiver.SetTechnology(config.technology);
                 receiver.sensitivity = config.sensitivity;
                 receiver.receiverHeight = config.receiverHeight;
+                receiver.connectionMargin = config.connectionMargin;
             }
         }
 
@@ -413,7 +422,7 @@ namespace RFSimulation.Core.Managers
                 string folderAbs = Path.Combine(assetsRoot, csvSubfolder);
                 Directory.CreateDirectory(folderAbs);
 
-                string stamped = $"{baseName}_{DateTime.UtcNow:yyyy-MM-ddTHH-mm-ssZ}.csv";
+                string stamped = $"{baseName}.csv";
                 string fileAbs = Path.Combine(folderAbs, stamped);
 
                 string csv = BuildSnapshotCsv();
@@ -431,10 +440,10 @@ namespace RFSimulation.Core.Managers
             var transmitters = FindObjectsByType<Transmitter>(FindObjectsSortMode.None);
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("ScenarioName,Timestamp,PropagationModel,Technology,RxId,RxPosX,RxPosY,RxPosZ,RxHeight,RxSensitivity,RxSignalStrength,RxConnectMargin" +
-                            "TxId,TxPosX,TxPosY,TxPosZ,TxHeight,TxPower,TxFrequency,TxMaxReflections,TxMaxDiffractions,Distance,BuildingsOn");
-
-            string ts = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH-mm-ssZ");
+            sb.AppendLine("ScenarioName,PropagationModel,Technology," +
+                            "RxId,RxPosX,RxPosY,RxPosZ,RxHeight,RxSensitivity,RxSignalStrength,RxConnectMargin," +
+                            "TxId,TxPosX,TxPosY,TxPosZ,TxHeight,TxPower,TxFrequency,TxMaxReflections,TxMaxDiffractions,TxMaxScattering," +
+                            "Distance,BuildingsOn");
 
             foreach (var rx in receivers)
             {
@@ -460,15 +469,14 @@ namespace RFSimulation.Core.Managers
 
                 sb.AppendLine(string.Join(",", new string[] {
                 FormatHelper.Esc(GetCurrentScenario().scenarioName),
-                ts,
-                FormatHelper.Esc(txInfo.PropagationModel.ToString()),
-                FormatHelper.Esc(rx.technology.ToString()),
+                FormatHelper.Esc(Enum.GetName(typeof(PropagationModel), txInfo.PropagationModel)),
+                FormatHelper.Esc(Enum.GetName(typeof(TechnologyType), rx.technology)),
                 FormatHelper.Esc(FormatHelper.SafeString(rx, nameof(rx.uniqueID), rx.name)),
                 rxPos.x.ToString("F3"), rxPos.y.ToString("F3"), rxPos.z.ToString("F3"),
                 FormatHelper.FormatFloat(rxHeight, "F2"),
                 FormatHelper.FormatFloat(rxSens, "F1"),
-                rx.connectionMargin.ToString("F0"),
                 (float.IsNegativeInfinity(rxPower) ? "" : FormatHelper.FormatFloat(rxPower, "F1")),
+                rx.connectionMargin.ToString("F0"),
                 FormatHelper.Esc(FormatHelper.SafeString(tx, nameof(tx.uniqueID), tx.name)),
                 txPos.x.ToString("F3"), txPos.y.ToString("F3"), txPos.z.ToString("F3"),
                 FormatHelper.FormatFloat(txHeight, "F2"),
@@ -476,6 +484,7 @@ namespace RFSimulation.Core.Managers
                 FormatHelper.FormatFloat(txFreq, "F0"),
                 txInfo.MaxReflections.ToString("F0"),
                 txInfo.MaxDiffractions.ToString("F0"),
+                txInfo.MaxScattering.ToString("F0"),
                 dist.ToString("F3"),
                 FormatHelper.Esc(controlUI.showBuildingsToggle.IsActive().ToString())
                 }));
@@ -503,7 +512,7 @@ namespace RFSimulation.Core.Managers
                 string folderAbs = Path.Combine(assetsRoot, screenshotSubfolder);
                 Directory.CreateDirectory(folderAbs);
 
-                string stamped = $"{baseName}_{DateTime.UtcNow:yyyy-MM-ddTHH-mm-ssZ}.png";
+                string stamped = $"{baseName}.png";
                 string fileAbs = Path.Combine(folderAbs, stamped);
 
                 ScreenCapture.CaptureScreenshot(fileAbs);

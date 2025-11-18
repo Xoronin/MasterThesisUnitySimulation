@@ -29,7 +29,9 @@ namespace RFSimulation.UI
         public InputField txHeightInput;
         public InputField txMaxReflectionsInput;
         public InputField txMaxDiffractionsInput;
+        public InputField txMaxScatteringInput;
         public Dropdown txModelDropdown;
+        public Dropdown txTechDropdown;
         public Text txConnectedReceivers;
 
         [Header("Receiver Group")]
@@ -59,7 +61,8 @@ namespace RFSimulation.UI
             WireCommon();
             WireTransmitter();
             WireReceiver();
-            EnsureTechOptions();
+            EnsureRxTechOptions();
+            EnsureTxTechOptions();
             EnsureTxModelOptions();
             ClearSelection();
         }
@@ -159,12 +162,12 @@ namespace RFSimulation.UI
             if (txHeightInput) txHeightInput.onEndEdit.AddListener(OnTxHeightEdited);
             if (txMaxDiffractionsInput) txMaxDiffractionsInput.onEndEdit.AddListener(OnTxMaxDiffractionsEdited);
             if (txMaxReflectionsInput) txMaxReflectionsInput.onEndEdit.AddListener(OnTxMaxReflectionsEdited);
+            if (txMaxScatteringInput) txMaxScatteringInput.onEndEdit.AddListener(OnTxMaxScatteringEdited);
             if (txConnectedReceivers) txConnectedReceivers.text = "—";
         }
 
         private void WireReceiver()
         {
-            if (rxTechDropdown) rxTechDropdown.onValueChanged.AddListener(OnRxTechChanged);
             if (rxSensitivityInput) rxSensitivityInput.onEndEdit.AddListener(OnRxSensitivityEdited);
             if (rxConnectionMarginInput) rxConnectionMarginInput.onEndEdit.AddListener(OnRxConnectionMarginEdited);
             if (rxHeightInput) rxHeightInput.onEndEdit.AddListener(OnRxHeightEdited);
@@ -172,7 +175,7 @@ namespace RFSimulation.UI
             if (rxConnectedTransmitter) rxConnectedTransmitter.text = "—";
         }
 
-        private void EnsureTechOptions()
+        private void EnsureRxTechOptions()
         {
             if (rxTechDropdown == null) return;
 
@@ -185,6 +188,23 @@ namespace RFSimulation.UI
             rxTechDropdown.AddOptions(techNames);
             rxTechDropdown.value = 0;
             rxTechDropdown.RefreshShownValue();
+            rxTechDropdown.onValueChanged.AddListener(OnRxTechChanged);
+        }
+
+        private void EnsureTxTechOptions()
+        {
+            if (txTechDropdown == null) return;
+
+            var techNames = new System.Collections.Generic.List<string>();
+            var specs = TechnologySpecifications.GetAllSpecs();
+            foreach (var spec in specs)
+                techNames.Add(spec.Name);
+
+            txTechDropdown.ClearOptions();
+            txTechDropdown.AddOptions(techNames);
+            txTechDropdown.value = 0;
+            txTechDropdown.RefreshShownValue();
+            txTechDropdown.onValueChanged.AddListener(OnTxTechChanged);
         }
 
         private void EnsureTxModelOptions()
@@ -192,7 +212,7 @@ namespace RFSimulation.UI
             if (txModelDropdown == null) return;
             txModelDropdown.ClearOptions();
             txModelDropdown.AddOptions(new System.Collections.Generic.List<string>(
-                new[] { "FreeSpace", "LogD", "LogDShadow", "Hata", "COST231", "RayTracing" }
+                new[] { "FreeSpace", "LogD", "LogNShadow", "Hata", "COST231", "RayTracing" }
             ));
             txModelDropdown.onValueChanged.AddListener(OnTxModelChanged);
         }
@@ -264,6 +284,18 @@ namespace RFSimulation.UI
             RecomputeForTx();
         }
 
+        private void OnTxTechChanged(int idx)
+        {
+            if (_selectedTx == null || txTechDropdown == null) return;
+
+            var tech = TechnologySpecifications.ParseTechnologyString(txTechDropdown.options[idx].text);
+            _selectedTx.SetTechnology(tech);
+
+            _selectedTx.ClearPathLossCache();
+            RefreshTransmitterFields();
+            RecomputeForTx();
+        }
+
         private void OnTxHeightEdited(string s)
         {
             if (_selectedTx == null) return;
@@ -297,14 +329,27 @@ namespace RFSimulation.UI
             RecomputeForTx();
         }
 
+        private void OnTxMaxScatteringEdited(string s)
+        {
+            if (_selectedTx == null) return;
+            int i = Int32.Parse(s);
+            _selectedTx.SetMaxScattering(i);
+            _selectedTx.ClearPathLossCache();
+            RefreshTransmitterFields();
+            RefreshCommonFromTransform();
+            RecomputeForTx();
+        }
+
         private void OnRxTechChanged(int idx)
         {
             if (_selectedRx == null || rxTechDropdown == null) return;
 
-            var tech = TechnologySpecifications.ParseTechnologyString(rxTechDropdown.options[idx].text);
+            var tech = TechnologySpecifications.ParseTechnologyString(
+                rxTechDropdown.options[idx].text
+            );
             var spec = TechnologySpecifications.GetSpec(tech);
-            _selectedRx.SetTechnology(tech);
 
+            _selectedRx.SetTechnology(tech);
             _selectedRx.sensitivity = spec.SensitivityDbm;
             _selectedRx.receiverHeight = spec.TypicalRxHeight;
 
@@ -431,9 +476,19 @@ namespace RFSimulation.UI
             txHeightInput?.SetTextWithoutNotify(_selectedTx.settings.transmitterHeight.ToString("F2", Ci));
             txMaxReflectionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxReflections.ToString());
             txMaxDiffractionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxDiffractions.ToString());
+            txMaxScatteringInput?.SetTextWithoutNotify(_selectedTx.settings.maxScattering.ToString());
 
             if (txModelDropdown != null)
                 txModelDropdown.SetValueWithoutNotify(IndexFromModel(_selectedTx.settings.propagationModel));
+
+            if (txTechDropdown != null)
+            {
+                var spec = TechnologySpecifications.GetSpec(_selectedTx.settings.technology);
+                var techName = spec.Name;
+
+                var idx = txTechDropdown.options.FindIndex(o => o.text == techName);
+                if (idx >= 0) txTechDropdown.SetValueWithoutNotify(idx);
+            }
 
             if (txConnectedReceivers != null)
             {
@@ -451,7 +506,10 @@ namespace RFSimulation.UI
 
             if (rxTechDropdown != null)
             {
-                var idx = rxTechDropdown.options.FindIndex(o => o.text == _selectedRx.technology.ToString());
+                var spec = TechnologySpecifications.GetSpec(_selectedRx.technology);
+                var techName = spec.Name;
+
+                var idx = rxTechDropdown.options.FindIndex(o => o.text == techName);
                 if (idx >= 0) rxTechDropdown.SetValueWithoutNotify(idx);
             }
 
@@ -500,7 +558,7 @@ namespace RFSimulation.UI
             {
                 case 0: return PropagationModel.FreeSpace;
                 case 1: return PropagationModel.LogD;
-                case 2: return PropagationModel.LogDShadow;
+                case 2: return PropagationModel.LogNShadow;
                 case 3: return PropagationModel.Hata;
                 case 4: return PropagationModel.COST231;
                 case 5: return PropagationModel.RayTracing;
@@ -514,7 +572,7 @@ namespace RFSimulation.UI
             {
                 case PropagationModel.FreeSpace: return 0;
                 case PropagationModel.LogD: return 1;
-                case PropagationModel.LogDShadow: return 2;
+                case PropagationModel.LogNShadow: return 2;
                 case PropagationModel.Hata: return 3;
                 case PropagationModel.COST231: return 4;
                 case PropagationModel.RayTracing: return 5;

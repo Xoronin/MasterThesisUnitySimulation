@@ -15,7 +15,6 @@ namespace RFSimulation.UI
     public class HeatmapUI : MonoBehaviour
     {
         [Header("UI Elements")]
-        public Button refreshButton;
         public Dropdown resolutionDropdown;
 
         [Header("Resolution Options")]
@@ -64,11 +63,6 @@ namespace RFSimulation.UI
 
                 OnResolutionChanged(defaultIndex);
             }
-
-            if (refreshButton != null)
-            {
-                refreshButton.onClick.AddListener(RefreshHeatmap);
-            }
         }
 
         private void OnResolutionChanged(int index)
@@ -114,9 +108,6 @@ namespace RFSimulation.UI
         {
             if (resolutionDropdown != null)
                 resolutionDropdown.onValueChanged.RemoveListener(OnResolutionChanged);
-
-            if (refreshButton != null)
-                refreshButton.onClick.RemoveListener(RefreshHeatmap);
         }
     }
 }

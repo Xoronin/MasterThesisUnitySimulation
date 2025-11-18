@@ -41,11 +41,10 @@ namespace RFSimulation.Propagation.Core
                 // Receiver specs
                 SensitivityDbm = -100f,           
                 ConnectionMarginDb = 5f,          
-                MinimumSINRDb = -5f,
                 TypicalRxHeight = 1.5f,
 
                 // Transmitter specs
-                TypicalTxPowerDbm = 40f,
+                TypicalTxPowerDbm = 43f,
                 TypicalTxHeight = 25f         
             };
 
@@ -58,7 +57,6 @@ namespace RFSimulation.Propagation.Core
                 // Receiver specs
                 SensitivityDbm = -90f,            
                 ConnectionMarginDb = 8f,          
-                MinimumSINRDb = 0f,
                 TypicalRxHeight = 1.5f,
 
                 // Transmitter specs
@@ -75,11 +73,10 @@ namespace RFSimulation.Propagation.Core
                 // Receiver specs
                 SensitivityDbm = -98f,           
                 ConnectionMarginDb = 6f,          
-                MinimumSINRDb = -3f,
                 TypicalRxHeight = 1.5f,
 
                 // Transmitter specs
-                TypicalTxPowerDbm = 35f,
+                TypicalTxPowerDbm = 43f,
                 TypicalTxHeight = 25f
 
             };

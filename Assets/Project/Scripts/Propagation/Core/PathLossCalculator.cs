@@ -26,9 +26,9 @@ namespace RFSimulation.Propagation.Core
             {
                 { PropagationModel.FreeSpace, new FreeSpaceModel() },
                 { PropagationModel.LogD, new LogDModel() },
-                { PropagationModel.LogDShadow, new LogDShadowingModel() },
+                { PropagationModel.LogNShadow, new LogNShadowingModel() },
                 { PropagationModel.Hata, new HataModel() },
-                { PropagationModel.COST231, new COST231HataModel() },
+                { PropagationModel.COST231, new COST231Model() },
                 { PropagationModel.RayTracing, new RayTracingModel() },
             };
 

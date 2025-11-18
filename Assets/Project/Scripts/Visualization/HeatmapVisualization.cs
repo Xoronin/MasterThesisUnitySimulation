@@ -39,7 +39,7 @@ namespace RFSimulation.Visualization
         public Color noSignalColor = Color.red;
         public Color lowSignalColor = Color.orange;
         public Color mediumSignalColor = Color.yellow;
-        public Color highSignalColor = Color.yellowGreen;
+        public Color goodSignalColor = Color.yellowGreen;
         public Color excellentSignalColor = Color.green;
 
         [Header("Color Mapping")]
@@ -49,10 +49,10 @@ namespace RFSimulation.Visualization
 
         [Header("Absolute Band Cutoffs (dBm)")]
         public bool useAbsoluteBands = true;
-        public float excellentCutoffDbm = -70f;
-        public float goodCutoffDbm = -85f;
-        public float poorCutoffDbm = -100f;
-        public float veryPoorCutoffDbm = -110f;
+        public float excellentCutoffDbm = -80f;
+        public float goodCutoffDbm = -90f;
+        public float mediumCutoffDbm = -100f;
+        public float lowCutoffDbm = -110f;
     }
 
     public class HeatmapVisualization : MonoBehaviour
@@ -283,7 +283,7 @@ namespace RFSimulation.Visualization
             }    
 
             int N = settings.resolution * settings.resolution;
-            float[] rssiBuf = new float[N];
+            float[] receivedPowerBuf = new float[N];
             Color[] pixels = new Color[settings.resolution * settings.resolution];
 
             float dataMin = float.PositiveInfinity;
@@ -319,25 +319,25 @@ namespace RFSimulation.Visualization
 
                     if (IsPositionBlockedByBuildings(samplePos))
                     {
-                        pixels[y * settings.resolution + x] = new Color(0f, 0f, 0f, 0f);
+                        receivedPowerBuf[idx] = float.NegativeInfinity;
                         continue;
                     }
 
-                    float maxRssi = float.NegativeInfinity;
+                    float maxReceivedPower = float.NegativeInfinity;
                     for (int i = 0; i < transmitters.Count; i++)
                     {
                         var t = transmitters[i];
                         if (t == null) continue;
-                        float rssi = t.CalculateSignalStrength(samplePos);
-                        if (rssi > maxRssi) maxRssi = rssi;
+                        float receivedPower = t.CalculateSignalStrength(samplePos);
+                        if (receivedPower > maxReceivedPower) maxReceivedPower = receivedPower;
                     }
 
-                    rssiBuf[idx] = maxRssi;
+                    receivedPowerBuf[idx] = maxReceivedPower;
 
-                    if (!float.IsNegativeInfinity(maxRssi))
+                    if (!float.IsNegativeInfinity(maxReceivedPower))
                     {
-                        if (maxRssi < dataMin) dataMin = maxRssi;
-                        if (maxRssi > dataMax) dataMax = maxRssi;
+                        if (maxReceivedPower < dataMin) dataMin = maxReceivedPower;
+                        if (maxReceivedPower > dataMax) dataMax = maxReceivedPower;
                     }
 
                     sampleCount++;
@@ -358,7 +358,7 @@ namespace RFSimulation.Visualization
             }
 
             for (int i = 0; i < N; i++)
-                pixels[i] = SignalStrengthToColor(rssiBuf[i], lo, hi);
+                pixels[i] = SignalStrengthToColor(receivedPowerBuf[i], lo, hi);
 
 
             heatmapTexture.SetPixels(pixels);
@@ -389,15 +389,15 @@ namespace RFSimulation.Visualization
             return false;
         }
 
-        private Color SignalStrengthToColor(float rssi, float lo, float hi)
+        private Color SignalStrengthToColor(float receivedPower, float lo, float hi)
         {
-            if (float.IsNegativeInfinity(rssi) || float.IsNaN(rssi))
+            if (float.IsNegativeInfinity(receivedPower) || float.IsNaN(receivedPower))
                 return settings.noSignalColor;
 
-            if (rssi >= settings.excellentCutoffDbm) return settings.excellentSignalColor;
-            if (rssi >= settings.goodCutoffDbm) return settings.highSignalColor;
-            if (rssi >= settings.poorCutoffDbm) return settings.mediumSignalColor;
-            if (rssi >= settings.veryPoorCutoffDbm) return settings.lowSignalColor;
+            if (receivedPower >= settings.excellentCutoffDbm) return settings.excellentSignalColor;
+            if (receivedPower >= settings.goodCutoffDbm) return settings.goodSignalColor;
+            if (receivedPower >= settings.mediumCutoffDbm) return settings.mediumSignalColor;
+            if (receivedPower >= settings.lowCutoffDbm) return settings.lowSignalColor;
             return settings.noSignalColor;
         }
 
