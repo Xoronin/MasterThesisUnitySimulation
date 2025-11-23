@@ -65,6 +65,10 @@ To run the project in the Unity Editor, you must insert your own token.
 2. Select **Windows / Mac** depending on your target
 3. Ensure the main scene is added to the build list
 5. Click **Build**
+6. Create folder "Project" in user data directory:
+   - Windows: Build/MasterThesis_Data/
+   - MacOS: Build.app/Contents/Resources/Data/
+7. Copy "Assets/Project/Data" folder from the repository into the created directory
 
 ## Folder Structure
 - Assets/
