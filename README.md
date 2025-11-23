@@ -109,7 +109,7 @@ To run the project in the Unity Editor, you must insert your own token.
 - Heatmap Legend Panel:
   - View heatmap color legend and modify heatmap resolution
  
-### Performance Issues
+## Performance Issues
 - Higher heatmap resolutions have longer loading times with the Ray Tracing Model
 - Ray visualizations should be turned of when turning the heatmap on
 
