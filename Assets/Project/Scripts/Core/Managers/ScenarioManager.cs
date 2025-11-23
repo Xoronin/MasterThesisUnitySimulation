@@ -1,7 +1,5 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using RFSimulation.Propagation;
-using RFSimulation.Core;
 using System.IO;
 using System.Linq;
 using RFSimulation.Propagation.Core;
@@ -447,8 +445,6 @@ namespace RFSimulation.Core.Managers
 
             foreach (var rx in receivers)
             {
-                if (!rx.HasValidSignal()) continue;
-
                 Vector3 rxPos = rx.transform.position;
                 float rxHeight = FormatHelper.SafeFloat(rx, nameof(rx.receiverHeight), float.NaN);
                 float rxPower = FormatHelper.SafeFloat(rx, nameof(rx.currentSignalStrength), float.NaN);

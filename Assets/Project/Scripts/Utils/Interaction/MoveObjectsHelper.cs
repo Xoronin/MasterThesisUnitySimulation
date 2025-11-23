@@ -4,9 +4,7 @@ using UnityEngine.EventSystems;
 using RFSimulation.Core.Components;
 
 /// <summary>
-/// Click-and-drag mover for simulation objects (TX/RX).
-/// - Drags over ground
-/// - Keeps the object's height offset above terrain
+/// Click-and-drag mover for simulation objects.
 /// </summary>
 
 namespace RFSimulation.Utils

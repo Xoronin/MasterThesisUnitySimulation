@@ -5,22 +5,14 @@ using TMPro;
 using System.Collections.Generic;
 using System.Linq;
 using RFSimulation.Core.Managers;
-using RFSimulation.Propagation;
-using RFSimulation.Core.Components;
-using RFSimulation.Propagation.Core;
-using RFSimulation.Utils;
 using System.Globalization;
 using System.IO;
 using System.Text;
 using System;
-using System.Collections;
 
 
 namespace RFSimulation.UI
 {
-    /// <summary>
-    /// Dedicated UI component for scenario management and configuration
-    /// </summary>
     public class ScenarioUI : MonoBehaviour
     {
         [Header("Scenario Selection")]
@@ -42,7 +34,6 @@ namespace RFSimulation.UI
         public Button screenshotButton;
         public InputField screenshotFileNameInput;
 
-        // Events
         public System.Action<string> OnScenarioSelected;
         public System.Action<Scenario> OnScenarioValidated;
 

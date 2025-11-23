@@ -7,48 +7,32 @@ namespace RFSimulation.UI
         [Header("Grid Settings")]
         public Material gridLineMaterial;
         [Min(0.1f)] public float gridSize = 5f; // meters per square
-        [Tooltip("Fallback line count per axis when no mapRoot is assigned.")]
         public int gridCountFallback = 100;
         public float lineWidth = 0.1f;
-        public Color gridColor = new Color(1f, 1f, 1f, 0.3f); // semi-transparent
+        public Color gridColor = new Color(1f, 1f, 1f, 0.3f); 
 
         [Header("Grid Control")]
         public bool showGrid = true;
 
         [Header("Height & Sampling")]
-        [Tooltip("How far above the terrain the grid should float.")]
         public float heightOffset = 0.10f;
-        [Tooltip("Upward start height for the downwards terrain probe.")]
         public float raycastStartHeight = 1000f;
-        [Tooltip("Which layers count as terrain for the grid to sit on.")]
-        public LayerMask terrainMask = 6;
-        [Tooltip("Segments per grid line (higher = smoother following of terrain).")]
-        public int segments = 80;
+        public LayerMask terrainMask = 1 << 6;
+        public int segments = 300;
 
         [Header("Map/Bounds Sync")]
-        [Tooltip("Root object of your Mapbox map or Buildings parent. The grid will match its world footprint.")]
         public Transform mapRoot;
         public bool autoSyncToMapBounds = true;
 
-        // Internals
         private GameObject gridContainer;
         private Bounds mapBounds;
         private bool boundsValid;
 
-        // Per-axis counts so we can match rectangular maps exactly
         private int gridCountX;
         private int gridCountZ;
 
-        void Start()
-        {
-            SyncCountsToMap();   // compute counts from mapBounds (if assigned)
-            CreateGrid();
-            SetGridVisibility(showGrid);
-        }
+        public bool isInitialized = false;
 
-        // --- Public API ---
-
-        /// <summary>Show/hide the grid without disabling this component.</summary>
         public void SetGridVisibility(bool visible)
         {
             showGrid = visible;
@@ -57,10 +41,7 @@ namespace RFSimulation.UI
 
         public void ToggleGrid() => SetGridVisibility(!showGrid);
 
-        /// <summary>
-        /// Update the grid square size (meters) at runtime.
-        /// The grid will rebuild to keep covering the same map footprint.
-        /// </summary>
+
         public void UpdateGridSize(float newSize)
         {
             gridSize = Mathf.Max(0.1f, newSize);
@@ -68,16 +49,12 @@ namespace RFSimulation.UI
             RefreshGrid();
         }
 
-        /// <summary>
-        /// Rebuilds from the current map bounds & gridSize. Call this if the map tiles changed.
-        /// </summary>
         public void ResyncAndRefresh()
         {
             SyncCountsToMap();
             RefreshGrid();
         }
 
-        /// <summary>Rebuild the grid using current settings & counts.</summary>
         public void RefreshGrid()
         {
             if (gridContainer != null) Destroy(gridContainer);
@@ -85,9 +62,13 @@ namespace RFSimulation.UI
             SetGridVisibility(showGrid);
         }
 
-        /// <summary>
-        /// Snap a world position to the nearest grid intersection (XZ), then sit on terrain + offset.
-        /// </summary>
+        public void InitializeGroundGrid()
+        {
+            SyncCountsToMap();
+            CreateGrid();
+            SetGridVisibility(showGrid);
+        }
+
         public Vector3 SnapToGrid(Vector3 worldPosition)
         {
             Vector3 center = GetGridOrigin();
@@ -97,7 +78,6 @@ namespace RFSimulation.UI
             float halfX = (cx * gridSize) * 0.5f;
             float halfZ = (cz * gridSize) * 0.5f;
 
-            // Use the SAME origin the lines are built from: bottom-left corner of the grid
             Vector3 origin = new Vector3(center.x - halfX, 0f, center.z - halfZ);
 
             float snappedX = Mathf.Round((worldPosition.x - origin.x) / gridSize) * gridSize + origin.x;
@@ -110,18 +90,17 @@ namespace RFSimulation.UI
             return new Vector3(snappedX, worldPosition.y + snappedZ);
         }
 
-        // --- Building the grid ---
 
         private void CreateGrid()
         {
             gridContainer = new GameObject("GridContainer");
             gridContainer.transform.SetParent(transform, false);
 
-            // Center the grid on the map bounds (or keep at our transform if no map)
+            // Center the grid on the map bounds
             Vector3 center = GetGridOrigin();
             gridContainer.transform.position = new Vector3(center.x, 0f, center.z);
 
-            // Compute half-sizes along each axis (based on counts & step)
+            // Compute half-sizes along each axis 
             int cx = Mathf.Max(1, gridCountX);
             int cz = Mathf.Max(1, gridCountZ);
             float totalX = cx * gridSize;
@@ -129,7 +108,7 @@ namespace RFSimulation.UI
             float halfX = totalX * 0.5f;
             float halfZ = totalZ * 0.5f;
 
-            // Vertical lines (vary Z, constant X)
+            // Vertical lines 
             for (int i = 0; i <= cx; i++)
             {
                 float x = -halfX + (i * gridSize);
@@ -141,7 +120,7 @@ namespace RFSimulation.UI
                 );
             }
 
-            // Horizontal lines (vary X, constant Z)
+            // Horizontal lines 
             for (int i = 0; i <= cz; i++)
             {
                 float z = -halfZ + (i * gridSize);
@@ -189,8 +168,6 @@ namespace RFSimulation.UI
             line.SetPositions(positions);
         }
 
-        // --- Map bounds & counts ---
-
         private void SyncCountsToMap()
         {
             boundsValid = TryComputeMapBounds(out mapBounds);
@@ -203,7 +180,6 @@ namespace RFSimulation.UI
             }
             else
             {
-                // Fallback to a square grid centered at our transform
                 gridCountX = gridCountFallback;
                 gridCountZ = gridCountFallback;
             }

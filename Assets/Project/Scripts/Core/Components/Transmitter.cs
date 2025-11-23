@@ -1,9 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Propagation.Core;
-using RFSimulation.Propagation.Models;
 using RFSimulation.Core.Managers;
-using RFSimulation.Core.Components;
 using RFSimulation.Utils;
 using RFSimulation.Visualization;
 
@@ -32,8 +30,8 @@ namespace RFSimulation.Core.Components
         public float maxCalculationDistance = 5000f;
 
         [Header("Mapbox Integration")]
-        public LayerMask buildingLayer;
-        public LayerMask terrainLayer;
+        public LayerMask buildingLayer = 1 << 8;
+        public LayerMask terrainLayer = 1 << 6;
     }
 
 
@@ -93,13 +91,13 @@ namespace RFSimulation.Core.Components
         private PropagationModel _lastAppliedModel;
         public Transform antennaOrigin;
 
-        [SerializeField] private float baseHalfHeight = 0.6f;
-        [SerializeField] private float mastHalfHeight = 8.0f;
-        [SerializeField] private float mastRadius = 0.25f;
-        [SerializeField] private Vector3 panelSize = new Vector3(0.35f, 1.6f, 0.12f);
-        [SerializeField] private float panelForwardOffset = 0.6f;
-        [SerializeField] private float panelMountHeightFromBaseTop = 12.0f;
-        [SerializeField] private float panelElectricalDowntiltDeg = 3.0f;
+        private float baseHalfHeight = 0.6f;
+        private float mastHalfHeight = 10.0f;
+        private float mastRadius = 0.25f;
+        private Vector3 panelSize = new Vector3(0.35f, 1.6f, 0.12f);
+        private float panelForwardOffset = 0.6f;
+        private float panelMountHeightFromBaseTop = 12.0f;
+        private float panelElectricalDowntiltDeg = 3.0f;
         #endregion
 
         #region Unity Lifecycle
@@ -456,7 +454,7 @@ namespace RFSimulation.Core.Components
         }
         #endregion
 
-        #region Visualization (Model)
+        #region Visualization
         private void CreateTransmitterModel()
         {
             CreateTowerBase();

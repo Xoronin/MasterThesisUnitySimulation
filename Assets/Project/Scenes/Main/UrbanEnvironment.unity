@@ -501,9 +501,6 @@ MonoBehaviour:
     minimumSignalThreshold: -110
     connectionMargin: 10
     handoverMargin: 3
-    minimumSINR: -6
-    excellentSignalThreshold: 15
-    goodSignalThreshold: 10
   updateInterval: 1
 --- !u!4 &27795018 stripped
 Transform:
@@ -539,6 +536,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 884350737}
   - {fileID: 27795018}
   - {fileID: 407613345}
   - {fileID: 297437041}
@@ -5479,7 +5477,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 297437039}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f9cdb19efde08384cba93068eacd2597, type: 3}
+  m_Script: {fileID: 11500000, guid: 44e45fb06de36cb4abded238bf7c0f99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RFSimulation.Visualization.MapboxHeatmapIntegration
   mapboxRoot: {fileID: 27795018}
@@ -5487,9 +5485,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   heatmapComponent: {fileID: 297437044}
-  autoFindMapboxObjects: 1
-  useMapboxCoordinates: 1
-  mapboxOffset: {x: 0, y: 0, z: 0}
+  groundGridComponent: {fileID: 884350736}
+  buildingManager: {fileID: 859700753}
 --- !u!1 &323314247
 GameObject:
   m_ObjectHideFlags: 0
@@ -7097,8 +7094,8 @@ MonoBehaviour:
   mediumSignalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   highSignalColor: {r: 0.6039216, g: 0.8039216, b: 0.1960784, a: 1}
   excellentSignalColor: {r: 0, g: 1, b: 0, a: 1}
-  excellentCutoffDbm: -70
-  goodCutoffDbm: -85
+  excellentCutoffDbm: -80
+  goodCutoffDbm: -90
   poorCutoffDbm: -100
   veryPoorCutoffDbm: -110
   maxLines: 200
@@ -11762,6 +11759,7 @@ Transform:
   - {fileID: 958801407}
   - {fileID: 1514388855}
   - {fileID: 21077049}
+  - {fileID: 1596613736}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &653194995
@@ -14581,7 +14579,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c09653a4a0585714e897b60f2a78c676, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RFSimulation.Visualization.RayVisualization
-  root: {fileID: 0}
+  root: {fileID: 819724601}
   lineMaterial: {fileID: 2100000, guid: 1f4330c7a9c1d3049988e7e6d6b4ffd6, type: 2}
   lineWidth: 0.05
   persistent: 0
@@ -14693,7 +14691,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 884350737}
   - {fileID: 1691138478}
   - {fileID: 13391446}
   - {fileID: 653194996}
@@ -15388,6 +15385,23 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 854495795}
   m_CullTransparentMesh: 1
+--- !u!114 &859700753
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1596613735}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66e752cbefdf07845a4b11bb78c46d38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RFSimulation.Core.Managers.BuildingManager
+  buildingsEnabled: 1
+  originalBuildingLayers:
+    serializedVersion: 2
+    m_Bits: 256
+  disabledBuildingLayer: 2
 --- !u!21 &860615759
 Material:
   serializedVersion: 8
@@ -15935,6 +15949,7 @@ MonoBehaviour:
   segments: 300
   mapRoot: {fileID: 27795018}
   autoSyncToMapBounds: 1
+  isInitialized: 0
 --- !u!4 &884350737
 Transform:
   m_ObjectHideFlags: 0
@@ -15944,11 +15959,11 @@ Transform:
   m_GameObject: {fileID: 884350735}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -698.7935, y: -593.6485, z: 273.0264}
+  m_LocalPosition: {x: -46.15288, y: -88.60185, z: -47.33392}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 831516158}
+  m_Father: {fileID: 29741517}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &884352819
 GameObject:
@@ -23437,7 +23452,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114478715909612932, guid: e6b749c6d877f4c19a5a5c3c0783d53b, type: 3}
       propertyPath: _vectorData._layerProperty.vectorSubLayers.Array.data[0].extrusionOptions.extrusionScaleFactor
-      value: 3
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 114478715909612932, guid: e6b749c6d877f4c19a5a5c3c0783d53b, type: 3}
       propertyPath: _vectorData._layerProperty.vectorSubLayers.Array.data[1].extrusionOptions.extrusionScaleFactor
@@ -27299,6 +27314,38 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1594589394}
   m_CullTransparentMesh: 1
+--- !u!1 &1596613735
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1596613736}
+  - component: {fileID: 859700753}
+  m_Layer: 0
+  m_Name: BuildingManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1596613736
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1596613735}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 651750444}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1596621568
 GameObject:
   m_ObjectHideFlags: 0

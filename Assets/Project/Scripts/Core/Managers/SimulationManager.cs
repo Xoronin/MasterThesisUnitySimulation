@@ -187,8 +187,8 @@ namespace RFSimulation.Core.Managers
 
         private System.Collections.IEnumerator DelayedConnectionUpdate()
         {
-            yield return new WaitForEndOfFrame(); // Wait for object to fully initialize
-            yield return new WaitForSeconds(0.1f); // Small additional delay
+            yield return new WaitForEndOfFrame(); 
+            yield return new WaitForSeconds(0.1f); 
 
             if (connectionManager != null)
             {

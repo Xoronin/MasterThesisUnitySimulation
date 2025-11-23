@@ -1,5 +1,4 @@
-﻿using RFSimulation.Core;
-using RFSimulation.Environment;
+﻿using RFSimulation.Environment;
 using RFSimulation.Interfaces;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Utils;
@@ -17,7 +16,7 @@ namespace RFSimulation.Propagation.Models
         public string ModelName => "RayTracing";
 
         [Header("Visualization")]
-        public bool enableRayVisualization = true;
+        public bool enableRayVisualization = true; 
         public Color directRayColor = Color.green;
         public Color reflectionRayColor = Color.blue;
         public Color diffractionRayColor = Color.yellow;
@@ -73,7 +72,7 @@ namespace RFSimulation.Propagation.Models
                 TraceLOS();
                 if (context.MaxReflections > 0) TraceReflections();
                 if (context.MaxDiffractions > 0) TraceDiffractions();
-                TraceScattering();
+                if (context.MaxScattering > 0) TraceScattering();
 
                 float result = CombinePaths(paths);
 
@@ -86,31 +85,6 @@ namespace RFSimulation.Propagation.Models
             {
                 if (enableRayVisualization && Visualizer != null)
                     Visualizer.EndFrame();
-            }
-        }
-
-        private void DebugDumpPaths()
-        {
-            Debug.Log("----- Path Contributions -----");
-            Debug.Log($"Frequency: {context.FrequencyMHz} MHz");
-            Debug.Log($"TX position: {context.TransmitterPosition}, RX position: {context.ReceiverPosition}");
-
-            if (paths == null || paths.Count == 0)
-            {
-                Debug.Log("No valid propagation paths found.");
-                return;
-            }
-
-            foreach (var p in paths)
-            {
-                Debug.Log(
-                    $"Path Type: {p.Type}\n" +
-                    $"  Total Loss: {p.LossDb:F2} dB\n" +
-                    $"  FSPL:       {p.FsplDb:F2} dB\n" +
-                    $"  Extra Loss: {p.MechanismExtraDb:F2} dB\n" +
-                    $"  Distance:   {p.DistanceMeters:F2} m\n" +
-                    $"  Phase:      {p.ExtraPhaseRad:F2} rad"
-                );
             }
         }
 
@@ -279,7 +253,7 @@ namespace RFSimulation.Propagation.Models
                         FsplDb = fspl,
                         MechanismExtraDb = reflLoss,
                         DistanceMeters = totalDist,
-                        ExtraPhaseRad = Mathf.PI
+                        ExtraPhaseRad = reflPhase
                     });
 
                     visualPaths.Add(new RayPath

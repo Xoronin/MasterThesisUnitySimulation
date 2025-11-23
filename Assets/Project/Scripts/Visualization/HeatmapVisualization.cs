@@ -26,8 +26,8 @@ namespace RFSimulation.Visualization
         public int neighborhoodSearchRadius = 10;
 
         [Header("Layers")]
-        public LayerMask terrainLayer;
-        public LayerMask buildingLayer;
+        public LayerMask terrainLayer = 1 << 6;
+        public LayerMask buildingLayer = 1 << 8;
         public int heatmapLayer = 2;
 
         [Header("Visual Settings")]

@@ -18,8 +18,8 @@ namespace RFSimulation.Visualization
         public Color excellentSignalColor = Color.green;   
 
         [Header("Absolute band cutoffs (dBm)")]
-        public float excellentCutoffDbm = -70f;     
-        public float goodCutoffDbm = -85f;          
+        public float excellentCutoffDbm = -80f;     
+        public float goodCutoffDbm = -90f;          
         public float poorCutoffDbm = -100f;         
         public float veryPoorCutoffDbm = -110f;     
 

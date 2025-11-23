@@ -53,12 +53,6 @@ namespace RFSimulation.Propagation.Core
 			_misses = 0;
 		}
 
-		public (int entries, float hitRate) GetStats()
-		{
-			float hitRate = _hits + _misses > 0 ? (float)_hits / (_hits + _misses) : 0f;
-			return (_cache.Count, hitRate);
-		}
-
         private string GenerateKey(PropagationContext context)
         {
             Vector3 roundedTx = RoundVector(context.TransmitterPosition, 0.1f);
@@ -70,7 +64,7 @@ namespace RFSimulation.Propagation.Core
 				   $"f:{context.FrequencyMHz:F0}_" +
 				   $"LOS:{(context.IsLOS ? 1 : 0)}_" +
 				   $"Model:{(int)context.Model}_" +
-				   $"RT:{context.MaxReflections}-{context.MaxDiffractions}-{context.MaxDistanceMeters:F0}_";
+				   $"RT:{context.MaxReflections}-{context.MaxDiffractions}-{context.MaxScattering}-{context.MaxDistanceMeters:F0}_";
         }
 
         private Vector3 RoundVector(Vector3 vector, float precision)

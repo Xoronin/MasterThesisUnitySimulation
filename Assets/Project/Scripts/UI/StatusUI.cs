@@ -266,7 +266,7 @@ namespace RFSimulation.UI
 
             if (TryParseFloat(s, out float fGHz))
             {
-                float fMHz = MathHelper.GHzToMHz(fGHz);
+                float fMHz = UnitConversionHelper.GHzToMHz(fGHz);
                 _selectedTx.UpdateFrequency((float)System.Math.Round(fMHz, 2));
             }
 
@@ -472,7 +472,7 @@ namespace RFSimulation.UI
             if (_selectedTx == null) return;
             _isUpdatingUI = true;
             txPowerInput?.SetTextWithoutNotify(_selectedTx.settings.transmitterPower.ToString("F2", Ci));
-            txFreqInput?.SetTextWithoutNotify(MathHelper.MHzToGHz(_selectedTx.settings.frequency).ToString("F2", Ci));
+            txFreqInput?.SetTextWithoutNotify(UnitConversionHelper.MHzToGHz(_selectedTx.settings.frequency).ToString("F2", Ci));
             txHeightInput?.SetTextWithoutNotify(_selectedTx.settings.transmitterHeight.ToString("F2", Ci));
             txMaxReflectionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxReflections.ToString());
             txMaxDiffractionsInput?.SetTextWithoutNotify(_selectedTx.settings.maxDiffractions.ToString());

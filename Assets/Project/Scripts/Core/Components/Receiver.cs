@@ -1,9 +1,7 @@
 ﻿using UnityEngine;
-using System;
 using RFSimulation.Propagation.Core;
 using RFSimulation.Core.Managers;
 using RFSimulation.Utils;
-using RFSimulation.Core;
 
 namespace RFSimulation.Core.Components
 {
@@ -16,7 +14,7 @@ namespace RFSimulation.Core.Components
         public TechnologyType technology;
 
         [Header("Auto-configured from Technology (can override)")]
-        public float sensitivity = -100f;
+        public float sensitivity = -90f;
         public float connectionMargin = 6f;
         public float receiverHeight = 1.5f;
         public float receiverGainDbi = 0f;
@@ -97,11 +95,6 @@ namespace RFSimulation.Core.Components
         public bool CanConnect()
         {
             return currentSignalStrength >= (sensitivity + connectionMargin);
-        }
-
-        public bool IsAboveSensitivity()
-        {
-            return currentSignalStrength >= sensitivity;
         }
 
         public void UpdateSignalStrength(float signalStrength)

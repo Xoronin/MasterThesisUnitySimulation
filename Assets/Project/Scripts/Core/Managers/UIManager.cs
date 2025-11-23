@@ -1,4 +1,3 @@
-using RFSimulation.Visualization;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -76,8 +75,6 @@ namespace RFSimulation.UI
             }
         }
 
-        // -------- Public toggle API --------
-
         public void ToggleControlPanel() => TogglePanel(controlPanel, controlButton);
         public void ToggleScenarioPanel() => TogglePanel(scenarioPanel, scenarioButton);
         public void ToggleStatusPanel() => TogglePanel(statusPanel, statusButton);
@@ -87,8 +84,6 @@ namespace RFSimulation.UI
         public void ShowScenarioPanel(bool show) => SetPanel(scenarioPanel, scenarioButton, show);
         public void ShowStatusPanel(bool show) => SetPanel(statusPanel, statusButton, show);
         public void ShowHeatmapPanel(bool show) => SetPanel(heatmapPanel, heatmapButton, show);
-
-        // -------- Internals --------
 
         private void TogglePanel(GameObject panel, Button button)
         {

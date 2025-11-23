@@ -18,7 +18,7 @@ namespace RFSimulation.Propagation.Models
 
             distance = Mathf.Max(distance, RFConstants.MIN_DISTANCE);
 
-            // Calculate reference path loss PL(d0) using free space model
+            // Calculate reference path loss PL(d0) using fspl model
             var freeSpaceModel = new FreeSpaceModel();
             var referenceContext = context.Clone();
             referenceContext.ReceiverPosition = context.TransmitterPosition + Vector3.forward * RFConstants.REFERENCE_DISTANCE;

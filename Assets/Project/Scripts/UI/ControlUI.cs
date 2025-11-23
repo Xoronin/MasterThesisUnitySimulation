@@ -50,8 +50,8 @@ namespace RFSimulation.UI
         public GameObject receiverPrefab;
 
         [Header("Placement Settings")]
-        public LayerMask placementLayerMask = 6;
-        public LayerMask buildingLayerMask = 8;
+        public LayerMask placementLayerMask = 1 << 6;
+        public LayerMask buildingLayerMask = 1 << 8;
         public float transmitterHeight = 10f;
         public float receiverHeight = 1.5f;
         public float maxTransmitterHeight = 30f;
@@ -67,7 +67,7 @@ namespace RFSimulation.UI
 
         [Header("Ground Settings")]
         public float groundLevel = 0f;
-        public LayerMask terrainLayerMask = 6;
+        public LayerMask terrainLayerMask = 1 << 6;
 
         [Header("Grid Settings")]
         public bool enableGridSnap = true;
@@ -200,7 +200,7 @@ namespace RFSimulation.UI
 
             // TX defaults 
             if (transmitterFrequencyInput != null)
-                transmitterFrequencyInput.text = MathHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
+                transmitterFrequencyInput.text = UnitConversionHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
 
             if (transmitterPowerInput != null)
                 transmitterPowerInput.text = spec.TypicalTxPowerDbm.ToString("F1");
@@ -278,7 +278,7 @@ namespace RFSimulation.UI
                     receiverHeightInput.text = spec.TypicalRxHeight.ToString("F1");
 
                 if (transmitterFrequencyInput != null)
-                    transmitterFrequencyInput.text = MathHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
+                    transmitterFrequencyInput.text = UnitConversionHelper.MHzToGHz(spec.TypicalFrequencyMHz).ToString("F2");
 
                 if (transmitterPowerInput != null)
                     transmitterPowerInput.text = spec.TypicalTxPowerDbm.ToString("F1");
@@ -499,7 +499,7 @@ namespace RFSimulation.UI
 
                 if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
                 {
-                    float fMHz = MathHelper.GHzToMHz(fGHz);
+                    float fMHz = UnitConversionHelper.GHzToMHz(fGHz);
                     tx.settings.frequency = fMHz;
                 }
 
@@ -753,7 +753,7 @@ namespace RFSimulation.UI
 
                     if (transmitterFrequencyInput != null && float.TryParse(transmitterFrequencyInput.text, out float fGHz))
                     {
-                        float fMHz = MathHelper.GHzToMHz(fGHz);
+                        float fMHz = UnitConversionHelper.GHzToMHz(fGHz);
                         tx.settings.frequency = fMHz;
                     }
 
@@ -908,7 +908,7 @@ namespace RFSimulation.UI
                 {
                     if (transmitterPowerInput != null) transmitterPowerInput.text = tx.settings.transmitterPower.ToString();
                     if (transmitterFrequencyInput != null)
-                        transmitterFrequencyInput.text = MathHelper.MHzToGHz(tx.settings.frequency).ToString("F2");
+                        transmitterFrequencyInput.text = UnitConversionHelper.MHzToGHz(tx.settings.frequency).ToString("F2");
                 }
             }
 

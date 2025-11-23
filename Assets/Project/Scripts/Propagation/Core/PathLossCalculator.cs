@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections.Generic;
 using RFSimulation.Interfaces;
 using RFSimulation.Propagation.Models;
-using RFSimulation.Propagation.Core;
 using RFSimulation.Visualization;
 
 namespace RFSimulation.Propagation.Core

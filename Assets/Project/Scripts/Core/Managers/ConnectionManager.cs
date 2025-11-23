@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using RFSimulation.Core;
 using RFSimulation.Core.Components;
 
 namespace RFSimulation.Core.Managers
@@ -9,20 +8,11 @@ namespace RFSimulation.Core.Managers
     public class ConnectionSettings
     {
         [UnityEngine.Header("Signal Thresholds")]
-        public float minimumSignalThreshold = -90f;         // dBm
-        public float connectionMargin = 10f;                // dB above sensitivity
-        public float handoverMargin = 3f;                   // dB to prevent ping-ponging
-
-        [UnityEngine.Header("Quality Requirements")]
-        public float minimumSINR = -6f;                     // dB
-        public float excellentSignalThreshold = 15f;        // dB above sensitivity
-        public float goodSignalThreshold = 10f;             // dB above sensitivity
-
+        public float minimumSignalThreshold = -90f;         
+        public float connectionMargin = 10f;                
+        public float handoverMargin = 3f;                   
     }
 
-    /// <summary>
-    /// Manages all connection strategies and switching between them
-    /// </summary>
     public class ConnectionManager : MonoBehaviour
     {
         [Header("Connection Settings")]
@@ -32,7 +22,6 @@ namespace RFSimulation.Core.Managers
         public float updateInterval = 1f;
         private float lastUpdateTime = 0f;
 
-        // Events for UI updates
         public System.Action<int, int> OnConnectionsUpdated;
 
         void Start()
@@ -140,63 +129,9 @@ namespace RFSimulation.Core.Managers
             return settings;
         }
 
-        public void UpdateMinimumSignalThreshold(float threshold)
-        {
-            settings.minimumSignalThreshold = threshold;
-        }
-
-        public void UpdateHandoverMargin(float margin)
-        {
-            settings.handoverMargin = margin;
-        }
-
         public void ApplySettings(ConnectionSettings newSettings)
         {
             settings = newSettings;
-        }
-
-        // Statistics for UI
-        public Dictionary<string, object> GetConnectionStatistics()
-        {
-            var stats = new Dictionary<string, object>();
-
-            if (SimulationManager.Instance == null) return stats;
-
-            var receivers = SimulationManager.Instance.receivers;
-            var transmitters = SimulationManager.Instance.transmitters;
-
-            int connectedReceivers = 0;
-            float averageSignalStrength = 0f;
-            float minSignal = float.PositiveInfinity;
-            float maxSignal = float.NegativeInfinity;
-
-            foreach (var receiver in receivers)
-            {
-                if (receiver != null && receiver.IsConnected())
-                {
-                    connectedReceivers++;
-                    float signal = receiver.currentSignalStrength;
-                    averageSignalStrength += signal;
-
-                    if (signal < minSignal) minSignal = signal;
-                    if (signal > maxSignal) maxSignal = signal;
-                }
-            }
-
-            if (connectedReceivers > 0)
-            {
-                averageSignalStrength /= connectedReceivers;
-            }
-
-            stats["connectedReceivers"] = connectedReceivers;
-            stats["totalReceivers"] = receivers.Count;
-            stats["connectionPercentage"] = receivers.Count > 0 ? (connectedReceivers / (float)receivers.Count) * 100f : 0f;
-            stats["averageSignalStrength"] = averageSignalStrength;
-            stats["minSignalStrength"] = minSignal == float.PositiveInfinity ? 0f : minSignal;
-            stats["maxSignalStrength"] = maxSignal == float.NegativeInfinity ? 0f : maxSignal;
-            stats["totalTransmitters"] = transmitters.Count;
-
-            return stats;
         }
     }
 }

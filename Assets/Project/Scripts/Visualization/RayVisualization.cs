@@ -7,16 +7,14 @@ namespace RFSimulation.Visualization
 	public class RayVisualization : MonoBehaviour
 	{
 		[Header("Hierarchy")]
-		[Tooltip("Parent for all line objects. If empty, a child will be created.")]
-		[SerializeField] private Transform root;
+		public Transform root;
 
 		[Header("Appearance")]
-		[SerializeField] private Material lineMaterial;     
-		[SerializeField] private float lineWidth = 0.02f;
+        public Material lineMaterial;
+        public float lineWidth = 0.02f;
 
 		[Header("Lifetime")]
-		[Tooltip("If true, lines remain enabled; otherwise, EndFrame disables unused ones.")]
-		[SerializeField] private bool persistent = false;
+        public bool persistent = false;
 
 		private readonly List<LineRenderer> pool = new();
 		private int used;

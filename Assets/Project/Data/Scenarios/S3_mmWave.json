@@ -1,0 +1,180 @@
+{
+    "scenarioName": "S3_mmWave",
+    "id": 24,
+    "transmitters": [
+        {
+            "position": {
+                "x": 47.25,
+                "y": 22.729999542236329,
+                "z": -342.07000732421877
+            },
+            "powerDbm": 23.0,
+            "antennaGain": 0.0,
+            "frequency": 28000.0,
+            "transmitterHeight": 3.0,
+            "maxReflections": 2,
+            "maxDiffractions": 2,
+            "maxScattering": 2,
+            "technology": 1,
+            "propagationModel": 5
+        }
+    ],
+    "receivers": [
+        {
+            "position": {
+                "x": 27.25,
+                "y": 25.010000228881837,
+                "z": -382.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 7.25,
+                "y": 25.299999237060548,
+                "z": -382.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -2.75,
+                "y": 25.549999237060548,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 17.25,
+                "y": 25.25,
+                "z": -382.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -22.75,
+                "y": 25.969999313354493,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -12.75,
+                "y": 25.780000686645509,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 47.25,
+                "y": 24.549999237060548,
+                "z": -352.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 47.25,
+                "y": 24.489999771118165,
+                "z": -362.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 47.25,
+                "y": 24.43000030517578,
+                "z": -372.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 37.25,
+                "y": 24.639999389648439,
+                "z": -382.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -32.75,
+                "y": 25.940000534057618,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -42.75,
+                "y": 26.020000457763673,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": -54.75,
+                "y": 26.1200008392334,
+                "z": -380.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        },
+        {
+            "position": {
+                "x": 47.25,
+                "y": 24.270000457763673,
+                "z": -382.07000732421877
+            },
+            "sensitivity": -90.0,
+            "receiverHeight": 1.5,
+            "connectionMargin": 8.0,
+            "technology": 1
+        }
+    ],
+    "propagationModel": 5,
+    "technology": 1
+}

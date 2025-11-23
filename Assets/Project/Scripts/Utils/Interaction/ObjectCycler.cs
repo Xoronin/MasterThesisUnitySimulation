@@ -11,8 +11,8 @@ using TMPro;
 namespace RFSimulation.Utils
 {
     /// <summary>
-    /// Allows cycling through transmitters and receivers in the scene using keyboard controls
-    /// - Tab: Cycle through all objects (transmitters first, then receivers)
+    /// Cycling through transmitters and receivers in the scene using keyboard controls
+    /// - Tab: Cycle through all objects 
     /// - T: Cycle through transmitters only
     /// - R: Cycle through receivers only
     /// - Shift+Tab: Cycle backwards through all objects

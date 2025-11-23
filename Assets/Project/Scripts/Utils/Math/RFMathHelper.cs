@@ -2,7 +2,6 @@
 using RFSimulation.Propagation.Core;
 using System;
 using System.Numerics;
-using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 using Random = UnityEngine.Random;
 using Vector3 = UnityEngine.Vector3;
