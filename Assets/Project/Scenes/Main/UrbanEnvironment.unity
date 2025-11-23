@@ -28661,8 +28661,8 @@ MonoBehaviour:
   cycleReceiversKey: 114
   focusKey: 102
   targetCamera: {fileID: 330585545}
-  focusDistance: 50
-  focusHeight: 20
+  focusDistance: 30
+  focusHeight: 50
   cameraTransitionSpeed: 3
   smoothCameraTransition: 1
 --- !u!4 &1691138478
